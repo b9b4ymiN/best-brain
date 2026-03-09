@@ -11,6 +11,28 @@ Manager integration for brain v1 should follow this sequence:
 5. call `complete verification`
 6. call `get mission context` to read proof state, mission history, and `verification_artifacts[]`
 
+## Manager alpha boundary
+
+Current manager alpha in this repo is intentionally thin:
+
+- public surface is CLI only
+- canonical brain adapter is HTTP, not in-process shortcuts
+- one primary worker runs per mission
+- supported primary workers are `claude` and `codex`
+- verifier stays manager-owned and decides the final proof status
+- no swarm orchestration, browser worker, mail worker, or autonomous mission loop exists in this phase
+
+The normal operator path is:
+
+1. run `bun run manager -- "<goal>"`
+2. manager checks `/health` and auto-starts the local brain if needed
+3. manager calls `/brain/consult` and `/brain/context`
+4. manager compiles `MissionBrief`
+5. manager dispatches one primary worker
+6. manager saves outcome, starts verification, completes verification, and writes a failure lesson if needed
+
+For note-only missions, manager alpha may normalize usable freeform worker output into a note artifact and a passing capture check. This is a bounded alpha behavior for analysis-style runs; it does not replace real file/test evidence for implementation-heavy missions.
+
 ## Strict manager payloads
 
 Manager-facing examples and tests use the strict mission outcome profile:
@@ -46,3 +68,5 @@ Generated examples live in `docs/examples/manager/`:
 - only treat `verified_complete` as done
 - when verification fails, resume work and re-enter verification instead of inventing a final answer
 - when reading recent mission context, trust the latest verified mission before stale or unverified mission notes
+- do not bypass the HTTP contract from manager alpha production paths
+- only treat freeform worker output as acceptable proof when the mission is explicitly note-only

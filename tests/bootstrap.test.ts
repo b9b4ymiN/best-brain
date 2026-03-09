@@ -8,10 +8,12 @@ describe('bootstrap smoke', () => {
       cwd: process.cwd(),
       skipInstall: true,
       timeoutMs: 15000,
+      port: 0,
     });
 
     expect(result.install.attempted).toBe(false);
-    expect(result.startup.port).toBe(DEFAULT_PORT);
+    expect(result.startup.port).toBeGreaterThan(0);
+    expect(DEFAULT_PORT).toBe(47888);
     expect(result.startup.health_response?.status).toBe('ok');
     expect(result.startup.first_run_db_init_success).toBe(true);
     expect(result.runtime.default_data_dirs.win32.endsWith('best-brain')).toBe(true);

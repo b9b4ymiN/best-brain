@@ -13,6 +13,16 @@
 - it can separate working memory from durable memory
 - it is callable by a future manager, but it is not the manager itself
 
+## Manager alpha
+
+Manager alpha is now available as a CLI-first layer on top of the brain HTTP contract. It is intentionally thin:
+
+- it classifies goals into `chat`, `task`, or `mission`
+- it consults the brain over HTTP before acting
+- it supports one primary worker at a time: `claude` or `codex`
+- it owns the verification gate and proof-chain write-back
+- it is not a swarm, browser manager, mail agent, or autonomous daemon
+
 ## Layout
 
 - `brain/oracle-core`: vendored `oracle-v2` pinned for internal divergence
@@ -45,6 +55,10 @@ bun run smoke:bootstrap
 bun run smoke:bootstrap:proof -- --os-label windows
 bun run smoke:mcp
 bun run smoke:claude
+bun run manager -- "Plan the next mission using the latest mission proof."
+bun run smoke:manager
+bun run smoke:manager:claude
+bun run smoke:manager:codex
 ```
 
 ## HTTP contract
@@ -106,6 +120,27 @@ For a deterministic local smoke run, use:
 ```bash
 bun run smoke:claude
 ```
+
+### Manager alpha flow
+
+The normal manager operator path is:
+
+```bash
+bun run manager -- "Implement the next manager proof-chain improvement."
+```
+
+Useful flags:
+
+```bash
+bun run manager -- "Analyze the repo and suggest the next mission." --worker=claude --json
+bun run manager -- "Implement the next verification improvement." --worker=codex --mission-id=mission_manager_alpha
+bun run manager -- "Plan the next mission using the latest mission proof." --dry-run --json
+bun run manager -- "Review the preferred report format." --no-execute
+```
+
+Manager alpha always uses the brain HTTP API as its canonical adapter. It will auto-start the local brain server if `/health` is not available.
+
+For note-only missions, manager alpha can normalize usable freeform worker output into a note artifact plus a verification check. That keeps analysis-style `claude` and `codex` runs verifiable without pretending a file or test artifact exists.
 
 ## Manager examples
 

@@ -7,7 +7,8 @@
   "scripts": {
     "dev": "bun src/mcp/index.ts",
     "server": "bun src/server.ts",
-    "test": "bun test tests/config.test.ts tests/brain.test.ts tests/bootstrap.test.ts tests/contracts.test.ts tests/eval.test.ts tests/examples.test.ts tests/http.test.ts tests/mcp.test.ts tests/onboarding.test.ts tests/seed.test.ts",
+    "manager": "bun scripts/manager.ts",
+    "test": "bun test tests/config.test.ts tests/brain.test.ts tests/bootstrap.test.ts tests/contracts.test.ts tests/eval.test.ts tests/examples.test.ts tests/http.test.ts tests/mcp.test.ts tests/manager.test.ts tests/manager-http.test.ts tests/onboarding.test.ts tests/seed.test.ts",
     "typecheck": "tsc --noEmit",
     "seed:persona": "bun scripts/seed-persona.ts",
     "validate:seeds": "bun scripts/validate-seeds.ts",
@@ -20,6 +21,9 @@
     "smoke:bootstrap:proof": "bun scripts/capture-bootstrap-proof.ts",
     "smoke:mcp": "bun scripts/run-mcp-smoke.ts",
     "smoke:claude": "bun scripts/run-claude-mcp-smoke.ts",
+    "smoke:manager": "bun scripts/run-manager-thin-smoke.ts",
+    "smoke:manager:claude": "bun scripts/run-manager-claude-smoke.ts",
+    "smoke:manager:codex": "bun scripts/run-manager-codex-smoke.ts",
     "oracle-core:test": "bun test --cwd brain/oracle-core src/integration/database.test.ts",
     "oracle-core:server": "bun run --cwd brain/oracle-core server"
   },

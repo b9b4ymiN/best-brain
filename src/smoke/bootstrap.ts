@@ -1,6 +1,7 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import { createServer } from 'node:net';
 import { spawn, type ChildProcess } from 'node:child_process';
 import { resolveDataDir, resolveDbPath, DEFAULT_PORT } from '../config.ts';
 
@@ -30,6 +31,30 @@ export interface BootstrapSmokeResult {
     default_data_dirs: Record<'win32' | 'darwin' | 'linux', string>;
     default_db_paths: Record<'win32' | 'darwin' | 'linux', string>;
   };
+}
+
+function reservePort(): Promise<number> {
+  return new Promise((resolve, reject) => {
+    const server = createServer();
+    server.listen(0, '127.0.0.1', () => {
+      const address = server.address();
+      if (!address || typeof address === 'string') {
+        server.close();
+        reject(new Error('Unable to reserve a free port for bootstrap smoke.'));
+        return;
+      }
+
+      const port = address.port;
+      server.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+        resolve(port);
+      });
+    });
+    server.on('error', reject);
+  });
 }
 
 function toEnvRecord(overrides: Record<string, string>): Record<string, string> {
@@ -104,16 +129,18 @@ export async function runBootstrapSmoke(options: {
   cwd?: string;
   skipInstall?: boolean;
   timeoutMs?: number;
+  port?: number;
 } = {}): Promise<BootstrapSmokeResult> {
   const cwd = options.cwd ?? process.cwd();
   const timeoutMs = options.timeoutMs ?? 15000;
+  const port = options.port === 0 ? await reservePort() : (options.port ?? DEFAULT_PORT);
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'best-brain-bootstrap-'));
   const dbPath = path.join(dataDir, 'best-brain.db');
   const env = toEnvRecord({
     BEST_BRAIN_DATA_DIR: dataDir,
     BEST_BRAIN_DB_PATH: dbPath,
     BEST_BRAIN_OWNER: 'bootstrap-smoke-owner',
-    BEST_BRAIN_PORT: String(DEFAULT_PORT),
+    BEST_BRAIN_PORT: String(port),
   });
   const bunExecutable = process.execPath;
 
@@ -138,7 +165,7 @@ export async function runBootstrapSmoke(options: {
       stderr += String(chunk);
     });
 
-    const health = await waitForHealth(`http://127.0.0.1:${DEFAULT_PORT}`, timeoutMs);
+    const health = await waitForHealth(`http://127.0.0.1:${port}`, timeoutMs);
     if (!health.payload) {
       throw new Error(stderr.trim() || 'bootstrap smoke could not reach /health before timeout');
     }
@@ -146,7 +173,7 @@ export async function runBootstrapSmoke(options: {
     return {
       install: installResult,
       startup: {
-        port: DEFAULT_PORT,
+        port,
         startup_time_ms: Date.now() - startedAt,
         health_attempts: health.attempts,
         health_response: health.payload,
