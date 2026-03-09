@@ -35,10 +35,14 @@ The HTTP server defaults to `http://localhost:47888`.
 ```bash
 bun run typecheck
 bun run test
+bun run validate:seeds
 bun run onboard
 bun run eval:consult
+bun run eval:consult:bless
+bun run eval:seed
 bun run examples:manager
 bun run smoke:bootstrap
+bun run smoke:bootstrap:proof -- --os-label windows
 bun run smoke:mcp
 bun run smoke:claude
 ```
@@ -119,4 +123,5 @@ bun run examples:manager
 - [Verification Evidence](./docs/verification-evidence.md)
 - [Transport Contracts](./docs/transport-contracts.md)
 - [V1 Exit Criteria](./docs/v1-exit-criteria.md)
+- [Future Manager Integration](./docs/future-manager-integration.md)
 - [Vendored oracle-core notes](./docs/vendor-oracle-core.md)

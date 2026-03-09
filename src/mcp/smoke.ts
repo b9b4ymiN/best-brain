@@ -9,12 +9,17 @@ export interface McpSmokeResult {
   consult: {
     policy_path: string;
     confidence_band: string;
+    trace_id: string;
     memory_ids: string[];
     citations: Array<{
       memory_id: string;
       title: string;
       source: string;
     }>;
+  };
+  context: {
+    preferred_format: string;
+    verification_artifacts: Array<{ source_kind: string }>;
   };
   learn_reject: {
     accepted: boolean;
@@ -90,6 +95,7 @@ export async function runMcpSmoke(options: {
     const consult = parseToolText<{
       policy_path: string;
       confidence_band: string;
+      trace_id: string;
       memory_ids: string[];
       citations: Array<{
         memory_id: string;
@@ -148,10 +154,22 @@ export async function runMcpSmoke(options: {
         verification_checks: [{ name: 'consult', passed: true }],
       },
     }));
+    const context = parseToolText<{
+      preferred_format: string;
+      verification_artifacts: Array<{ source_kind: string }>;
+    }>(await client.callTool({
+      name: 'brain_context',
+      arguments: {
+        mission_id: 'mcp-smoke-mission',
+        query: 'latest mission context',
+        domain: 'best-brain',
+      },
+    }));
 
     return {
       tools: tools.tools.map((tool) => tool.name),
       consult,
+      context,
       learn_reject: learnReject,
       verification: {
         start_status: verificationStart.status,

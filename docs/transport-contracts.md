@@ -63,6 +63,15 @@ Brain v1 freezes current HTTP endpoints and MCP tool names as additive-only cont
 - `verification_state`
 - `verification_artifacts`
 
+Strict manager-facing `MissionOutcomeInput` profile:
+
+- `status` is required and must be `in_progress` or `awaiting_verification`
+- `domain` is required
+- `evidence[]` must be non-empty
+- `verification_checks[]` must be non-empty
+- duplicate evidence refs are rejected
+- duplicate verification check names are rejected
+
 ## Examples
 
 ### Consult success
@@ -100,7 +109,11 @@ Brain v1 freezes current HTTP endpoints and MCP tool names as additive-only cont
 Manager-facing example library:
 
 - `docs/examples/manager/consult-response.json`
+- `docs/examples/manager/mission-outcome-input.json`
+- `docs/examples/manager/mission-outcome-input.strict.json`
 - `docs/examples/manager/mission-context-bundle.json`
+- `docs/examples/manager/verification-start.json`
+- `docs/examples/manager/verification-complete.json`
 - `docs/examples/manager/completion-proof-state.json`
 - `docs/examples/manager/verification-artifact-registry.json`
 

@@ -17,8 +17,11 @@ describe('mcp transport', () => {
       'brain_verify',
     ]);
     expect(result.consult.policy_path).toBe('deterministic.preference_lookup.v1');
+    expect(result.consult.trace_id.startsWith('trace_')).toBe(true);
     expect(result.consult.memory_ids.length).toBeGreaterThan(0);
     expect(result.consult.citations.length).toBe(result.consult.memory_ids.length);
+    expect(result.context.preferred_format.length).toBeGreaterThan(0);
+    expect(result.context.verification_artifacts.some((artifact) => artifact.source_kind === 'verification_complete')).toBe(true);
     expect(result.learn_reject.accepted).toBe(false);
     expect(result.learn_reject.reason).toContain('confirmed_by_user=true');
     expect(result.verification.start_status).toBe('awaiting_verification');

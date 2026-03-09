@@ -2,14 +2,24 @@ import fs from 'fs';
 import path from 'path';
 import type { BestBrain } from '../services/brain.ts';
 import { ONBOARDING_MEMORY_TITLES } from '../contracts.ts';
-import type { ConsultResponse } from '../types.ts';
+import type { ConsultResponse, RetrievalTraceRecord } from '../types.ts';
 import { getOnboardingDefaults, runOnboarding } from '../services/onboarding.ts';
+import { daysToMs } from '../utils/time.ts';
 
 export interface ConsultEvalRubric {
   usefulness: number;
   groundedness: number;
   persona_alignment: number;
   actionability: number;
+}
+
+export interface ConsultEvalTraceAssertion {
+  title: string;
+  source_equals?: string;
+  source_contains?: string;
+  excluded_reason_contains?: string;
+  included_reason_contains?: string;
+  ranking_rule?: string;
 }
 
 export interface ConsultEvalFixture {
@@ -20,7 +30,13 @@ export interface ConsultEvalFixture {
   domain?: string | null;
   expected_policy_path: string;
   expected_memory_titles: string[];
+  trace_assertions?: ConsultEvalTraceAssertion[];
   manual_scores: ConsultEvalRubric;
+}
+
+export interface ConsultEvalTraceAssertionResult extends ConsultEvalTraceAssertion {
+  passed: boolean;
+  candidate_found: boolean;
 }
 
 export interface ConsultEvalCaseResult {
@@ -28,6 +44,8 @@ export interface ConsultEvalCaseResult {
   category: string;
   prompt: string;
   response: ConsultResponse;
+  trace_present: boolean;
+  trace_assertions: ConsultEvalTraceAssertionResult[];
   passed_policy_path: boolean;
   passed_top_k: boolean;
   passed_citation_completeness: boolean;
@@ -42,6 +60,10 @@ export interface ConsultEvalSummary {
   routing_accuracy: number;
   top_k_relevance: number;
   citation_completeness: number;
+  trace_presence: number;
+  stale_demotion_pass_rate: number;
+  superseded_suppression_pass_rate: number;
+  duplicate_suppression_pass_rate: number;
   stale_or_superseded_leakage: number;
   mission_proof_pass_rate: number;
   orphan_evidence_count: number;
@@ -50,6 +72,10 @@ export interface ConsultEvalSummary {
     routing_accuracy: number;
     top_k_relevance: number;
     citation_completeness: number;
+    trace_presence: number;
+    stale_demotion_pass_rate: number;
+    superseded_suppression_pass_rate: number;
+    duplicate_suppression_pass_rate: number;
     stale_or_superseded_leakage: number;
     mission_proof_pass_rate: number;
     orphan_evidence_count: number;
@@ -67,6 +93,10 @@ export interface ConsultEvalReport {
     routing_accuracy_delta: number;
     top_k_relevance_delta: number;
     citation_completeness_delta: number;
+    trace_presence_delta: number;
+    stale_demotion_pass_rate_delta: number;
+    superseded_suppression_pass_rate_delta: number;
+    duplicate_suppression_pass_rate_delta: number;
     stale_or_superseded_leakage_delta: number;
     mission_proof_pass_rate_delta: number;
   } | null;
@@ -76,6 +106,10 @@ export const CONSULT_EVAL_THRESHOLDS = {
   routing_accuracy: 90,
   top_k_relevance: 85,
   citation_completeness: 95,
+  trace_presence: 100,
+  stale_demotion_pass_rate: 100,
+  superseded_suppression_pass_rate: 100,
+  duplicate_suppression_pass_rate: 100,
   stale_or_superseded_leakage: 0,
   mission_proof_pass_rate: 100,
   orphan_evidence_count: 0,
@@ -96,12 +130,147 @@ function median(values: number[]): number {
   return Number(sorted[middle].toFixed(2));
 }
 
+function toPercent(passed: number, total: number): number {
+  if (total === 0) {
+    return 100;
+  }
+
+  return Number(((passed / total) * 100).toFixed(2));
+}
+
+function listFixtureFiles(fixturePath: string): string[] {
+  const stat = fs.statSync(fixturePath);
+  if (!stat.isDirectory()) {
+    return [fixturePath];
+  }
+
+  return fs.readdirSync(fixturePath)
+    .filter((entry) => entry.endsWith('.json'))
+    .sort()
+    .map((entry) => path.join(fixturePath, entry));
+}
+
 export function loadConsultEvalFixtures(fixturePath: string): ConsultEvalFixture[] {
-  return JSON.parse(fs.readFileSync(fixturePath, 'utf8')) as ConsultEvalFixture[];
+  return listFixtureFiles(fixturePath).flatMap((filePath) => (
+    JSON.parse(fs.readFileSync(filePath, 'utf8')) as ConsultEvalFixture[]
+  ));
+}
+
+function evaluateTraceAssertions(
+  trace: RetrievalTraceRecord | null,
+  assertions: ConsultEvalTraceAssertion[] | undefined,
+): ConsultEvalTraceAssertionResult[] {
+  return (assertions ?? []).map((assertion) => {
+    const candidate = trace?.matched_candidates.find((item) => (
+      item.title === assertion.title
+      && (
+        !assertion.source_equals
+        || item.source === assertion.source_equals
+      )
+      && (
+        !assertion.source_contains
+        || item.source.includes(assertion.source_contains)
+      )
+    )) ?? trace?.matched_candidates.find((item) => item.title === assertion.title) ?? null;
+    const passed = !!candidate
+      && (assertion.excluded_reason_contains
+        ? candidate.why_excluded.some((reason) => reason.includes(assertion.excluded_reason_contains!))
+        : true)
+      && (assertion.included_reason_contains
+        ? candidate.why_included.some((reason) => reason.includes(assertion.included_reason_contains!))
+        : true)
+      && (assertion.ranking_rule
+        ? candidate.ranking_contribution.some((contribution) => contribution.rule === assertion.ranking_rule)
+        : true);
+
+    return {
+      ...assertion,
+      passed,
+      candidate_found: candidate != null,
+    };
+  });
+}
+
+function countAssertionRate(
+  cases: ConsultEvalCaseResult[],
+  predicate: (assertion: ConsultEvalTraceAssertionResult) => boolean,
+): number {
+  const assertions = cases.flatMap((item) => item.trace_assertions.filter(predicate));
+  return toPercent(assertions.filter((assertion) => assertion.passed).length, assertions.length);
 }
 
 export async function prepareConsultEvalData(brain: BestBrain): Promise<void> {
   await runOnboarding(brain, getOnboardingDefaults(brain));
+
+  await brain.saveCuratedMemory({
+    title: 'Contract freeze',
+    content: 'HTTP v1 and MCP v1 stay additive-only. Canonical examples must come from runtime output.',
+    memory_type: 'RepoMemory',
+    source: 'seed://repo/contract-freeze',
+    owner: brain.config.owner,
+    domain: 'best-brain',
+    reusable: true,
+    tags: ['repo', 'contract', 'http', 'mcp'],
+    verified_by: 'trusted_import',
+    evidence_ref: [{ type: 'import', ref: 'seed://repo/contract-freeze' }],
+  });
+  await brain.saveCuratedMemory({
+    title: 'Contract freeze',
+    content: 'A docs-domain mirror exists for manager-facing contract examples.',
+    memory_type: 'RepoMemory',
+    source: 'seed://repo/contract-freeze-docs',
+    owner: brain.config.owner,
+    domain: 'docs',
+    reusable: true,
+    tags: ['repo', 'contract', 'docs'],
+    verified_by: 'trusted_import',
+    evidence_ref: [{ type: 'import', ref: 'seed://repo/contract-freeze-docs' }],
+  });
+
+  await brain.saveCuratedMemory({
+    title: 'SQLite-only bootstrap mode',
+    content: 'Legacy bootstrap guidance said to enable Chroma before local bring-up.',
+    memory_type: 'DomainMemory',
+    source: 'seed://domain/sqlite-bootstrap-v1',
+    owner: brain.config.owner,
+    domain: 'best-brain',
+    reusable: true,
+    tags: ['domain', 'bootstrap', 'sqlite'],
+    verified_by: 'trusted_import',
+    evidence_ref: [{ type: 'import', ref: 'seed://domain/sqlite-bootstrap-v1' }],
+  });
+  await brain.saveCuratedMemory({
+    title: 'SQLite-only bootstrap mode',
+    content: 'Bootstrap in SQLite-only mode first. Enable Chroma only after benchmarks prove the need.',
+    memory_type: 'DomainMemory',
+    source: 'seed://domain/sqlite-bootstrap-v2',
+    owner: brain.config.owner,
+    domain: 'best-brain',
+    reusable: true,
+    tags: ['domain', 'bootstrap', 'sqlite'],
+    verified_by: 'trusted_import',
+    evidence_ref: [{ type: 'import', ref: 'seed://domain/sqlite-bootstrap-v2' }],
+  });
+
+  const staleMemory = await brain.saveCuratedMemory({
+    title: 'Legacy bootstrap note',
+    content: 'An old repo note still recommends enabling Chroma immediately during bootstrap.',
+    memory_type: 'RepoMemory',
+    source: 'seed://repo/legacy-bootstrap',
+    owner: brain.config.owner,
+    domain: 'best-brain',
+    reusable: true,
+    tags: ['repo', 'bootstrap', 'legacy'],
+    verified_by: 'trusted_import',
+    evidence_ref: [{ type: 'import', ref: 'seed://repo/legacy-bootstrap' }],
+  });
+  if (staleMemory.memory_id) {
+    const staleAt = Date.now() - daysToMs(1);
+    const updatedAt = Date.now() - daysToMs(45);
+    brain.store.sqlite
+      .prepare('UPDATE memory_items SET stale_after_at = ?, updated_at = ? WHERE id = ?')
+      .run(staleAt, updatedAt, staleMemory.memory_id);
+  }
 
   await brain.learn({
     mode: 'working_memory',
@@ -134,6 +303,16 @@ export async function prepareConsultEvalData(brain: BestBrain): Promise<void> {
     verification_checks: [{ name: 'eval-smoke', passed: true }],
   });
 
+  await brain.saveMissionOutcome({
+    mission_id: 'mission-stale',
+    objective: 'Record an unverified stale mission note',
+    result_summary: 'This mission has not passed verification.',
+    evidence: [{ type: 'note', ref: 'eval://stale-mission' }],
+    verification_checks: [{ name: 'draft', passed: false }],
+    status: 'in_progress',
+    domain: 'best-brain',
+  });
+
   await brain.saveFailure({
     title: 'Evaluation smoke failure',
     cause: 'A missing proof artifact caused the mission to fail verification.',
@@ -161,6 +340,7 @@ export async function runConsultEvaluation(
       domain: fixture.domain ?? null,
       limit: 5,
     });
+    const trace = brain.getRetrievalTrace(response.trace_id);
     const selectedTitles = response.selected_memories.map((memory) => memory.title);
     const matchedTitles = fixture.expected_memory_titles.filter((title) => selectedTitles.includes(title));
     const citationCompleteness = response.citations.length === response.memory_ids.length
@@ -180,6 +360,8 @@ export async function runConsultEvaluation(
       category: fixture.category,
       prompt: fixture.prompt,
       response,
+      trace_present: trace != null,
+      trace_assertions: evaluateTraceAssertions(trace, fixture.trace_assertions),
       passed_policy_path: response.policy_path === fixture.expected_policy_path,
       passed_top_k: matchedTitles.length > 0,
       passed_citation_completeness: citationCompleteness,
@@ -190,29 +372,39 @@ export async function runConsultEvaluation(
     });
   }
 
-  const routingAccuracy = Number(((cases.filter((item) => item.passed_policy_path).length / cases.length) * 100).toFixed(2));
-  const topKRelevance = Number(((cases.filter((item) => item.passed_top_k).length / cases.length) * 100).toFixed(2));
-  const citationCompleteness = Number(((cases.filter((item) => item.passed_citation_completeness).length / cases.length) * 100).toFixed(2));
+  const routingAccuracy = toPercent(cases.filter((item) => item.passed_policy_path).length, cases.length);
+  const topKRelevance = toPercent(cases.filter((item) => item.passed_top_k).length, cases.length);
+  const citationCompleteness = toPercent(cases.filter((item) => item.passed_citation_completeness).length, cases.length);
+  const tracePresence = toPercent(cases.filter((item) => item.trace_present).length, cases.length);
   const staleLeakage = cases.reduce((sum, item) => sum + item.stale_or_superseded_leakage, 0);
   const orphanEvidenceCount = brain.getVerificationArtifactRegistry(null).orphan_count;
-  const proofCase = cases.find((item) => item.id === 'recent-mission-context');
-  const missionProofPassRate = proofCase?.response.selected_memories.some((memory) => (
-    memory.title.startsWith('Mission outcome:')
-    && memory.verified_by === 'verifier'
-    && memory.evidence_ref.length > 0
-  )) ? 100 : 0;
+  const missionProofPassRate = (() => {
+    const proofCase = cases.find((item) => item.id === 'recent-mission-context');
+    return proofCase?.response.selected_memories.some((memory) => (
+      memory.title.startsWith('Mission outcome:')
+      && memory.verified_by === 'verifier'
+      && memory.evidence_ref.length > 0
+    )) ? 100 : 0;
+  })();
   const manualMedians = {
     usefulness: median(cases.map((item) => item.manual_scores.usefulness)),
     groundedness: median(cases.map((item) => item.manual_scores.groundedness)),
     persona_alignment: median(cases.map((item) => item.manual_scores.persona_alignment)),
     actionability: median(cases.map((item) => item.manual_scores.actionability)),
   };
+  const staleDemotionPassRate = countAssertionRate(cases, (assertion) => assertion.excluded_reason_contains === 'stale-check due');
+  const supersededSuppressionPassRate = countAssertionRate(cases, (assertion) => assertion.excluded_reason_contains === 'superseded');
+  const duplicateSuppressionPassRate = countAssertionRate(cases, (assertion) => assertion.excluded_reason_contains === 'duplicate_of');
 
   const summary: ConsultEvalSummary = {
     total_cases: cases.length,
     routing_accuracy: routingAccuracy,
     top_k_relevance: topKRelevance,
     citation_completeness: citationCompleteness,
+    trace_presence: tracePresence,
+    stale_demotion_pass_rate: staleDemotionPassRate,
+    superseded_suppression_pass_rate: supersededSuppressionPassRate,
+    duplicate_suppression_pass_rate: duplicateSuppressionPassRate,
     stale_or_superseded_leakage: staleLeakage,
     mission_proof_pass_rate: missionProofPassRate,
     orphan_evidence_count: orphanEvidenceCount,
@@ -222,6 +414,10 @@ export async function runConsultEvaluation(
       routingAccuracy >= CONSULT_EVAL_THRESHOLDS.routing_accuracy
       && topKRelevance >= CONSULT_EVAL_THRESHOLDS.top_k_relevance
       && citationCompleteness >= CONSULT_EVAL_THRESHOLDS.citation_completeness
+      && tracePresence >= CONSULT_EVAL_THRESHOLDS.trace_presence
+      && staleDemotionPassRate >= CONSULT_EVAL_THRESHOLDS.stale_demotion_pass_rate
+      && supersededSuppressionPassRate >= CONSULT_EVAL_THRESHOLDS.superseded_suppression_pass_rate
+      && duplicateSuppressionPassRate >= CONSULT_EVAL_THRESHOLDS.duplicate_suppression_pass_rate
       && staleLeakage === CONSULT_EVAL_THRESHOLDS.stale_or_superseded_leakage
       && missionProofPassRate >= CONSULT_EVAL_THRESHOLDS.mission_proof_pass_rate
       && orphanEvidenceCount === CONSULT_EVAL_THRESHOLDS.orphan_evidence_count
@@ -239,6 +435,10 @@ export async function runConsultEvaluation(
       routing_accuracy_delta: Number((summary.routing_accuracy - baseline.summary.routing_accuracy).toFixed(2)),
       top_k_relevance_delta: Number((summary.top_k_relevance - baseline.summary.top_k_relevance).toFixed(2)),
       citation_completeness_delta: Number((summary.citation_completeness - baseline.summary.citation_completeness).toFixed(2)),
+      trace_presence_delta: Number((summary.trace_presence - Number(baseline.summary.trace_presence ?? 0)).toFixed(2)),
+      stale_demotion_pass_rate_delta: Number((summary.stale_demotion_pass_rate - Number(baseline.summary.stale_demotion_pass_rate ?? 0)).toFixed(2)),
+      superseded_suppression_pass_rate_delta: Number((summary.superseded_suppression_pass_rate - Number(baseline.summary.superseded_suppression_pass_rate ?? 0)).toFixed(2)),
+      duplicate_suppression_pass_rate_delta: Number((summary.duplicate_suppression_pass_rate - Number(baseline.summary.duplicate_suppression_pass_rate ?? 0)).toFixed(2)),
       stale_or_superseded_leakage_delta: Number((summary.stale_or_superseded_leakage - baseline.summary.stale_or_superseded_leakage).toFixed(2)),
       mission_proof_pass_rate_delta: Number((summary.mission_proof_pass_rate - baseline.summary.mission_proof_pass_rate).toFixed(2)),
     };
@@ -262,6 +462,9 @@ export const CONSULT_EVAL_EXPECTED_TITLES = {
   ownerPersona: ONBOARDING_MEMORY_TITLES.persona,
   preferredReportFormat: ONBOARDING_MEMORY_TITLES.reportFormat,
   planningPlaybook: ONBOARDING_MEMORY_TITLES.planningPlaybook,
+  repoContract: 'Contract freeze',
+  sqliteBootstrap: 'SQLite-only bootstrap mode',
   missionOutcomePrefix: 'Mission outcome:',
   failureLesson: 'Evaluation smoke failure',
+  staleMemory: 'Legacy bootstrap note',
 } as const;

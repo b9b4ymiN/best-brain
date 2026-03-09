@@ -47,6 +47,7 @@ Checks are stored in `verification_runs.verification_checks`.
 - evidence is normalized into the `verification_artifacts` registry
 - mission history receives `verification_started`, `verification_completed`, and `reopened` events
 - verified mission outcome memory is upgraded with `verified_by=verifier` and merged evidence
+- orphan detection is exposed through `VerificationArtifactRegistrySnapshot.orphan_count`
 
 ## Minimum proof bar for v1
 

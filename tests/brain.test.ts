@@ -30,9 +30,9 @@ describe('best-brain core', () => {
       expect(response.citations[0]?.memory_id).toBe(response.memory_ids[0]);
       expect(response.answer).toContain('Consult intent');
 
-      const trace = brain.store.sqlite.prepare('SELECT * FROM retrieval_traces WHERE id = ?').get(response.trace_id) as Record<string, string> | null;
+      const trace = brain.getRetrievalTrace(response.trace_id);
       expect(trace).not.toBeNull();
-      expect(trace?.why_included).toContain('preferred');
+      expect(trace?.why_included.some((item) => item.why_included.some((reason) => reason.includes('preferred')))).toBe(true);
     } finally {
       cleanup();
     }
@@ -162,6 +162,56 @@ describe('best-brain core', () => {
       expect(registry.orphan_count).toBe(0);
       expect(registry.artifacts.some((artifact) => artifact.source_kind === 'mission_outcome')).toBe(true);
       expect(registry.artifacts.some((artifact) => artifact.source_kind === 'verification_complete')).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('recent mission consult favors the latest verified mission over unverified mission notes', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      await brain.saveMissionOutcome({
+        mission_id: 'mission-verified',
+        objective: 'Ship the verified mission',
+        result_summary: 'Verified mission outcome exists.',
+        evidence: [{ type: 'note', ref: 'proof://verified' }],
+        verification_checks: [{ name: 'proof', passed: true }],
+        status: 'in_progress',
+        domain: 'best-brain',
+      });
+      await brain.startVerification({
+        mission_id: 'mission-verified',
+        requested_by: 'tester',
+        checks: [{ name: 'proof', passed: true }],
+      });
+      await brain.completeVerification({
+        mission_id: 'mission-verified',
+        status: 'verified_complete',
+        summary: 'Verified mission complete.',
+        evidence: [{ type: 'note', ref: 'proof://verified' }],
+        verification_checks: [{ name: 'proof', passed: true }],
+      });
+
+      await brain.saveMissionOutcome({
+        mission_id: 'mission-unverified',
+        objective: 'Keep the stale unverified note around',
+        result_summary: 'This outcome never passed verification.',
+        evidence: [{ type: 'note', ref: 'proof://unverified' }],
+        verification_checks: [{ name: 'proof', passed: false }],
+        status: 'in_progress',
+        domain: 'best-brain',
+      });
+
+      const response = await brain.consult({
+        query: 'What happened in the latest mission?',
+        mission_id: 'mission-verified',
+      });
+
+      expect(response.selected_memories[0]?.title).toBe('Mission outcome: Ship the verified mission');
+      const trace = brain.getRetrievalTrace(response.trace_id);
+      const unverifiedTrace = trace?.matched_candidates.find((candidate) => candidate.title === 'Mission outcome: Keep the stale unverified note around');
+      expect(unverifiedTrace?.why_excluded.some((reason) => reason.includes('mission not verified_complete'))).toBe(true);
     } finally {
       cleanup();
     }

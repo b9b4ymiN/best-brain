@@ -1,5 +1,5 @@
 import { ONBOARDING_MEMORY_TITLES } from '../contracts.ts';
-import type { LearnResult } from '../types.ts';
+import type { LearnRequest, LearnResult } from '../types.ts';
 import type { BestBrain } from './brain.ts';
 
 export interface OnboardingAnswers {
@@ -13,6 +13,10 @@ export interface OnboardingAnswers {
 export interface OnboardingResult {
   completed: boolean;
   results: LearnResult[];
+}
+
+function onboardingEvidenceRef(kind: string) {
+  return [{ type: 'note' as const, ref: `onboarding://${kind}` }];
 }
 
 function trimOrFallback(value: string, fallback: string): string {
@@ -31,74 +35,82 @@ export function getOnboardingDefaults(brain: BestBrain): OnboardingAnswers {
   };
 }
 
-export async function runOnboarding(brain: BestBrain, answers: OnboardingAnswers): Promise<OnboardingResult> {
+export function buildOnboardingRequests(brain: BestBrain, answers: OnboardingAnswers): LearnRequest[] {
   const defaults = getOnboardingDefaults(brain);
+  return [
+    {
+      mode: 'persona',
+      title: ONBOARDING_MEMORY_TITLES.persona,
+      content: trimOrFallback(answers.ownerPersona, defaults.ownerPersona),
+      source: 'onboarding',
+      owner: brain.config.owner,
+      domain: 'best-brain',
+      reusable: true,
+      tags: ['persona', 'owner', 'onboarding'],
+      confirmed_by_user: true,
+      verified_by: 'user',
+      evidence_ref: onboardingEvidenceRef('persona'),
+    },
+    {
+      mode: 'preference',
+      title: ONBOARDING_MEMORY_TITLES.reportFormat,
+      content: trimOrFallback(answers.preferredReportFormat, defaults.preferredReportFormat),
+      source: 'onboarding',
+      owner: brain.config.owner,
+      domain: 'best-brain',
+      reusable: true,
+      tags: ['preference', 'format', 'onboarding'],
+      confirmed_by_user: true,
+      verified_by: 'user',
+      evidence_ref: onboardingEvidenceRef('report-format'),
+    },
+    {
+      mode: 'preference',
+      title: ONBOARDING_MEMORY_TITLES.communicationStyle,
+      content: trimOrFallback(answers.communicationStyle, defaults.communicationStyle),
+      source: 'onboarding',
+      owner: brain.config.owner,
+      domain: 'best-brain',
+      reusable: true,
+      tags: ['preference', 'communication', 'onboarding'],
+      confirmed_by_user: true,
+      verified_by: 'user',
+      evidence_ref: onboardingEvidenceRef('communication-style'),
+    },
+    {
+      mode: 'preference',
+      title: ONBOARDING_MEMORY_TITLES.qualityBar,
+      content: trimOrFallback(answers.qualityBar, defaults.qualityBar),
+      source: 'onboarding',
+      owner: brain.config.owner,
+      domain: 'best-brain',
+      reusable: true,
+      tags: ['preference', 'quality-bar', 'onboarding'],
+      confirmed_by_user: true,
+      verified_by: 'user',
+      evidence_ref: onboardingEvidenceRef('quality-bar'),
+    },
+    {
+      mode: 'procedure',
+      title: ONBOARDING_MEMORY_TITLES.planningPlaybook,
+      content: trimOrFallback(answers.planningPlaybook, defaults.planningPlaybook),
+      source: 'onboarding',
+      owner: brain.config.owner,
+      domain: 'best-brain',
+      reusable: true,
+      tags: ['procedure', 'planning', 'verification', 'onboarding'],
+      confirmed_by_user: true,
+      verified_by: 'user',
+      evidence_ref: onboardingEvidenceRef('planning-playbook'),
+    },
+  ];
+}
+
+export async function runOnboarding(brain: BestBrain, answers: OnboardingAnswers): Promise<OnboardingResult> {
   const results: LearnResult[] = [];
-
-  results.push(await brain.learn({
-    mode: 'persona',
-    title: ONBOARDING_MEMORY_TITLES.persona,
-    content: trimOrFallback(answers.ownerPersona, defaults.ownerPersona),
-    source: 'onboarding',
-    owner: brain.config.owner,
-    domain: 'best-brain',
-    reusable: true,
-    tags: ['persona', 'owner', 'onboarding'],
-    confirmed_by_user: true,
-    verified_by: 'user',
-  }));
-
-  results.push(await brain.learn({
-    mode: 'preference',
-    title: ONBOARDING_MEMORY_TITLES.reportFormat,
-    content: trimOrFallback(answers.preferredReportFormat, defaults.preferredReportFormat),
-    source: 'onboarding',
-    owner: brain.config.owner,
-    domain: 'best-brain',
-    reusable: true,
-    tags: ['preference', 'format', 'onboarding'],
-    confirmed_by_user: true,
-    verified_by: 'user',
-  }));
-
-  results.push(await brain.learn({
-    mode: 'preference',
-    title: ONBOARDING_MEMORY_TITLES.communicationStyle,
-    content: trimOrFallback(answers.communicationStyle, defaults.communicationStyle),
-    source: 'onboarding',
-    owner: brain.config.owner,
-    domain: 'best-brain',
-    reusable: true,
-    tags: ['preference', 'communication', 'onboarding'],
-    confirmed_by_user: true,
-    verified_by: 'user',
-  }));
-
-  results.push(await brain.learn({
-    mode: 'preference',
-    title: ONBOARDING_MEMORY_TITLES.qualityBar,
-    content: trimOrFallback(answers.qualityBar, defaults.qualityBar),
-    source: 'onboarding',
-    owner: brain.config.owner,
-    domain: 'best-brain',
-    reusable: true,
-    tags: ['preference', 'quality-bar', 'onboarding'],
-    confirmed_by_user: true,
-    verified_by: 'user',
-  }));
-
-  results.push(await brain.learn({
-    mode: 'procedure',
-    title: ONBOARDING_MEMORY_TITLES.planningPlaybook,
-    content: trimOrFallback(answers.planningPlaybook, defaults.planningPlaybook),
-    source: 'onboarding',
-    owner: brain.config.owner,
-    domain: 'best-brain',
-    reusable: true,
-    tags: ['procedure', 'planning', 'verification', 'onboarding'],
-    confirmed_by_user: true,
-    verified_by: 'user',
-  }));
+  for (const request of buildOnboardingRequests(brain, answers)) {
+    results.push(await brain.learn(request));
+  }
 
   brain.store.setSetting('onboarding.completed', 'true');
 

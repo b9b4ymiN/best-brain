@@ -23,10 +23,12 @@ describe('http routes', () => {
         policy_path: string;
         memory_ids: string[];
         citations: Array<{ memory_id: string }>;
+        trace_id: string;
       };
       expect(payload.policy_path).toContain('deterministic');
       expect(Array.isArray(payload.memory_ids)).toBe(true);
       expect(payload.citations.length).toBe(payload.memory_ids.length);
+      expect(payload.trace_id.startsWith('trace_')).toBe(true);
     } finally {
       cleanup();
     }

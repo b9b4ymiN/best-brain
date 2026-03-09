@@ -1,0 +1,29 @@
+{
+  "request": {
+    "mission_id": "manager-example-mission",
+    "status": "verified_complete",
+    "summary": "Example mission passed verification.",
+    "evidence": [
+      {
+        "type": "note",
+        "ref": "example://mission-proof",
+        "description": "Example proof note"
+      }
+    ],
+    "verification_checks": [
+      {
+        "name": "example-check",
+        "passed": true,
+        "detail": "Example verification passed"
+      }
+    ]
+  },
+  "response": {
+    "mission_id": "manager-example-mission",
+    "status": "verified_complete",
+    "verification_run_id": "vrun_3b218cc1-c72e-490d-a806-d5b030f958e3",
+    "evidence_count": 1,
+    "checks_passed": 1,
+    "checks_total": 1
+  }
+}

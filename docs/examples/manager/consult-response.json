@@ -1,38 +1,51 @@
 {
-  "answer": "Consult intent: preference_lookup.\n- [Preferences] Preferred report format: example-owner prefers concise, high-signal updates with status, proof, and next actions.\n- [Preferences] Default response format: example-owner prefers concise, high-signal updates with clear status, proof, and next actions.\n- [Preferences] Communication style: example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
+  "answer": "Consult intent: preference_lookup.\n- [Preferences] Preferred report format: example-owner prefers concise, high-signal updates with clear status, proof, and next actions.\n- [Preferences] Quality bar: Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.\n- [Preferences] Communication style: example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
   "memory_ids": [
-    "mem_b5237671-ac32-4291-9433-c087e664f6ea",
-    "mem_bb6611ee-f4be-46a5-b678-34dfadef75ee",
-    "mem_d2354d0f-54f7-4d48-ab16-e9b465b45442",
-    "mem_58f19ebd-41d0-468d-921d-117a4a6eb7c6",
-    "mem_9477488d-fe1a-4831-85bb-c6ca1ee2b014"
+    "mem_c3ce4775-cbd5-4c38-a9d8-fe9bf1ac05c8",
+    "mem_f5e90d6b-0d05-407f-b2b2-65600f77f1a5",
+    "mem_53190152-c925-47ac-8ee1-854de2f79eae",
+    "mem_a27522fc-0202-4b7c-ae14-a10be28e892f",
+    "mem_1485a3a4-4bae-4321-bfb3-7c6f337704b2"
   ],
   "citations": [
     {
-      "memory_id": "mem_b5237671-ac32-4291-9433-c087e664f6ea",
+      "memory_id": "mem_c3ce4775-cbd5-4c38-a9d8-fe9bf1ac05c8",
       "title": "Preferred report format",
       "memory_type": "Preferences",
-      "summary": "example-owner prefers concise, high-signal updates with status, proof, and next actions.",
+      "summary": "example-owner prefers concise, high-signal updates with clear status, proof, and next actions.",
       "source": "onboarding",
       "verified_by": "user",
-      "evidence_ref": []
-    },
-    {
-      "memory_id": "mem_bb6611ee-f4be-46a5-b678-34dfadef75ee",
-      "title": "Default response format",
-      "memory_type": "Preferences",
-      "summary": "example-owner prefers concise, high-signal updates with clear status, proof, and next actions.",
-      "source": "seed://default-preferences",
-      "verified_by": "trusted_import",
       "evidence_ref": [
         {
           "type": "import",
           "ref": "seed://default-preferences"
+        },
+        {
+          "type": "note",
+          "ref": "onboarding://report-format"
         }
       ]
     },
     {
-      "memory_id": "mem_d2354d0f-54f7-4d48-ab16-e9b465b45442",
+      "memory_id": "mem_f5e90d6b-0d05-407f-b2b2-65600f77f1a5",
+      "title": "Quality bar",
+      "memory_type": "Preferences",
+      "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
+      "source": "onboarding",
+      "verified_by": "user",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-quality-bar"
+        },
+        {
+          "type": "note",
+          "ref": "onboarding://quality-bar"
+        }
+      ]
+    },
+    {
+      "memory_id": "mem_53190152-c925-47ac-8ee1-854de2f79eae",
       "title": "Communication style",
       "memory_type": "Preferences",
       "summary": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
@@ -42,20 +55,15 @@
         {
           "type": "import",
           "ref": "seed://default-communication-style"
+        },
+        {
+          "type": "note",
+          "ref": "onboarding://communication-style"
         }
       ]
     },
     {
-      "memory_id": "mem_58f19ebd-41d0-468d-921d-117a4a6eb7c6",
-      "title": "Quality bar",
-      "memory_type": "Preferences",
-      "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
-      "source": "onboarding",
-      "verified_by": "user",
-      "evidence_ref": []
-    },
-    {
-      "memory_id": "mem_9477488d-fe1a-4831-85bb-c6ca1ee2b014",
+      "memory_id": "mem_a27522fc-0202-4b7c-ae14-a10be28e892f",
       "title": "Owner persona",
       "memory_type": "Persona",
       "summary": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
@@ -65,6 +73,24 @@
         {
           "type": "import",
           "ref": "seed://default-persona"
+        },
+        {
+          "type": "note",
+          "ref": "onboarding://persona"
+        }
+      ]
+    },
+    {
+      "memory_id": "mem_1485a3a4-4bae-4321-bfb3-7c6f337704b2",
+      "title": "Verification loop",
+      "memory_type": "Procedures",
+      "summary": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
+      "source": "seed://default-procedures",
+      "verified_by": "trusted_import",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-procedures"
         }
       ]
     }
@@ -75,46 +101,15 @@
     "Answer in the preferred format.",
     "Only update preferences after confirmation from the owner."
   ],
-  "trace_id": "trace_333ee775-7c30-498c-99d3-578a83729a2c",
+  "trace_id": "trace_2f4e0cac-51c0-4c76-a92f-88d1bf102b4e",
   "selected_memories": [
     {
-      "id": "mem_b5237671-ac32-4291-9433-c087e664f6ea",
+      "id": "mem_c3ce4775-cbd5-4c38-a9d8-fe9bf1ac05c8",
       "title": "Preferred report format",
-      "content": "example-owner prefers concise, high-signal updates with status, proof, and next actions.",
-      "summary": "example-owner prefers concise, high-signal updates with status, proof, and next actions.",
-      "memory_type": "Preferences",
-      "source": "onboarding",
-      "confidence": 0.7,
-      "owner": "example-owner",
-      "domain": "best-brain",
-      "reusable": true,
-      "supersedes": null,
-      "superseded_by": null,
-      "mission_id": null,
-      "tags": [
-        "preference",
-        "format",
-        "onboarding"
-      ],
-      "status": "active",
-      "verified_by": "user",
-      "evidence_ref": [],
-      "version": 1,
-      "review_due_at": null,
-      "stale_after_at": null,
-      "archive_after_at": null,
-      "expires_at": null,
-      "archived_at": null,
-      "created_at": 1773067058522,
-      "updated_at": 1773067058522
-    },
-    {
-      "id": "mem_bb6611ee-f4be-46a5-b678-34dfadef75ee",
-      "title": "Default response format",
       "content": "example-owner prefers concise, high-signal updates with clear status, proof, and next actions.",
       "summary": "example-owner prefers concise, high-signal updates with clear status, proof, and next actions.",
       "memory_type": "Preferences",
-      "source": "seed://default-preferences",
+      "source": "onboarding",
       "confidence": 0.85,
       "owner": "example-owner",
       "domain": "best-brain",
@@ -127,24 +122,67 @@
         "format"
       ],
       "status": "active",
-      "verified_by": "trusted_import",
+      "verified_by": "user",
       "evidence_ref": [
         {
           "type": "import",
           "ref": "seed://default-preferences"
+        },
+        {
+          "type": "note",
+          "ref": "onboarding://report-format"
         }
       ],
-      "version": 1,
+      "version": 2,
       "review_due_at": null,
       "stale_after_at": null,
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773067058510,
-      "updated_at": 1773067058510
+      "created_at": 1773068754451,
+      "updated_at": 1773068754464
     },
     {
-      "id": "mem_d2354d0f-54f7-4d48-ab16-e9b465b45442",
+      "id": "mem_f5e90d6b-0d05-407f-b2b2-65600f77f1a5",
+      "title": "Quality bar",
+      "content": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
+      "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
+      "memory_type": "Preferences",
+      "source": "onboarding",
+      "confidence": 0.9,
+      "owner": "example-owner",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": null,
+      "tags": [
+        "preference",
+        "quality-bar"
+      ],
+      "status": "active",
+      "verified_by": "user",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-quality-bar"
+        },
+        {
+          "type": "note",
+          "ref": "onboarding://quality-bar"
+        }
+      ],
+      "version": 2,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": null,
+      "expires_at": null,
+      "archived_at": null,
+      "created_at": 1773068754455,
+      "updated_at": 1773068754467
+    },
+    {
+      "id": "mem_53190152-c925-47ac-8ee1-854de2f79eae",
       "title": "Communication style",
       "content": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
       "summary": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
@@ -167,6 +205,10 @@
         {
           "type": "import",
           "ref": "seed://default-communication-style"
+        },
+        {
+          "type": "note",
+          "ref": "onboarding://communication-style"
         }
       ],
       "version": 2,
@@ -175,42 +217,11 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773067058511,
-      "updated_at": 1773067058523
+      "created_at": 1773068754453,
+      "updated_at": 1773068754465
     },
     {
-      "id": "mem_58f19ebd-41d0-468d-921d-117a4a6eb7c6",
-      "title": "Quality bar",
-      "content": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
-      "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
-      "memory_type": "Preferences",
-      "source": "onboarding",
-      "confidence": 0.7,
-      "owner": "example-owner",
-      "domain": "best-brain",
-      "reusable": true,
-      "supersedes": null,
-      "superseded_by": null,
-      "mission_id": null,
-      "tags": [
-        "preference",
-        "quality-bar",
-        "onboarding"
-      ],
-      "status": "active",
-      "verified_by": "user",
-      "evidence_ref": [],
-      "version": 1,
-      "review_due_at": null,
-      "stale_after_at": null,
-      "archive_after_at": null,
-      "expires_at": null,
-      "archived_at": null,
-      "created_at": 1773067058525,
-      "updated_at": 1773067058525
-    },
-    {
-      "id": "mem_9477488d-fe1a-4831-85bb-c6ca1ee2b014",
+      "id": "mem_a27522fc-0202-4b7c-ae14-a10be28e892f",
       "title": "Owner persona",
       "content": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
       "summary": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
@@ -233,6 +244,10 @@
         {
           "type": "import",
           "ref": "seed://default-persona"
+        },
+        {
+          "type": "note",
+          "ref": "onboarding://persona"
         }
       ],
       "version": 2,
@@ -241,8 +256,44 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773067058507,
-      "updated_at": 1773067058520
+      "created_at": 1773068754449,
+      "updated_at": 1773068754462
+    },
+    {
+      "id": "mem_1485a3a4-4bae-4321-bfb3-7c6f337704b2",
+      "title": "Verification loop",
+      "content": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
+      "summary": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
+      "memory_type": "Procedures",
+      "source": "seed://default-procedures",
+      "confidence": 0.95,
+      "owner": "example-owner",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": null,
+      "tags": [
+        "procedure",
+        "verification",
+        "checklist"
+      ],
+      "status": "active",
+      "verified_by": "trusted_import",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-procedures"
+        }
+      ],
+      "version": 1,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": null,
+      "expires_at": null,
+      "archived_at": null,
+      "created_at": 1773068754456,
+      "updated_at": 1773068754456
     }
   ]
 }

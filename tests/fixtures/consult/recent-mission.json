@@ -1,0 +1,29 @@
+[
+  {
+    "id": "recent-mission-context",
+    "category": "mission_proof",
+    "prompt": "What happened in the latest mission?",
+    "mission_id": "mission-eval",
+    "expected_policy_path": "deterministic.recent_mission.v1",
+    "expected_memory_titles": ["Mission outcome: Close brain-v1 evaluation fixture"],
+    "trace_assertions": [
+      {
+        "title": "Mission outcome: Close brain-v1 evaluation fixture",
+        "source_contains": "mission_outcome",
+        "included_reason_contains": "mission is verified_complete",
+        "ranking_rule": "verified_mission_state"
+      },
+      {
+        "title": "Mission outcome: Record an unverified stale mission note",
+        "source_contains": "mission_outcome",
+        "excluded_reason_contains": "mission not verified_complete"
+      }
+    ],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 5,
+      "persona_alignment": 4,
+      "actionability": 4
+    }
+  }
+]

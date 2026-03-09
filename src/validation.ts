@@ -3,6 +3,7 @@ import type {
   FailureInput,
   LearnRequest,
   MissionOutcomeInput,
+  StrictMissionOutcomeInput,
   VerificationCompleteInput,
   VerificationStartInput,
 } from './types.ts';
@@ -74,6 +75,16 @@ function readOptionalNumber(value: Record<string, unknown>, key: string): number
   }
 
   return candidate;
+}
+
+function assertUniqueStrings(values: string[], label: string): void {
+  const seen = new Set<string>();
+  for (const value of values) {
+    if (seen.has(value)) {
+      throw new Error(`${label} must be unique`);
+    }
+    seen.add(value);
+  }
 }
 
 function assertObject(value: unknown, name = 'request body'): Record<string, unknown> {
@@ -150,6 +161,53 @@ export function validateMissionOutcomeToolInput(value: unknown): MissionOutcomeI
     verification_checks: readArray(body, 'verification_checks', true) as MissionOutcomeInput['verification_checks'],
     status: readOptionalString(body, 'status') as MissionOutcomeInput['status'],
     domain: readOptionalString(body, 'domain'),
+  };
+}
+
+export function validateMissionOutcomeStrictInput(value: unknown): StrictMissionOutcomeInput {
+  const body = assertObject(value);
+  const evidence = readArray(body, 'evidence', true) as MissionOutcomeInput['evidence'];
+  const verificationChecks = readArray(body, 'verification_checks', true) as MissionOutcomeInput['verification_checks'];
+  const status = readRequiredString(body, 'status');
+  const domain = readRequiredString(body, 'domain');
+
+  if (evidence.length === 0) {
+    throw new Error('strict mission outcome requires at least one evidence artifact');
+  }
+  if (verificationChecks.length === 0) {
+    throw new Error('strict mission outcome requires at least one verification check');
+  }
+  if (status !== 'in_progress' && status !== 'awaiting_verification') {
+    throw new Error('strict mission outcome status must be in_progress or awaiting_verification');
+  }
+
+  assertUniqueStrings(
+    evidence.map((artifact) => {
+      if (!isRecord(artifact)) {
+        throw new Error('evidence items must be objects');
+      }
+      return `${readRequiredString(artifact, 'type')}:${readRequiredString(artifact, 'ref')}`;
+    }),
+    'evidence refs',
+  );
+  assertUniqueStrings(
+    verificationChecks.map((check) => {
+      if (!isRecord(check)) {
+        throw new Error('verification_checks items must be objects');
+      }
+      return readRequiredString(check, 'name');
+    }),
+    'verification check names',
+  );
+
+  return {
+    mission_id: readRequiredString(body, 'mission_id'),
+    objective: readRequiredString(body, 'objective'),
+    result_summary: readRequiredString(body, 'result_summary'),
+    evidence,
+    verification_checks: verificationChecks,
+    status: status as StrictMissionOutcomeInput['status'],
+    domain,
   };
 }
 

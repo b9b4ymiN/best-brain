@@ -9,7 +9,9 @@ import {
   writeConsultEvalReport,
 } from '../src/eval/consult.ts';
 
-const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/consult-eval.json');
+const fixturePath = process.env.BEST_BRAIN_EVAL_FIXTURES
+  ? path.resolve(process.cwd(), process.env.BEST_BRAIN_EVAL_FIXTURES)
+  : path.resolve(process.cwd(), 'tests/fixtures/consult');
 const reportPath = path.resolve(process.cwd(), 'artifacts/consult-eval.latest.json');
 const baselinePath = path.resolve(process.cwd(), 'artifacts/consult-eval.baseline.json');
 const useRuntimeDb = process.env.BEST_BRAIN_EVAL_USE_RUNTIME_DB === '1';

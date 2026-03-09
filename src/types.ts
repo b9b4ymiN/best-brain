@@ -160,6 +160,24 @@ export interface LearnRequest {
   confirmed_by_user?: boolean;
 }
 
+export interface CuratedMemoryInput {
+  title: string;
+  content: string;
+  memory_type: MemoryType;
+  source: string;
+  confidence?: number;
+  owner?: string;
+  domain?: string | null;
+  reusable?: boolean;
+  mission_id?: string | null;
+  tags?: string[];
+  supersedes?: string | null;
+  verified_by?: VerifiedBy | null;
+  evidence_ref?: VerificationArtifact[];
+  confirmed_by_user?: boolean;
+  status?: MemoryStatus;
+}
+
 export interface LearnResult {
   accepted: boolean;
   action: 'created' | 'updated' | 'merged' | 'rejected';
@@ -185,10 +203,26 @@ export interface CandidateTrace {
   memory_id: string;
   title: string;
   memory_type: MemoryType;
+  source: string;
   score: number;
   why_included: string[];
   why_excluded: string[];
   ranking_contribution: RetrievalContribution[];
+}
+
+export interface RetrievalTraceRecord {
+  id: string;
+  query: string;
+  intent: ConsultIntent;
+  mission_id: string | null;
+  domain: string | null;
+  policy_path: string;
+  matched_candidates: CandidateTrace[];
+  why_included: Array<{ memory_id: string; why_included: string[] }>;
+  why_excluded: Array<{ memory_id: string; why_excluded: string[] }>;
+  ranking_contribution: Array<{ memory_id: string; ranking_contribution: RetrievalContribution[]; score: number }>;
+  final_selected_set: string[];
+  created_at: number;
 }
 
 export interface ConsultResponse {
@@ -236,6 +270,11 @@ export interface MissionOutcomeInput {
   verification_checks: VerificationCheck[];
   status?: Exclude<MissionStatus, 'verified_complete' | 'verification_failed'>;
   domain?: string | null;
+}
+
+export interface StrictMissionOutcomeInput extends MissionOutcomeInput {
+  status: 'in_progress' | 'awaiting_verification';
+  domain: string;
 }
 
 export interface FailureInput {
@@ -292,4 +331,8 @@ export interface RuntimeConfig {
   dataDir: string;
   dbPath: string;
   port: number;
+}
+
+export interface BrainOpenOptions extends Partial<RuntimeConfig> {
+  seedDefaults?: boolean;
 }

@@ -13,12 +13,16 @@ describe('consult evaluation', () => {
 
     try {
       await prepareConsultEvalData(brain);
-      const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/consult-eval.json');
+      const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/consult');
       const report = await runConsultEvaluation(brain, loadConsultEvalFixtures(fixturePath), fixturePath);
 
       expect(report.summary.routing_accuracy).toBeGreaterThanOrEqual(90);
       expect(report.summary.top_k_relevance).toBeGreaterThanOrEqual(85);
       expect(report.summary.citation_completeness).toBeGreaterThanOrEqual(95);
+      expect(report.summary.trace_presence).toBe(100);
+      expect(report.summary.stale_demotion_pass_rate).toBe(100);
+      expect(report.summary.superseded_suppression_pass_rate).toBe(100);
+      expect(report.summary.duplicate_suppression_pass_rate).toBe(100);
       expect(report.summary.stale_or_superseded_leakage).toBe(0);
       expect(report.summary.mission_proof_pass_rate).toBe(100);
       expect(report.summary.orphan_evidence_count).toBe(0);

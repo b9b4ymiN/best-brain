@@ -1,0 +1,16 @@
+[
+  {
+    "id": "failure-lesson",
+    "category": "groundedness",
+    "prompt": "What failure lesson should we avoid repeating?",
+    "mission_id": "mission-eval",
+    "expected_policy_path": "deterministic.failure_lesson.v1",
+    "expected_memory_titles": ["Evaluation smoke failure"],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 5,
+      "persona_alignment": 4,
+      "actionability": 4
+    }
+  }
+]

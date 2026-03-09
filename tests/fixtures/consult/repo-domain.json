@@ -1,0 +1,62 @@
+[
+  {
+    "id": "repo-contract-context",
+    "category": "repo_domain",
+    "prompt": "Which repo contract is frozen for this project?",
+    "expected_policy_path": "deterministic.repo_domain_lookup.v1",
+    "expected_memory_titles": ["Contract freeze"],
+    "trace_assertions": [
+      {
+        "title": "Contract freeze",
+        "source_equals": "seed://repo/contract-freeze",
+        "excluded_reason_contains": "duplicate_of"
+      }
+    ],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 5,
+      "persona_alignment": 4,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "sqlite-bootstrap-guidance",
+    "category": "repo_domain",
+    "prompt": "Which SQLite-only bootstrap mode guidance should we keep?",
+    "expected_policy_path": "deterministic.repo_domain_lookup.v1",
+    "expected_memory_titles": ["SQLite-only bootstrap mode"],
+    "trace_assertions": [
+      {
+        "title": "SQLite-only bootstrap mode",
+        "source_contains": "seed://domain/sqlite-bootstrap-v1",
+        "excluded_reason_contains": "superseded"
+      }
+    ],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 5,
+      "persona_alignment": 4,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "stale-bootstrap-note",
+    "category": "repo_domain",
+    "prompt": "Which bootstrap guidance should local startup keep right now?",
+    "expected_policy_path": "deterministic.repo_domain_lookup.v1",
+    "expected_memory_titles": ["SQLite-only bootstrap mode"],
+    "trace_assertions": [
+      {
+        "title": "Legacy bootstrap note",
+        "source_contains": "seed://repo/legacy-bootstrap",
+        "excluded_reason_contains": "stale-check due"
+      }
+    ],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 4,
+      "persona_alignment": 4,
+      "actionability": 4
+    }
+  }
+]

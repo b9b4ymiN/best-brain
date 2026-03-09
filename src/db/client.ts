@@ -7,6 +7,7 @@ import type {
   MissionEventRecord,
   MissionRecord,
   MissionStatus,
+  RetrievalTraceRecord,
   RuntimeConfig,
   VerificationArtifact,
   VerificationArtifactRecord,
@@ -89,6 +90,23 @@ function asVerificationArtifactRecord(row: RawRow): VerificationArtifactRecord {
     artifact_ref: String(row.artifact_ref),
     artifact_description: row.artifact_description ? String(row.artifact_description) : null,
     source_kind: row.source_kind as VerificationArtifactRecord['source_kind'],
+    created_at: Number(row.created_at),
+  };
+}
+
+function asRetrievalTraceRecord(row: RawRow): RetrievalTraceRecord {
+  return {
+    id: String(row.id),
+    query: String(row.query),
+    intent: row.intent as RetrievalTraceRecord['intent'],
+    mission_id: row.mission_id ? String(row.mission_id) : null,
+    domain: row.domain ? String(row.domain) : null,
+    policy_path: String(row.policy_path),
+    matched_candidates: parseJson<RetrievalTraceRecord['matched_candidates']>(row.matched_candidates as string, []),
+    why_included: parseJson<RetrievalTraceRecord['why_included']>(row.why_included as string, []),
+    why_excluded: parseJson<RetrievalTraceRecord['why_excluded']>(row.why_excluded as string, []),
+    ranking_contribution: parseJson<RetrievalTraceRecord['ranking_contribution']>(row.ranking_contribution as string, []),
+    final_selected_set: parseJson<RetrievalTraceRecord['final_selected_set']>(row.final_selected_set as string, []),
     created_at: Number(row.created_at),
   };
 }
@@ -542,6 +560,11 @@ export class BrainStore {
       );
   }
 
+  getRetrievalTrace(traceId: string): RetrievalTraceRecord | null {
+    const row = this.sqlite.prepare('SELECT * FROM retrieval_traces WHERE id = ?').get(traceId) as RawRow | null;
+    return row ? asRetrievalTraceRecord(row) : null;
+  }
+
   insertLearningEvent(event: {
     mode: string;
     memoryId: string | null;
@@ -619,7 +642,10 @@ export class BrainStore {
       ? this.listVerificationArtifactsForMission(missionId)
       : [];
     const orphanRow = this.sqlite
-      .prepare('SELECT COUNT(*) AS count FROM verification_artifacts WHERE mission_id IS NULL')
+      .prepare(`SELECT COUNT(*) AS count
+        FROM verification_artifacts
+        WHERE mission_id IS NULL
+          AND source_kind != 'memory_reference'`)
       .get() as RawRow | null;
 
     return {

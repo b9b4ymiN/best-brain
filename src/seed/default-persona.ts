@@ -1,10 +1,11 @@
 import type { LearnRequest } from '../types.ts';
+import { ONBOARDING_MEMORY_TITLES } from '../contracts.ts';
 
 export function getDefaultPersonaSeed(owner: string): LearnRequest[] {
   return [
     {
       mode: 'persona',
-      title: 'Owner persona',
+      title: ONBOARDING_MEMORY_TITLES.persona,
       content: `${owner} expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.`,
       source: 'seed://default-persona',
       confidence: 0.9,
@@ -18,7 +19,7 @@ export function getDefaultPersonaSeed(owner: string): LearnRequest[] {
     },
     {
       mode: 'preference',
-      title: 'Default response format',
+      title: ONBOARDING_MEMORY_TITLES.reportFormat,
       content: `${owner} prefers concise, high-signal updates with clear status, proof, and next actions.`,
       source: 'seed://default-preferences',
       confidence: 0.85,
@@ -32,7 +33,7 @@ export function getDefaultPersonaSeed(owner: string): LearnRequest[] {
     },
     {
       mode: 'preference',
-      title: 'Communication style',
+      title: ONBOARDING_MEMORY_TITLES.communicationStyle,
       content: `${owner} prefers direct language, factual tradeoffs, and explicit assumptions without fluff.`,
       source: 'seed://default-communication-style',
       confidence: 0.85,
@@ -43,6 +44,20 @@ export function getDefaultPersonaSeed(owner: string): LearnRequest[] {
       confirmed_by_user: true,
       verified_by: 'trusted_import',
       evidence_ref: [{ type: 'import', ref: 'seed://default-communication-style' }],
+    },
+    {
+      mode: 'preference',
+      title: ONBOARDING_MEMORY_TITLES.qualityBar,
+      content: 'Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.',
+      source: 'seed://default-quality-bar',
+      confidence: 0.9,
+      owner,
+      domain: 'best-brain',
+      reusable: true,
+      tags: ['preference', 'quality-bar'],
+      confirmed_by_user: true,
+      verified_by: 'trusted_import',
+      evidence_ref: [{ type: 'import', ref: 'seed://default-quality-bar' }],
     },
     {
       mode: 'procedure',
@@ -59,7 +74,7 @@ export function getDefaultPersonaSeed(owner: string): LearnRequest[] {
     },
     {
       mode: 'procedure',
-      title: 'Planning hints',
+      title: ONBOARDING_MEMORY_TITLES.planningPlaybook,
       content: 'Start by clarifying goal, constraints, current state, and proof of done. Split work into reversible steps and preserve retrieval traces for important decisions.',
       source: 'seed://default-planning',
       confidence: 0.9,

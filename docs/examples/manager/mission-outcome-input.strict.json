@@ -1,0 +1,21 @@
+{
+  "mission_id": "manager-example-mission",
+  "objective": "Demonstrate manager-facing brain contracts",
+  "result_summary": "The mission produced a grounded consult response and a verified outcome.",
+  "evidence": [
+    {
+      "type": "note",
+      "ref": "example://mission-proof",
+      "description": "Example proof note"
+    }
+  ],
+  "verification_checks": [
+    {
+      "name": "example-check",
+      "passed": true,
+      "detail": "Example verification passed"
+    }
+  ],
+  "status": "in_progress",
+  "domain": "best-brain"
+}

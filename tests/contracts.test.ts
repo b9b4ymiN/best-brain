@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { createApp } from '../src/http/app.ts';
 import { CONTRACT_SEMANTICS, HTTP_V1_ENDPOINTS, MCP_V1_TOOLS } from '../src/contracts.ts';
+import { validateMissionOutcomeStrictInput } from '../src/validation.ts';
 import { createTestBrain } from './helpers.ts';
 
 describe('transport contracts', () => {
@@ -109,5 +110,41 @@ describe('transport contracts', () => {
     } finally {
       cleanup();
     }
+  });
+
+  test('strict mission outcome profile stays additive-only and enforces manager-facing proof fields', () => {
+    const payload = validateMissionOutcomeStrictInput({
+      mission_id: 'manager-mission',
+      objective: 'Write strict manager example',
+      result_summary: 'Strict validation passes with explicit fields.',
+      evidence: [{ type: 'note', ref: 'proof://manager' }],
+      verification_checks: [{ name: 'proof', passed: true }],
+      status: 'in_progress',
+      domain: 'best-brain',
+    });
+
+    expect(payload.status).toBe('in_progress');
+    expect(payload.domain).toBe('best-brain');
+    expect(() => validateMissionOutcomeStrictInput({
+      mission_id: 'manager-mission',
+      objective: 'Invalid strict example',
+      result_summary: 'Missing proof details',
+      evidence: [],
+      verification_checks: [{ name: 'proof', passed: true }],
+      status: 'in_progress',
+      domain: 'best-brain',
+    })).toThrow('strict mission outcome requires at least one evidence artifact');
+    expect(() => validateMissionOutcomeStrictInput({
+      mission_id: 'manager-mission',
+      objective: 'Duplicate check names',
+      result_summary: 'Duplicate checks should fail strict validation.',
+      evidence: [{ type: 'note', ref: 'proof://manager' }],
+      verification_checks: [
+        { name: 'proof', passed: true },
+        { name: 'proof', passed: true },
+      ],
+      status: 'awaiting_verification',
+      domain: 'best-brain',
+    })).toThrow('verification check names must be unique');
   });
 });

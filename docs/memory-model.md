@@ -74,6 +74,7 @@ Guardrails:
 - `persona` and `preference` require `confirmed_by_user=true`
 - `failure_lesson` stays `candidate` unless confirmed
 - `mission_outcome` stores proof artifacts but does not imply completion until verification passes
+- curated onboarding/default seeds must declare `source`, `verified_by`, and at least one `evidence_ref`
 
 ## Schema anchors
 

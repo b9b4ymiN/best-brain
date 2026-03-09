@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { ONBOARDING_MEMORY_TITLES } from '../src/contracts.ts';
-import { getOnboardingDefaults, runOnboarding } from '../src/services/onboarding.ts';
+import { buildOnboardingRequests, getOnboardingDefaults, runOnboarding } from '../src/services/onboarding.ts';
 import { createTestBrain } from './helpers.ts';
 
 describe('onboarding flow', () => {
@@ -50,6 +50,21 @@ describe('onboarding flow', () => {
       expect(updated?.id).not.toBe(initial?.id);
       expect(updated?.content).toContain('short paragraph');
       expect(brain.store.getMemory(initial!.id)?.status).toBe('superseded');
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('builds canonical onboarding requests with evidence refs for seed validation', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: false });
+
+    try {
+      const requests = buildOnboardingRequests(brain, getOnboardingDefaults(brain));
+
+      expect(requests).toHaveLength(5);
+      expect(requests.every((request) => request.source === 'onboarding')).toBe(true);
+      expect(requests.every((request) => (request.evidence_ref?.length ?? 0) > 0)).toBe(true);
+      expect(requests.every((request) => request.confirmed_by_user === true)).toBe(true);
     } finally {
       cleanup();
     }

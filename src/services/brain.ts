@@ -1,9 +1,11 @@
 import type {
+  BrainOpenOptions,
   CandidateTrace,
   CompletionProofState,
   ConsultCitation,
   ConsultRequest,
   ConsultResponse,
+  CuratedMemoryInput,
   FailureInput,
   LearnRequest,
   LearnResult,
@@ -12,6 +14,7 @@ import type {
   MissionOutcomeInput,
   MissionRecord,
   MissionStatus,
+  RetrievalTraceRecord,
   RetrievalContribution,
   RuntimeConfig,
   VerificationArtifact,
@@ -104,9 +107,12 @@ export class BestBrain {
     this.store = new BrainStore(config);
   }
 
-  static async open(overrides: Partial<RuntimeConfig> = {}): Promise<BestBrain> {
+  static async open(options: BrainOpenOptions = {}): Promise<BestBrain> {
+    const { seedDefaults = true, ...overrides } = options;
     const brain = new BestBrain(createRuntimeConfig(overrides));
-    await ensureDefaultSeedData(brain);
+    if (seedDefaults) {
+      await ensureDefaultSeedData(brain);
+    }
     return brain;
   }
 
@@ -123,28 +129,40 @@ export class BestBrain {
     };
   }
 
-  private buildMemoryRecord(request: LearnRequest, timestamp: number, status: MemoryRecord['status'], verifiedBy: MemoryRecord['verified_by']): MemoryRecord {
-    const rule = getLearningRule(request.mode);
-    const lifecycle = deriveLifecycle(rule.memoryType, timestamp);
+  private buildStoredMemoryRecord(input: {
+    title: string;
+    content: string;
+    source: string;
+    confidence?: number;
+    owner?: string;
+    domain?: string | null;
+    reusable?: boolean;
+    mission_id?: string | null;
+    tags?: string[];
+    supersedes?: string | null;
+    evidence_ref?: VerificationArtifact[];
+    memory_type: MemoryRecord['memory_type'];
+  }, timestamp: number, status: MemoryRecord['status'], verifiedBy: MemoryRecord['verified_by']): MemoryRecord {
+    const lifecycle = deriveLifecycle(input.memory_type, timestamp);
 
     return {
       id: createId('mem'),
-      title: request.title.trim(),
-      content: request.content.trim(),
-      summary: summarizeText(request.content),
-      memory_type: rule.memoryType,
-      source: request.source?.trim() || request.mode,
-      confidence: request.confidence ?? 0.7,
-      owner: request.owner?.trim() || this.config.owner,
-      domain: request.domain?.trim() || null,
-      reusable: request.reusable ?? true,
-      supersedes: request.supersedes ?? null,
+      title: input.title.trim(),
+      content: input.content.trim(),
+      summary: summarizeText(input.content),
+      memory_type: input.memory_type,
+      source: input.source.trim(),
+      confidence: input.confidence ?? 0.7,
+      owner: input.owner?.trim() || this.config.owner,
+      domain: input.domain?.trim() || null,
+      reusable: input.reusable ?? true,
+      supersedes: input.supersedes ?? null,
       superseded_by: null,
-      mission_id: request.mission_id ?? null,
-      tags: Array.from(new Set((request.tags ?? []).map((tag) => tag.trim()).filter(Boolean))),
+      mission_id: input.mission_id ?? null,
+      tags: Array.from(new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean))),
       status,
       verified_by: verifiedBy,
-      evidence_ref: uniqueArtifacts(request.evidence_ref ?? []),
+      evidence_ref: uniqueArtifacts(input.evidence_ref ?? []),
       version: 1,
       review_due_at: lifecycle.review_due_at,
       stale_after_at: lifecycle.stale_after_at,
@@ -154,6 +172,24 @@ export class BestBrain {
       created_at: timestamp,
       updated_at: timestamp,
     };
+  }
+
+  private buildMemoryRecord(request: LearnRequest, timestamp: number, status: MemoryRecord['status'], verifiedBy: MemoryRecord['verified_by']): MemoryRecord {
+    const rule = getLearningRule(request.mode);
+    return this.buildStoredMemoryRecord({
+      title: request.title,
+      content: request.content,
+      source: request.source?.trim() || request.mode,
+      confidence: request.confidence,
+      owner: request.owner,
+      domain: request.domain,
+      reusable: request.reusable,
+      mission_id: request.mission_id,
+      tags: request.tags,
+      supersedes: request.supersedes,
+      evidence_ref: request.evidence_ref,
+      memory_type: rule.memoryType,
+    }, timestamp, status, verifiedBy);
   }
 
   async learn(request: LearnRequest): Promise<LearnResult> {
@@ -271,6 +307,158 @@ export class BestBrain {
     };
   }
 
+  async saveCuratedMemory(input: CuratedMemoryInput): Promise<LearnResult> {
+    const timestamp = nowMs();
+    const title = input.title.trim();
+    const content = input.content.trim();
+    if (!title) {
+      return {
+        accepted: false,
+        action: 'rejected',
+        reason: 'title is required',
+        memory_id: null,
+        memory_type: null,
+        status: null,
+      };
+    }
+    if (!content) {
+      return {
+        accepted: false,
+        action: 'rejected',
+        reason: 'content is required',
+        memory_id: null,
+        memory_type: null,
+        status: null,
+      };
+    }
+    if (['Persona', 'Preferences'].includes(input.memory_type) && input.confirmed_by_user !== true) {
+      return {
+        accepted: false,
+        action: 'rejected',
+        reason: `${input.memory_type} curated memories require confirmed_by_user=true`,
+        memory_id: null,
+        memory_type: null,
+        status: null,
+      };
+    }
+
+    const confirmed =
+      input.confirmed_by_user === true
+      || ['user', 'test', 'verifier', 'trusted_import'].includes(input.verified_by ?? '');
+    const status = input.status ?? (
+      input.memory_type === 'FailureMemory'
+        ? (confirmed ? 'active' : 'candidate')
+        : 'active'
+    );
+    const verifiedBy = input.verified_by ?? (
+      confirmed
+        ? (['Persona', 'Preferences', 'Procedures', 'DomainMemory', 'RepoMemory'].includes(input.memory_type) ? 'trusted_import' : 'system_inference')
+        : 'system_inference'
+    );
+    const allowsAutoMerge = !['MissionMemory', 'FailureMemory'].includes(input.memory_type);
+    const mergeCandidate = allowsAutoMerge
+      ? this.store.findMergeCandidate(title, input.memory_type, input.domain ?? null, input.mission_id ?? null)
+      : null;
+
+    if (mergeCandidate && mergeCandidate.content.trim() === content) {
+      const merged = this.store.touchMergedMemory(
+        mergeCandidate.id,
+        {
+          confidence: Math.max(mergeCandidate.confidence, input.confidence ?? mergeCandidate.confidence),
+          source: input.source.trim(),
+          summary: summarizeText(content),
+          evidence_ref: uniqueArtifacts([...mergeCandidate.evidence_ref, ...(input.evidence_ref ?? [])]),
+          verified_by: verifiedBy,
+          status,
+        },
+        `Merged curated ${input.memory_type} memory`,
+      );
+
+      this.store.insertLearningEvent({
+        mode: `curated_${input.memory_type}`,
+        memoryId: merged.id,
+        missionId: merged.mission_id,
+        action: 'merged',
+        accepted: true,
+        reason: 'merged duplicate curated memory',
+        payload: input,
+        createdAt: timestamp,
+      });
+
+      return {
+        accepted: true,
+        action: 'merged',
+        reason: 'merged duplicate curated memory',
+        memory_id: merged.id,
+        memory_type: merged.memory_type,
+        status: merged.status,
+      };
+    }
+
+    const next = this.buildStoredMemoryRecord({
+      title,
+      content,
+      source: input.source,
+      confidence: input.confidence,
+      owner: input.owner,
+      domain: input.domain,
+      reusable: input.reusable,
+      mission_id: input.mission_id,
+      tags: input.tags,
+      supersedes: input.supersedes,
+      evidence_ref: input.evidence_ref,
+      memory_type: input.memory_type,
+    }, timestamp, status, verifiedBy);
+
+    if (input.supersedes) {
+      this.store.supersedeMemory(input.supersedes, next.id, timestamp);
+    } else if (mergeCandidate) {
+      next.supersedes = mergeCandidate.id;
+      this.store.supersedeMemory(mergeCandidate.id, next.id, timestamp);
+    }
+
+    this.store.insertMemory(next, `Created curated ${input.memory_type} memory`);
+
+    if (next.supersedes) {
+      this.store.insertEdge(next.id, next.supersedes, 'derived_from', 1, { mode: `curated_${input.memory_type}` }, timestamp);
+    }
+
+    if (next.mission_id) {
+      this.store.insertEdge(next.id, next.mission_id, 'belongs_to_mission', 1, { mode: `curated_${input.memory_type}` }, timestamp);
+    }
+
+    if (next.evidence_ref.length > 0) {
+      this.store.registerVerificationArtifacts({
+        missionId: next.mission_id,
+        verificationRunId: null,
+        memoryId: next.id,
+        artifacts: next.evidence_ref,
+        sourceKind: 'memory_reference',
+        createdAt: timestamp,
+      });
+    }
+
+    this.store.insertLearningEvent({
+      mode: `curated_${input.memory_type}`,
+      memoryId: next.id,
+      missionId: next.mission_id,
+      action: next.supersedes ? 'updated' : 'created',
+      accepted: true,
+      reason: next.supersedes ? 'created successor curated memory' : 'created new curated memory',
+      payload: input,
+      createdAt: timestamp,
+    });
+
+    return {
+      accepted: true,
+      action: next.supersedes ? 'updated' : 'created',
+      reason: next.supersedes ? 'created successor curated memory' : 'created new curated memory',
+      memory_id: next.id,
+      memory_type: next.memory_type,
+      status: next.status,
+    };
+  }
+
   private retrieve(request: ConsultRequest, persistTrace: boolean): RetrievalResult {
     const timestamp = nowMs();
     this.store.runMaintenance(timestamp);
@@ -283,6 +471,7 @@ export class BestBrain {
     const duplicateKeys = new Map<string, string>();
 
     for (const memory of this.store.listMemories()) {
+      const linkedMission = memory.mission_id ? this.store.getMission(memory.mission_id) : null;
       const whyIncluded: string[] = [];
       const whyExcluded: string[] = [];
       const rankingContribution: RetrievalContribution[] = [];
@@ -327,10 +516,21 @@ export class BestBrain {
       } else if (request.mission_id && memory.mission_id && memory.mission_id !== request.mission_id) {
         rankingContribution.push({ rule: 'other_mission', delta: -8 });
       }
+      if (intent === 'recent_mission' && linkedMission?.status === 'verified_complete') {
+        rankingContribution.push({ rule: 'verified_mission_state', delta: 20 });
+        whyIncluded.push('mission is verified_complete');
+      } else if (intent === 'recent_mission' && linkedMission && linkedMission.status !== 'verified_complete') {
+        rankingContribution.push({ rule: 'unverified_mission_penalty', delta: -10 });
+        whyExcluded.push('mission not verified_complete');
+      }
 
       if (memory.verified_by && memory.verified_by !== 'system_inference') {
         rankingContribution.push({ rule: 'verified_signal', delta: 8 });
         whyIncluded.push(`verified by ${memory.verified_by}`);
+      }
+      if (memory.memory_type === 'MissionMemory' && memory.verified_by === 'verifier') {
+        rankingContribution.push({ rule: 'verified_mission_bonus', delta: 16 });
+        whyIncluded.push('latest verified mission memory');
       }
       if (memory.evidence_ref.length > 0) {
         rankingContribution.push({ rule: 'has_evidence', delta: 4 });
@@ -344,6 +544,10 @@ export class BestBrain {
         rankingContribution.push({ rule: 'recent_priority', delta: Math.max(0, 12 - ageDays / 7) });
       } else if (ageDays < 30) {
         rankingContribution.push({ rule: 'freshness', delta: 4 });
+      }
+      if (intent === 'recent_mission' && linkedMission?.completed_at) {
+        const missionAgeDays = Math.max(0, (timestamp - linkedMission.completed_at) / daysToMs(1));
+        rankingContribution.push({ rule: 'verified_mission_recency', delta: Math.max(0, 12 - missionAgeDays / 7) });
       }
 
       if (memory.stale_after_at && memory.stale_after_at <= timestamp) {
@@ -368,6 +572,7 @@ export class BestBrain {
         memory_id: memory.id,
         title: memory.title,
         memory_type: memory.memory_type,
+        source: memory.source,
         score,
         why_included: whyIncluded,
         why_excluded: whyExcluded,
@@ -467,6 +672,10 @@ export class BestBrain {
 
   getVerificationArtifactRegistry(missionId: string | null): VerificationArtifactRegistrySnapshot {
     return this.store.getVerificationArtifactRegistrySnapshot(missionId);
+  }
+
+  getRetrievalTrace(traceId: string): RetrievalTraceRecord | null {
+    return this.store.getRetrievalTrace(traceId);
   }
 
   private getPlanningHints(): string[] {
