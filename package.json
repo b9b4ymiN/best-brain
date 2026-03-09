@@ -1,0 +1,25 @@
+{
+  "name": "best-brain",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Mission-ready personal brain built on top of a vendored oracle-v2 core.",
+  "scripts": {
+    "dev": "bun src/mcp/index.ts",
+    "server": "bun src/server.ts",
+    "test": "bun test tests/config.test.ts tests/brain.test.ts tests/http.test.ts",
+    "typecheck": "tsc --noEmit",
+    "seed:persona": "bun scripts/seed-persona.ts",
+    "eval:consult": "bun scripts/run-consult-eval.ts",
+    "oracle-core:test": "bun test --cwd brain/oracle-core src/integration/database.test.ts",
+    "oracle-core:server": "bun run --cwd brain/oracle-core server"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "hono": "^4.11.3"
+  },
+  "devDependencies": {
+    "bun-types": "^1.3.6",
+    "typescript": "^5.7.2"
+  }
+}

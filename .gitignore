@@ -1,0 +1,13 @@
+node_modules/
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.db
+*.db-shm
+*.db-wal
+.tmp/
+.best-brain/
+brain/oracle-core/node_modules/
+brain/oracle-core/frontend/node_modules/
+brain/oracle-core/.git.vendored/
