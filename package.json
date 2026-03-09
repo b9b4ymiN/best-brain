@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Mission-ready personal brain built on top of a vendored oracle-v2 core.",
+  "description": "Local AI work operating system with a persona brain, mission manager, and local worker runtime.",
   "scripts": {
     "dev": "bun src/mcp/index.ts",
     "server": "bun src/server.ts",

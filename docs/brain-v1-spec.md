@@ -1,5 +1,11 @@
 # Brain v1 Spec
 
+This document is the subsystem spec for `Brain v1`. It is not the whole product vision. The broader project concept now lives in:
+
+- `docs/vision/final-concept.md`
+- `docs/architecture/system-overview.md`
+- `docs/roadmap/master-plan.md`
+
 ## Mission-ready Brain
 
 In `best-brain`, `Mission-ready Brain` means the system can:

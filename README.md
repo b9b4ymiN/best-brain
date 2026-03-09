@@ -1,35 +1,76 @@
 # best-brain
 
-`best-brain` is a local-first mission-ready personal brain. It stores persona, memory, mission context, verification state, and durable lessons in one place. It is not a manager or worker orchestrator yet; it exposes stable HTTP and MCP contracts so a future manager layer can call into the brain.
+`best-brain` is a local-first AI work operating system.
 
-## What v1 means
+Its final concept is:
 
-`Mission-ready Brain` in this repo means:
+> think like me, work for me, finish for real
 
-- it can store mission context and mission history
-- it can track verification state and proof artifacts
-- it can return planning hints and preferred report format
-- it can store outcomes and failure lessons
-- it can separate working memory from durable memory
-- it is callable by a future manager, but it is not the manager itself
+In concrete terms, `best-brain` is meant to become:
 
-## Manager alpha
+- a persona-aware personal brain
+- an AI mission manager
+- a worker fabric for tools such as Claude Code, Codex, Browser, Shell, and Mail
+- a local runtime that can act on the user's machine
+- a control surface for inspecting, steering, and approving work
 
-Manager alpha is now available as a CLI-first layer on top of the brain HTTP contract. It is intentionally thin:
+The repo does not implement the whole target system yet. The current state is:
 
-- it classifies goals into `chat`, `task`, or `mission`
-- it consults the brain over HTTP before acting
-- it supports one primary worker at a time: `claude` or `codex`
-- it owns the verification gate and proof-chain write-back
-- it is not a swarm, browser manager, mail agent, or autonomous daemon
+- `Brain v1`: implemented and verified
+- `Manager alpha`: implemented as a CLI-first, HTTP-backed manager with one primary worker at a time
+- `Worker swarm`, `runtime OS`, and `control room UI`: only partially present or still planned
+
+## Final concept
+
+`best-brain` is not a chatbot, not a thin agent wrapper, and not a generic orchestration tool.
+
+It is intended to be:
+
+- a local AI operating system that embodies the user's persona
+- a system that chooses between chat, task, and mission execution paths
+- a manager that does not trust worker claims of completion without proof
+- a local operator that can read files, run commands, inspect outputs, and close work with evidence
+
+Non-negotiable rules:
+
+- local-first by default
+- a single user goal can trigger a full mission flow
+- Claude Code and Codex are workers, not the main identity
+- personal brain is the source of truth
+- large work requires verification loops
+- `done` must be proven, not merely asserted
+
+## Current implementation boundary
+
+What exists now:
+
+- brain HTTP and MCP contracts
+- persona, preference, mission, failure, and verification memory
+- manager alpha with `chat`, `task`, and `mission` routing
+- one-primary-worker execution with `claude` or `codex`
+- proof-chain persistence: outcome, verification start, verification complete, failure lesson
+
+What does not exist yet:
+
+- worker swarm orchestration
+- browser worker, mail worker, or full runtime operator layer
+- control room web UI
+- autonomous multi-step operator mode
+- full repair-loop maturity across multiple workers
+
+## Modes
+
+- `Chat Mode`: answer, explain, summarize, brainstorm
+- `Task Mode`: bounded work with one or two workers and light verification
+- `Mission Mode`: planning, execution, verification, repair, and final proof of done
 
 ## Layout
 
 - `brain/oracle-core`: vendored `oracle-v2` pinned for internal divergence
-- `src`: runtime, schema, policies, eval helpers, services, transports
-- `scripts`: onboarding, eval, MCP smoke, Claude smoke, seed helpers
-- `tests`: contract, retrieval, onboarding, eval, MCP, and HTTP tests
-- `docs`: frozen brain-v1 spec, memory model, retention, verification, transport, exit criteria
+- `src`: current implementation for brain, manager alpha, transports, policies, and eval helpers
+- `scripts`: onboarding, eval, manager/operator smokes, MCP/Claude smokes, seed helpers
+- `tests`: contract, retrieval, onboarding, eval, MCP, HTTP, and manager tests
+- `docs`: project vision, system architecture, roadmap, brain-v1 subsystem specs, and transport contracts
 
 ## Install and run
 
@@ -38,9 +79,9 @@ bun install
 bun run server
 ```
 
-The HTTP server defaults to `http://localhost:47888`.
+The brain HTTP server defaults to `http://localhost:47888`.
 
-## Operator commands
+## Current operator commands
 
 ```bash
 bun run typecheck
@@ -61,9 +102,9 @@ bun run smoke:manager:claude
 bun run smoke:manager:codex
 ```
 
-## HTTP contract
+## Current entrypoints
 
-Current v1 endpoints:
+Brain HTTP:
 
 - `GET /health`
 - `POST /brain/consult`
@@ -75,17 +116,7 @@ Current v1 endpoints:
 - `POST /verification/complete`
 - `GET /preferences/format`
 
-Contract semantics:
-
-- policy rejection on `/brain/learn` stays `200` with `accepted=false`
-- malformed input and invalid transitions return `400 { "error": "..." }`
-- `verified_complete` requires evidence and passing verification checks
-- consult responses include first-class `citations[]`
-- mission context includes `verification_artifacts[]`
-
-## MCP contract
-
-Tracked project-scoped config lives in [`.mcp.json`](./.mcp.json). Current tool names:
+Brain MCP:
 
 - `brain_consult`
 - `brain_learn`
@@ -94,11 +125,13 @@ Tracked project-scoped config lives in [`.mcp.json`](./.mcp.json). Current tool 
 - `brain_save_failure`
 - `brain_verify`
 
-Tool errors return `isError=true` with a short text message. Set `BEST_BRAIN_MCP_DEBUG=1` to emit debug logs to `stderr`.
+Manager CLI:
+
+- `bun run manager -- "<goal>"`
 
 ## Normal usage
 
-### HTTP flow
+### Brain HTTP flow
 
 1. `bun run server`
 2. Call `/brain/consult` for grounded guidance
@@ -142,6 +175,24 @@ Manager alpha always uses the brain HTTP API as its canonical adapter. It will a
 
 For note-only missions, manager alpha can normalize usable freeform worker output into a note artifact plus a verification check. That keeps analysis-style `claude` and `codex` runs verifiable without pretending a file or test artifact exists.
 
+## Repo direction
+
+The target system architecture has five long-term pillars:
+
+- `Persona Brain`
+- `AI Mission Manager`
+- `Worker Swarm`
+- `Runtime OS`
+- `Control Surface`
+
+The current repo is strongest in the first two:
+
+- `Persona Brain`: real implementation
+- `Mission Manager`: alpha implementation
+- `Worker Swarm`: early adapters only
+- `Runtime OS`: still emerging
+- `Control Surface`: not built yet
+
 ## Manager examples
 
 Generated manager-facing examples live in `docs/examples/manager/`. Refresh them with:
@@ -152,6 +203,9 @@ bun run examples:manager
 
 ## Docs
 
+- [Final Concept](./docs/vision/final-concept.md)
+- [System Overview](./docs/architecture/system-overview.md)
+- [Master Roadmap](./docs/roadmap/master-plan.md)
 - [Brain Spec](./docs/brain-v1-spec.md)
 - [Memory Model](./docs/memory-model.md)
 - [Retention Lifecycle](./docs/retention-lifecycle.md)
