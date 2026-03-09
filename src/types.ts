@@ -87,6 +87,34 @@ export interface CompletionProofState {
   checks_total: number;
 }
 
+export interface ConsultCitation {
+  memory_id: string;
+  title: string;
+  memory_type: MemoryType;
+  summary: string;
+  source: string;
+  verified_by: VerifiedBy | null;
+  evidence_ref: VerificationArtifact[];
+}
+
+export interface VerificationArtifactRecord {
+  id: string;
+  mission_id: string | null;
+  verification_run_id: string | null;
+  memory_id: string | null;
+  artifact_type: VerificationArtifact['type'];
+  artifact_ref: string;
+  artifact_description: string | null;
+  source_kind: 'mission_outcome' | 'verification_complete' | 'failure_lesson' | 'memory_reference';
+  created_at: number;
+}
+
+export interface VerificationArtifactRegistrySnapshot {
+  mission_id: string | null;
+  artifacts: VerificationArtifactRecord[];
+  orphan_count: number;
+}
+
 export interface MemoryRecord {
   id: string;
   title: string;
@@ -166,6 +194,7 @@ export interface CandidateTrace {
 export interface ConsultResponse {
   answer: string;
   memory_ids: string[];
+  citations: ConsultCitation[];
   policy_path: string;
   confidence_band: 'low' | 'medium' | 'high';
   followup_actions: string[];
@@ -228,6 +257,7 @@ export interface MissionContextBundle {
   planning_hints: string[];
   preferred_format: string;
   verification_state: CompletionProofState | null;
+  verification_artifacts: VerificationArtifactRecord[];
 }
 
 export interface VerificationStartInput {

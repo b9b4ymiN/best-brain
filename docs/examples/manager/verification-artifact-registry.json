@@ -1,0 +1,28 @@
+{
+  "mission_id": "manager-example-mission",
+  "artifacts": [
+    {
+      "id": "vart_a7865677-76f4-486c-8c04-e9678c888193",
+      "mission_id": "manager-example-mission",
+      "verification_run_id": "vrun_e006b24c-dafd-4509-a8c2-379ac57a0679",
+      "memory_id": "mem_d1bd009f-ab32-4796-af12-4ac4f9747fcc",
+      "artifact_type": "note",
+      "artifact_ref": "example://mission-proof",
+      "artifact_description": "Example proof note",
+      "source_kind": "verification_complete",
+      "created_at": 1773067058540
+    },
+    {
+      "id": "vart_eec2771d-219d-49e8-b390-e2c47587b37d",
+      "mission_id": "manager-example-mission",
+      "verification_run_id": null,
+      "memory_id": "mem_d1bd009f-ab32-4796-af12-4ac4f9747fcc",
+      "artifact_type": "note",
+      "artifact_ref": "example://mission-proof",
+      "artifact_description": "Example proof note",
+      "source_kind": "mission_outcome",
+      "created_at": 1773067058536
+    }
+  ],
+  "orphan_count": 0
+}

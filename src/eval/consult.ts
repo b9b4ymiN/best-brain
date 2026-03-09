@@ -30,6 +30,7 @@ export interface ConsultEvalCaseResult {
   response: ConsultResponse;
   passed_policy_path: boolean;
   passed_top_k: boolean;
+  passed_citation_completeness: boolean;
   stale_or_superseded_leakage: number;
   matched_titles: string[];
   missing_titles: string[];
@@ -40,14 +41,18 @@ export interface ConsultEvalSummary {
   total_cases: number;
   routing_accuracy: number;
   top_k_relevance: number;
+  citation_completeness: number;
   stale_or_superseded_leakage: number;
   mission_proof_pass_rate: number;
+  orphan_evidence_count: number;
   manual_medians: ConsultEvalRubric;
   thresholds: {
     routing_accuracy: number;
     top_k_relevance: number;
+    citation_completeness: number;
     stale_or_superseded_leakage: number;
     mission_proof_pass_rate: number;
+    orphan_evidence_count: number;
     manual_median_minimum: number;
   };
   passes_v1_gate: boolean;
@@ -61,6 +66,7 @@ export interface ConsultEvalReport {
   regression_vs_baseline?: {
     routing_accuracy_delta: number;
     top_k_relevance_delta: number;
+    citation_completeness_delta: number;
     stale_or_superseded_leakage_delta: number;
     mission_proof_pass_rate_delta: number;
   } | null;
@@ -69,8 +75,10 @@ export interface ConsultEvalReport {
 export const CONSULT_EVAL_THRESHOLDS = {
   routing_accuracy: 90,
   top_k_relevance: 85,
+  citation_completeness: 95,
   stale_or_superseded_leakage: 0,
   mission_proof_pass_rate: 100,
+  orphan_evidence_count: 0,
   manual_median_minimum: 4,
 } as const;
 
@@ -155,6 +163,12 @@ export async function runConsultEvaluation(
     });
     const selectedTitles = response.selected_memories.map((memory) => memory.title);
     const matchedTitles = fixture.expected_memory_titles.filter((title) => selectedTitles.includes(title));
+    const citationCompleteness = response.citations.length === response.memory_ids.length
+      && response.citations.every((citation) => (
+        response.memory_ids.includes(citation.memory_id)
+        && citation.title.length > 0
+        && citation.source.length > 0
+      ));
     const leakage = response.selected_memories.filter((memory) => (
       memory.status === 'superseded'
       || memory.status === 'expired'
@@ -168,6 +182,7 @@ export async function runConsultEvaluation(
       response,
       passed_policy_path: response.policy_path === fixture.expected_policy_path,
       passed_top_k: matchedTitles.length > 0,
+      passed_citation_completeness: citationCompleteness,
       stale_or_superseded_leakage: leakage,
       matched_titles: matchedTitles,
       missing_titles: fixture.expected_memory_titles.filter((title) => !matchedTitles.includes(title)),
@@ -177,7 +192,9 @@ export async function runConsultEvaluation(
 
   const routingAccuracy = Number(((cases.filter((item) => item.passed_policy_path).length / cases.length) * 100).toFixed(2));
   const topKRelevance = Number(((cases.filter((item) => item.passed_top_k).length / cases.length) * 100).toFixed(2));
+  const citationCompleteness = Number(((cases.filter((item) => item.passed_citation_completeness).length / cases.length) * 100).toFixed(2));
   const staleLeakage = cases.reduce((sum, item) => sum + item.stale_or_superseded_leakage, 0);
+  const orphanEvidenceCount = brain.getVerificationArtifactRegistry(null).orphan_count;
   const proofCase = cases.find((item) => item.id === 'recent-mission-context');
   const missionProofPassRate = proofCase?.response.selected_memories.some((memory) => (
     memory.title.startsWith('Mission outcome:')
@@ -195,15 +212,19 @@ export async function runConsultEvaluation(
     total_cases: cases.length,
     routing_accuracy: routingAccuracy,
     top_k_relevance: topKRelevance,
+    citation_completeness: citationCompleteness,
     stale_or_superseded_leakage: staleLeakage,
     mission_proof_pass_rate: missionProofPassRate,
+    orphan_evidence_count: orphanEvidenceCount,
     manual_medians: manualMedians,
     thresholds: { ...CONSULT_EVAL_THRESHOLDS },
     passes_v1_gate: (
       routingAccuracy >= CONSULT_EVAL_THRESHOLDS.routing_accuracy
       && topKRelevance >= CONSULT_EVAL_THRESHOLDS.top_k_relevance
+      && citationCompleteness >= CONSULT_EVAL_THRESHOLDS.citation_completeness
       && staleLeakage === CONSULT_EVAL_THRESHOLDS.stale_or_superseded_leakage
       && missionProofPassRate >= CONSULT_EVAL_THRESHOLDS.mission_proof_pass_rate
+      && orphanEvidenceCount === CONSULT_EVAL_THRESHOLDS.orphan_evidence_count
       && manualMedians.usefulness >= CONSULT_EVAL_THRESHOLDS.manual_median_minimum
       && manualMedians.groundedness >= CONSULT_EVAL_THRESHOLDS.manual_median_minimum
       && manualMedians.persona_alignment >= CONSULT_EVAL_THRESHOLDS.manual_median_minimum
@@ -217,6 +238,7 @@ export async function runConsultEvaluation(
     regressionVsBaseline = {
       routing_accuracy_delta: Number((summary.routing_accuracy - baseline.summary.routing_accuracy).toFixed(2)),
       top_k_relevance_delta: Number((summary.top_k_relevance - baseline.summary.top_k_relevance).toFixed(2)),
+      citation_completeness_delta: Number((summary.citation_completeness - baseline.summary.citation_completeness).toFixed(2)),
       stale_or_superseded_leakage_delta: Number((summary.stale_or_superseded_leakage - baseline.summary.stale_or_superseded_leakage).toFixed(2)),
       mission_proof_pass_rate_delta: Number((summary.mission_proof_pass_rate - baseline.summary.mission_proof_pass_rate).toFixed(2)),
     };

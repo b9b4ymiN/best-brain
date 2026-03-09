@@ -98,6 +98,20 @@ export const SCHEMA_STATEMENTS = [
     completed_at INTEGER
   )`,
   `CREATE INDEX IF NOT EXISTS idx_verification_runs_mission ON verification_runs(mission_id, started_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS verification_artifacts (
+    id TEXT PRIMARY KEY,
+    mission_id TEXT,
+    verification_run_id TEXT,
+    memory_id TEXT,
+    artifact_type TEXT NOT NULL,
+    artifact_ref TEXT NOT NULL,
+    artifact_description TEXT,
+    source_kind TEXT NOT NULL,
+    created_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_verification_artifacts_mission ON verification_artifacts(mission_id, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_verification_artifacts_run ON verification_artifacts(verification_run_id, created_at DESC)`,
+  `CREATE INDEX IF NOT EXISTS idx_verification_artifacts_memory ON verification_artifacts(memory_id, created_at DESC)`,
   `CREATE TABLE IF NOT EXISTS retrieval_traces (
     id TEXT PRIMARY KEY,
     query TEXT NOT NULL,

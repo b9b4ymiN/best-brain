@@ -37,6 +37,7 @@ Brain v1 freezes current HTTP endpoints and MCP tool names as additive-only cont
 
 - `answer`
 - `memory_ids`
+- `citations`
 - `policy_path`
 - `confidence_band`
 - `followup_actions`
@@ -60,6 +61,7 @@ Brain v1 freezes current HTTP endpoints and MCP tool names as additive-only cont
 - `planning_hints`
 - `preferred_format`
 - `verification_state`
+- `verification_artifacts`
 
 ## Examples
 
@@ -69,6 +71,22 @@ Brain v1 freezes current HTTP endpoints and MCP tool names as additive-only cont
 {
   "answer": "Consult intent: preference_lookup.\n- [Preferences] Preferred report format: owner prefers concise, high-signal updates.",
   "memory_ids": ["mem_123"],
+  "citations": [
+    {
+      "memory_id": "mem_123",
+      "title": "Preferred report format",
+      "memory_type": "Preferences",
+      "summary": "owner prefers concise, high-signal updates.",
+      "source": "seed://default-preferences",
+      "verified_by": "trusted_import",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-preferences"
+        }
+      ]
+    }
+  ],
   "policy_path": "deterministic.preference_lookup.v1",
   "confidence_band": "high",
   "followup_actions": [
@@ -78,6 +96,13 @@ Brain v1 freezes current HTTP endpoints and MCP tool names as additive-only cont
   "trace_id": "trace_123"
 }
 ```
+
+Manager-facing example library:
+
+- `docs/examples/manager/consult-response.json`
+- `docs/examples/manager/mission-context-bundle.json`
+- `docs/examples/manager/completion-proof-state.json`
+- `docs/examples/manager/verification-artifact-registry.json`
 
 ### Learn policy rejection
 

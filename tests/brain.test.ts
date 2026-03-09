@@ -26,6 +26,8 @@ describe('best-brain core', () => {
       const response = await brain.consult({ query: 'If you were the owner, how should this mission start?' });
 
       expect(response.memory_ids.length).toBeGreaterThan(0);
+      expect(response.citations.length).toBe(response.memory_ids.length);
+      expect(response.citations[0]?.memory_id).toBe(response.memory_ids[0]);
       expect(response.answer).toContain('Consult intent');
 
       const trace = brain.store.sqlite.prepare('SELECT * FROM retrieval_traces WHERE id = ?').get(response.trace_id) as Record<string, string> | null;
@@ -119,6 +121,47 @@ describe('best-brain core', () => {
 
       const history = brain.store.listMissionEvents('mission-retry', 10);
       expect(history.some((event) => event.event_type === 'reopened')).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('mission context exposes verification artifacts without orphan evidence', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      await brain.saveMissionOutcome({
+        mission_id: 'mission-artifacts',
+        objective: 'Track proof artifacts',
+        result_summary: 'Mission recorded outcome evidence.',
+        evidence: [{ type: 'note', ref: 'proof://mission-artifacts', description: 'Outcome proof' }],
+        verification_checks: [{ name: 'proof', passed: true }],
+        status: 'in_progress',
+        domain: 'best-brain',
+      });
+
+      await brain.startVerification({
+        mission_id: 'mission-artifacts',
+        requested_by: 'tester',
+        checks: [{ name: 'proof', passed: true }],
+      });
+
+      await brain.completeVerification({
+        mission_id: 'mission-artifacts',
+        status: 'verified_complete',
+        summary: 'Proof artifacts linked correctly.',
+        evidence: [{ type: 'note', ref: 'proof://mission-artifacts', description: 'Outcome proof' }],
+        verification_checks: [{ name: 'proof', passed: true }],
+      });
+
+      const context = await brain.getContext({ mission_id: 'mission-artifacts', query: 'latest mission context' });
+      expect(context.verification_artifacts.length).toBeGreaterThan(0);
+      expect(context.verification_artifacts.every((artifact) => artifact.mission_id === 'mission-artifacts')).toBe(true);
+
+      const registry = brain.getVerificationArtifactRegistry('mission-artifacts');
+      expect(registry.orphan_count).toBe(0);
+      expect(registry.artifacts.some((artifact) => artifact.source_kind === 'mission_outcome')).toBe(true);
+      expect(registry.artifacts.some((artifact) => artifact.source_kind === 'verification_complete')).toBe(true);
     } finally {
       cleanup();
     }

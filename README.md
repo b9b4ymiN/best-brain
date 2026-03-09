@@ -37,6 +37,8 @@ bun run typecheck
 bun run test
 bun run onboard
 bun run eval:consult
+bun run examples:manager
+bun run smoke:bootstrap
 bun run smoke:mcp
 bun run smoke:claude
 ```
@@ -60,6 +62,8 @@ Contract semantics:
 - policy rejection on `/brain/learn` stays `200` with `accepted=false`
 - malformed input and invalid transitions return `400 { "error": "..." }`
 - `verified_complete` requires evidence and passing verification checks
+- consult responses include first-class `citations[]`
+- mission context includes `verification_artifacts[]`
 
 ## MCP contract
 
@@ -83,6 +87,7 @@ Tool errors return `isError=true` with a short text message. Set `BEST_BRAIN_MCP
 3. Call `/brain/learn` for structured writes
 4. Save mission outcome with `/missions/:id/outcome`
 5. Start and complete verification through `/verification/start` and `/verification/complete`
+6. Use `/brain/context` to retrieve mission context plus artifact registry entries
 
 ### Claude Code flow
 
@@ -96,6 +101,14 @@ For a deterministic local smoke run, use:
 
 ```bash
 bun run smoke:claude
+```
+
+## Manager examples
+
+Generated manager-facing examples live in `docs/examples/manager/`. Refresh them with:
+
+```bash
+bun run examples:manager
 ```
 
 ## Docs

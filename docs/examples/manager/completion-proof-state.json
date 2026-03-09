@@ -1,0 +1,8 @@
+{
+  "mission_id": "manager-example-mission",
+  "status": "verified_complete",
+  "verification_run_id": "vrun_e006b24c-dafd-4509-a8c2-379ac57a0679",
+  "evidence_count": 1,
+  "checks_passed": 1,
+  "checks_total": 1
+}

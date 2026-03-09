@@ -49,6 +49,7 @@ Every memory record carries:
 - `verified_by` identifies why a memory is trusted
 - supported values: `user`, `test`, `verifier`, `trusted_import`, `system_inference`
 - `evidence_ref` points to artifacts that can be checked later, such as test output, file paths, proof notes, or import IDs
+- durable proof references are also normalized into the `verification_artifacts` registry for mission-aware lookup
 
 ## Versioning and superseding
 
@@ -84,5 +85,6 @@ Primary tables:
 - `missions`
 - `mission_events`
 - `verification_runs`
+- `verification_artifacts`
 - `retrieval_traces`
 - `learning_events`

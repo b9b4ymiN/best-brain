@@ -9,6 +9,8 @@ import type {
   MissionStatus,
   RuntimeConfig,
   VerificationArtifact,
+  VerificationArtifactRecord,
+  VerificationArtifactRegistrySnapshot,
   VerificationCheck,
 } from '../types.ts';
 import { parseJson, toJson } from '../utils/json.ts';
@@ -77,6 +79,20 @@ function asMissionEventRecord(row: RawRow): MissionEventRecord {
   };
 }
 
+function asVerificationArtifactRecord(row: RawRow): VerificationArtifactRecord {
+  return {
+    id: String(row.id),
+    mission_id: row.mission_id ? String(row.mission_id) : null,
+    verification_run_id: row.verification_run_id ? String(row.verification_run_id) : null,
+    memory_id: row.memory_id ? String(row.memory_id) : null,
+    artifact_type: row.artifact_type as VerificationArtifactRecord['artifact_type'],
+    artifact_ref: String(row.artifact_ref),
+    artifact_description: row.artifact_description ? String(row.artifact_description) : null,
+    source_kind: row.source_kind as VerificationArtifactRecord['source_kind'],
+    created_at: Number(row.created_at),
+  };
+}
+
 export class BrainStore {
   readonly config: RuntimeConfig;
   readonly sqlite: Database;
@@ -99,7 +115,7 @@ export class BrainStore {
       this.sqlite.exec(statement);
     }
 
-    this.setSetting('schema_version', '1');
+    this.setSetting('schema_version', '2');
     this.setSetting('vendor.oracle_core_commit', 'd355e31cb64bd8d5b296f9c3c1d325386cc79834');
   }
 
@@ -429,6 +445,53 @@ export class BrainStore {
       .run(status, summary, toJson(evidence), toJson(checks), completedAt, runId);
   }
 
+  registerVerificationArtifacts(input: {
+    missionId: string | null;
+    verificationRunId: string | null;
+    memoryId: string | null;
+    artifacts: VerificationArtifact[];
+    sourceKind: VerificationArtifactRecord['source_kind'];
+    createdAt: number;
+  }): VerificationArtifactRecord[] {
+    const created: VerificationArtifactRecord[] = [];
+
+    for (const artifact of input.artifacts) {
+      const record: VerificationArtifactRecord = {
+        id: createId('vart'),
+        mission_id: input.missionId,
+        verification_run_id: input.verificationRunId,
+        memory_id: input.memoryId,
+        artifact_type: artifact.type,
+        artifact_ref: artifact.ref,
+        artifact_description: artifact.description ?? null,
+        source_kind: input.sourceKind,
+        created_at: input.createdAt,
+      };
+
+      this.sqlite
+        .prepare(
+          `INSERT INTO verification_artifacts (
+            id, mission_id, verification_run_id, memory_id, artifact_type, artifact_ref, artifact_description, source_kind, created_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          record.id,
+          record.mission_id,
+          record.verification_run_id,
+          record.memory_id,
+          record.artifact_type,
+          record.artifact_ref,
+          record.artifact_description,
+          record.source_kind,
+          record.created_at,
+        );
+
+      created.push(record);
+    }
+
+    return created;
+  }
+
   getVerificationRun(runId: string): (RawRow & { evidence_ref: string; verification_checks: string }) | null {
     return this.sqlite.prepare('SELECT * FROM verification_runs WHERE id = ?').get(runId) as (RawRow & {
       evidence_ref: string;
@@ -535,6 +598,35 @@ export class BrainStore {
       )
       .all(limit) as RawRow[];
     return rows.map(asMemoryRecord);
+  }
+
+  listVerificationArtifactsForMission(missionId: string): VerificationArtifactRecord[] {
+    const rows = this.sqlite
+      .prepare('SELECT * FROM verification_artifacts WHERE mission_id = ? ORDER BY created_at DESC')
+      .all(missionId) as RawRow[];
+    return rows.map(asVerificationArtifactRecord);
+  }
+
+  listVerificationArtifactsForMemory(memoryId: string): VerificationArtifactRecord[] {
+    const rows = this.sqlite
+      .prepare('SELECT * FROM verification_artifacts WHERE memory_id = ? ORDER BY created_at DESC')
+      .all(memoryId) as RawRow[];
+    return rows.map(asVerificationArtifactRecord);
+  }
+
+  getVerificationArtifactRegistrySnapshot(missionId: string | null): VerificationArtifactRegistrySnapshot {
+    const artifacts = missionId
+      ? this.listVerificationArtifactsForMission(missionId)
+      : [];
+    const orphanRow = this.sqlite
+      .prepare('SELECT COUNT(*) AS count FROM verification_artifacts WHERE mission_id IS NULL')
+      .get() as RawRow | null;
+
+    return {
+      mission_id: missionId,
+      artifacts,
+      orphan_count: Number(orphanRow?.count ?? 0),
+    };
   }
 
   getCompletionProofState(missionId: string): CompletionProofState | null {

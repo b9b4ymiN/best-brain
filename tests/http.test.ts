@@ -19,9 +19,14 @@ describe('http routes', () => {
       });
 
       expect(consult.status).toBe(200);
-      const payload = await consult.json() as { policy_path: string; memory_ids: string[] };
+      const payload = await consult.json() as {
+        policy_path: string;
+        memory_ids: string[];
+        citations: Array<{ memory_id: string }>;
+      };
       expect(payload.policy_path).toContain('deterministic');
       expect(Array.isArray(payload.memory_ids)).toBe(true);
+      expect(payload.citations.length).toBe(payload.memory_ids.length);
     } finally {
       cleanup();
     }

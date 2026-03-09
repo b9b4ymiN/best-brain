@@ -26,6 +26,31 @@ describe('transport contracts', () => {
     ]);
   });
 
+  test('consult responses include first-class citations for manager callers', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      const app = createApp(brain);
+      const response = await app.request('/brain/consult', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ query: 'What report format does the owner prefer?' }),
+      });
+
+      expect(response.status).toBe(200);
+      const payload = await response.json() as {
+        memory_ids: string[];
+        citations: Array<{ memory_id: string; title: string; source: string }>;
+        trace_id: string;
+      };
+      expect(payload.citations.length).toBe(payload.memory_ids.length);
+      expect(payload.citations.every((citation) => citation.title.length > 0 && citation.source.length > 0)).toBe(true);
+      expect(payload.trace_id.startsWith('trace_')).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
   test('learn policy rejection remains a 200 response with accepted=false', async () => {
     const { brain, cleanup } = await createTestBrain();
 

@@ -44,6 +44,7 @@ Checks are stored in `verification_runs.verification_checks`.
 ## Verification side effects
 
 - verification writes to `verification_runs`
+- evidence is normalized into the `verification_artifacts` registry
 - mission history receives `verification_started`, `verification_completed`, and `reopened` events
 - verified mission outcome memory is upgraded with `verified_by=verifier` and merged evidence
 
@@ -55,3 +56,4 @@ Every completed mission needs:
 - one or more passing verification checks
 - a persisted mission outcome
 - a completion proof state that reports `verified_complete`
+- registry entries that link artifacts back to the mission and, when available, the verification run and outcome memory

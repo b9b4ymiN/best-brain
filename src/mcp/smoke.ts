@@ -10,6 +10,11 @@ export interface McpSmokeResult {
     policy_path: string;
     confidence_band: string;
     memory_ids: string[];
+    citations: Array<{
+      memory_id: string;
+      title: string;
+      source: string;
+    }>;
   };
   learn_reject: {
     accepted: boolean;
@@ -86,6 +91,11 @@ export async function runMcpSmoke(options: {
       policy_path: string;
       confidence_band: string;
       memory_ids: string[];
+      citations: Array<{
+        memory_id: string;
+        title: string;
+        source: string;
+      }>;
     }>(await client.callTool({
       name: 'brain_consult',
       arguments: { query: 'What report format does the owner prefer?' },

@@ -1,0 +1,342 @@
+{
+  "mission": {
+    "id": "manager-example-mission",
+    "objective": "Demonstrate manager-facing brain contracts",
+    "domain": "best-brain",
+    "status": "verified_complete",
+    "planning_hints": [
+      "Clarify the goal, list constraints, define proof of done, execute in reversible steps, and run verification before finalizing.",
+      "Start by clarifying goal, constraints, current state, and proof of done. Split work into reversible steps and preserve retrieval traces for important decisions.",
+      "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete."
+    ],
+    "preferred_format": "example-owner prefers concise, high-signal updates with status, proof, and next actions.",
+    "verification_required": true,
+    "latest_outcome_memory_id": "mem_d1bd009f-ab32-4796-af12-4ac4f9747fcc",
+    "created_at": 1773067058531,
+    "updated_at": 1773067058539,
+    "started_at": 1773067058535,
+    "completed_at": 1773067058539,
+    "rejected_reason": null
+  },
+  "history": [
+    {
+      "id": "mevent_37edea83-cdb0-493f-97bd-fcf46c6f72c8",
+      "mission_id": "manager-example-mission",
+      "event_type": "verification_completed",
+      "actor": "verifier",
+      "detail": "Verification finished with status verified_complete.",
+      "data": {
+        "verification_run_id": "vrun_e006b24c-dafd-4509-a8c2-379ac57a0679",
+        "evidence": [
+          {
+            "type": "note",
+            "ref": "example://mission-proof",
+            "description": "Example proof note"
+          }
+        ],
+        "checks": [
+          {
+            "name": "example-check",
+            "passed": true,
+            "detail": "Example verification passed"
+          }
+        ]
+      },
+      "created_at": 1773067058540
+    },
+    {
+      "id": "mevent_aa4c2d38-b819-4009-b5a4-c68ec3e2ff2f",
+      "mission_id": "manager-example-mission",
+      "event_type": "verification_started",
+      "actor": "manager-example",
+      "detail": "Verification loop started.",
+      "data": {
+        "verification_run_id": "vrun_e006b24c-dafd-4509-a8c2-379ac57a0679",
+        "checks": [
+          {
+            "name": "example-check",
+            "passed": true,
+            "detail": "Example verification passed"
+          }
+        ]
+      },
+      "created_at": 1773067058538
+    },
+    {
+      "id": "mevent_362377e5-b125-4849-8609-5cecf1e981c8",
+      "mission_id": "manager-example-mission",
+      "event_type": "outcome_saved",
+      "actor": "brain",
+      "detail": "Mission outcome recorded and mission moved to in_progress.",
+      "data": {
+        "outcome_memory_id": "mem_d1bd009f-ab32-4796-af12-4ac4f9747fcc",
+        "checks": [
+          {
+            "name": "example-check",
+            "passed": true,
+            "detail": "Example verification passed"
+          }
+        ],
+        "evidence": [
+          {
+            "type": "note",
+            "ref": "example://mission-proof",
+            "description": "Example proof note"
+          }
+        ]
+      },
+      "created_at": 1773067058535
+    }
+  ],
+  "working_memory": [
+    {
+      "id": "mem_d1bd009f-ab32-4796-af12-4ac4f9747fcc",
+      "title": "Mission outcome: Demonstrate manager-facing brain contracts",
+      "content": "Objective: Demonstrate manager-facing brain contracts\nResult: The mission produced a grounded consult response and a verified outcome.\nEvidence: note:example://mission-proof\nVerification checks: example-check=pass",
+      "summary": "Objective: Demonstrate manager-facing brain contracts Result: The mission produced a grounded consult response and a verified outcome. Evidence: note:example://mission-proof Ver...",
+      "memory_type": "MissionMemory",
+      "source": "mission_outcome",
+      "confidence": 0.95,
+      "owner": "example-owner",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": "manager-example-mission",
+      "tags": [
+        "mission",
+        "outcome"
+      ],
+      "status": "active",
+      "verified_by": "verifier",
+      "evidence_ref": [
+        {
+          "type": "note",
+          "ref": "example://mission-proof",
+          "description": "Example proof note"
+        }
+      ],
+      "version": 2,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": 1788619058532,
+      "expires_at": null,
+      "archived_at": null,
+      "created_at": 1773067058532,
+      "updated_at": 1773067058541
+    }
+  ],
+  "durable_memory": [
+    {
+      "id": "mem_d1bd009f-ab32-4796-af12-4ac4f9747fcc",
+      "title": "Mission outcome: Demonstrate manager-facing brain contracts",
+      "content": "Objective: Demonstrate manager-facing brain contracts\nResult: The mission produced a grounded consult response and a verified outcome.\nEvidence: note:example://mission-proof\nVerification checks: example-check=pass",
+      "summary": "Objective: Demonstrate manager-facing brain contracts Result: The mission produced a grounded consult response and a verified outcome. Evidence: note:example://mission-proof Ver...",
+      "memory_type": "MissionMemory",
+      "source": "mission_outcome",
+      "confidence": 0.95,
+      "owner": "example-owner",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": "manager-example-mission",
+      "tags": [
+        "mission",
+        "outcome"
+      ],
+      "status": "active",
+      "verified_by": "verifier",
+      "evidence_ref": [
+        {
+          "type": "note",
+          "ref": "example://mission-proof",
+          "description": "Example proof note"
+        }
+      ],
+      "version": 2,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": 1788619058532,
+      "expires_at": null,
+      "archived_at": null,
+      "created_at": 1773067058532,
+      "updated_at": 1773067058541
+    },
+    {
+      "id": "mem_4e3fdf19-6d9f-4b07-b882-061eee6fad08",
+      "title": "Verification loop",
+      "content": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
+      "summary": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
+      "memory_type": "Procedures",
+      "source": "seed://default-procedures",
+      "confidence": 0.95,
+      "owner": "example-owner",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": null,
+      "tags": [
+        "procedure",
+        "verification",
+        "checklist"
+      ],
+      "status": "active",
+      "verified_by": "trusted_import",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-procedures"
+        }
+      ],
+      "version": 1,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": null,
+      "expires_at": null,
+      "archived_at": null,
+      "created_at": 1773067058513,
+      "updated_at": 1773067058513
+    },
+    {
+      "id": "mem_58f19ebd-41d0-468d-921d-117a4a6eb7c6",
+      "title": "Quality bar",
+      "content": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
+      "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
+      "memory_type": "Preferences",
+      "source": "onboarding",
+      "confidence": 0.7,
+      "owner": "example-owner",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": null,
+      "tags": [
+        "preference",
+        "quality-bar",
+        "onboarding"
+      ],
+      "status": "active",
+      "verified_by": "user",
+      "evidence_ref": [],
+      "version": 1,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": null,
+      "expires_at": null,
+      "archived_at": null,
+      "created_at": 1773067058525,
+      "updated_at": 1773067058525
+    },
+    {
+      "id": "mem_d2354d0f-54f7-4d48-ab16-e9b465b45442",
+      "title": "Communication style",
+      "content": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
+      "summary": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
+      "memory_type": "Preferences",
+      "source": "onboarding",
+      "confidence": 0.85,
+      "owner": "example-owner",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": null,
+      "tags": [
+        "preference",
+        "communication"
+      ],
+      "status": "active",
+      "verified_by": "user",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-communication-style"
+        }
+      ],
+      "version": 2,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": null,
+      "expires_at": null,
+      "archived_at": null,
+      "created_at": 1773067058511,
+      "updated_at": 1773067058523
+    },
+    {
+      "id": "mem_9477488d-fe1a-4831-85bb-c6ca1ee2b014",
+      "title": "Owner persona",
+      "content": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
+      "summary": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
+      "memory_type": "Persona",
+      "source": "onboarding",
+      "confidence": 0.9,
+      "owner": "example-owner",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": null,
+      "tags": [
+        "persona",
+        "owner"
+      ],
+      "status": "active",
+      "verified_by": "user",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-persona"
+        }
+      ],
+      "version": 2,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": null,
+      "expires_at": null,
+      "archived_at": null,
+      "created_at": 1773067058507,
+      "updated_at": 1773067058520
+    }
+  ],
+  "planning_hints": [
+    "Clarify the goal, list constraints, define proof of done, execute in reversible steps, and run verification before finalizing.",
+    "Start by clarifying goal, constraints, current state, and proof of done. Split work into reversible steps and preserve retrieval traces for important decisions.",
+    "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete."
+  ],
+  "preferred_format": "example-owner prefers concise, high-signal updates with status, proof, and next actions.",
+  "verification_state": {
+    "mission_id": "manager-example-mission",
+    "status": "verified_complete",
+    "verification_run_id": "vrun_e006b24c-dafd-4509-a8c2-379ac57a0679",
+    "evidence_count": 1,
+    "checks_passed": 1,
+    "checks_total": 1
+  },
+  "verification_artifacts": [
+    {
+      "id": "vart_a7865677-76f4-486c-8c04-e9678c888193",
+      "mission_id": "manager-example-mission",
+      "verification_run_id": "vrun_e006b24c-dafd-4509-a8c2-379ac57a0679",
+      "memory_id": "mem_d1bd009f-ab32-4796-af12-4ac4f9747fcc",
+      "artifact_type": "note",
+      "artifact_ref": "example://mission-proof",
+      "artifact_description": "Example proof note",
+      "source_kind": "verification_complete",
+      "created_at": 1773067058540
+    },
+    {
+      "id": "vart_eec2771d-219d-49e8-b390-e2c47587b37d",
+      "mission_id": "manager-example-mission",
+      "verification_run_id": null,
+      "memory_id": "mem_d1bd009f-ab32-4796-af12-4ac4f9747fcc",
+      "artifact_type": "note",
+      "artifact_ref": "example://mission-proof",
+      "artifact_description": "Example proof note",
+      "source_kind": "mission_outcome",
+      "created_at": 1773067058536
+    }
+  ]
+}

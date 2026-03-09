@@ -1,6 +1,7 @@
 import type {
   CandidateTrace,
   CompletionProofState,
+  ConsultCitation,
   ConsultRequest,
   ConsultResponse,
   FailureInput,
@@ -14,6 +15,7 @@ import type {
   RetrievalContribution,
   RuntimeConfig,
   VerificationArtifact,
+  VerificationArtifactRegistrySnapshot,
   VerificationCompleteInput,
   VerificationStartInput,
 } from '../types.ts';
@@ -79,6 +81,18 @@ function buildFollowups(intent: ReturnType<typeof classifyIntent>): string[] {
     default:
       return ['Check repo and domain memory before adding new assumptions.', 'Record reusable findings after verification.'];
   }
+}
+
+function buildCitations(selected: MemoryRecord[]): ConsultCitation[] {
+  return selected.map((memory) => ({
+    memory_id: memory.id,
+    title: memory.title,
+    memory_type: memory.memory_type,
+    summary: memory.summary,
+    source: memory.source,
+    verified_by: memory.verified_by,
+    evidence_ref: memory.evidence_ref,
+  }));
 }
 
 export class BestBrain {
@@ -419,6 +433,7 @@ export class BestBrain {
     return {
       answer,
       memory_ids: retrieval.selected.map((memory) => memory.id),
+      citations: buildCitations(retrieval.selected),
       policy_path: retrieval.policyPath,
       confidence_band: confidenceBand,
       followup_actions: buildFollowups(intent),
@@ -448,6 +463,10 @@ export class BestBrain {
       planning_playbook: this.store.findLatestMemoryByTitle(ONBOARDING_MEMORY_TITLES.planningPlaybook, 'Procedures')?.content ?? null,
       completed: this.store.getSetting('onboarding.completed') === 'true',
     };
+  }
+
+  getVerificationArtifactRegistry(missionId: string | null): VerificationArtifactRegistrySnapshot {
+    return this.store.getVerificationArtifactRegistrySnapshot(missionId);
   }
 
   private getPlanningHints(): string[] {
@@ -552,6 +571,17 @@ export class BestBrain {
       nowMs(),
     );
 
+    if (input.evidence.length > 0) {
+      this.store.registerVerificationArtifacts({
+        missionId: nextMission.id,
+        verificationRunId: null,
+        memoryId: learnResult.memory_id,
+        artifacts: input.evidence,
+        sourceKind: 'mission_outcome',
+        createdAt: nowMs(),
+      });
+    }
+
     return {
       mission: nextMission,
       learn_result: learnResult,
@@ -560,7 +590,7 @@ export class BestBrain {
   }
 
   async saveFailure(input: FailureInput): Promise<LearnResult> {
-    return this.learn({
+    const result = await this.learn({
       mode: 'failure_lesson',
       title: input.title,
       content: [`Cause: ${input.cause}`, `Lesson: ${input.lesson}`, `Prevention: ${input.prevention}`].join('\n'),
@@ -575,6 +605,19 @@ export class BestBrain {
       verified_by: input.confirmed ? 'user' : 'system_inference',
       evidence_ref: input.evidence_ref ?? [],
     });
+
+    if (result.accepted && (input.evidence_ref?.length ?? 0) > 0) {
+      this.store.registerVerificationArtifacts({
+        missionId: input.mission_id ?? null,
+        verificationRunId: null,
+        memoryId: result.memory_id,
+        artifacts: input.evidence_ref ?? [],
+        sourceKind: 'failure_lesson',
+        createdAt: nowMs(),
+      });
+    }
+
+    return result;
   }
 
   async getContext(params: { mission_id?: string | null; domain?: string | null; query?: string | null }): Promise<MissionContextBundle> {
@@ -592,6 +635,7 @@ export class BestBrain {
       planning_hints: mission?.planning_hints ?? this.getPlanningHints(),
       preferred_format: mission?.preferred_format ?? this.getPreferredFormat(),
       verification_state: mission ? this.store.getCompletionProofState(mission.id) : null,
+      verification_artifacts: mission ? this.store.getVerificationArtifactRegistrySnapshot(mission.id).artifacts : [],
     };
   }
 
@@ -672,6 +716,17 @@ export class BestBrain {
       { verification_run_id: String(run.id), evidence: input.evidence, checks: input.verification_checks },
       nowMs(),
     );
+
+    if (input.evidence.length > 0) {
+      this.store.registerVerificationArtifacts({
+        missionId: nextMission.id,
+        verificationRunId: String(run.id),
+        memoryId: nextMission.latest_outcome_memory_id,
+        artifacts: input.evidence,
+        sourceKind: 'verification_complete',
+        createdAt: nowMs(),
+      });
+    }
 
     if (input.status === 'verified_complete' && nextMission.latest_outcome_memory_id) {
       const outcomeMemory = this.store.getMemory(nextMission.latest_outcome_memory_id);

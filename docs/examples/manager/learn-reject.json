@@ -1,0 +1,8 @@
+{
+  "accepted": false,
+  "action": "rejected",
+  "reason": "persona updates require confirmed_by_user=true",
+  "memory_id": null,
+  "memory_type": null,
+  "status": null
+}

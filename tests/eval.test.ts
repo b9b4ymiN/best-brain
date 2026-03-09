@@ -18,8 +18,10 @@ describe('consult evaluation', () => {
 
       expect(report.summary.routing_accuracy).toBeGreaterThanOrEqual(90);
       expect(report.summary.top_k_relevance).toBeGreaterThanOrEqual(85);
+      expect(report.summary.citation_completeness).toBeGreaterThanOrEqual(95);
       expect(report.summary.stale_or_superseded_leakage).toBe(0);
       expect(report.summary.mission_proof_pass_rate).toBe(100);
+      expect(report.summary.orphan_evidence_count).toBe(0);
       expect(report.summary.passes_v1_gate).toBe(true);
     } finally {
       cleanup();
