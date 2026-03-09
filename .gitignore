@@ -8,6 +8,7 @@ Thumbs.db
 *.db-wal
 .tmp/
 .best-brain/
+artifacts/
 brain/oracle-core/node_modules/
 brain/oracle-core/frontend/node_modules/
 brain/oracle-core/.git.vendored/

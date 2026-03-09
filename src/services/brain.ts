@@ -18,6 +18,7 @@ import type {
   VerificationStartInput,
 } from '../types.ts';
 import { createRuntimeConfig } from '../config.ts';
+import { ONBOARDING_MEMORY_TITLES } from '../contracts.ts';
 import { BrainStore } from '../db/client.ts';
 import { getLearningRule, validateLearnRequest } from '../policies/learning.ts';
 import { deriveLifecycle, getRetentionProfile } from '../policies/retention.ts';
@@ -99,11 +100,12 @@ export class BestBrain {
     this.store.close();
   }
 
-  health(): { status: 'ok'; db_path: string; seeded: boolean } {
+  health(): { status: 'ok'; db_path: string; seeded: boolean; onboarded: boolean } {
     return {
       status: 'ok',
       db_path: this.config.dbPath,
       seeded: this.store.getSetting('seed.default.completed') === 'true',
+      onboarded: this.store.getSetting('onboarding.completed') === 'true',
     };
   }
 
@@ -428,6 +430,24 @@ export class BestBrain {
   getPreferredFormat(): string {
     return this.store.getPreferredFormatMemory()?.content
       ?? 'Concise, evidence-backed updates with explicit status and next actions.';
+  }
+
+  getOnboardingSnapshot(): {
+    persona: string | null;
+    preferred_report_format: string | null;
+    communication_style: string | null;
+    quality_bar: string | null;
+    planning_playbook: string | null;
+    completed: boolean;
+  } {
+    return {
+      persona: this.store.findLatestMemoryByTitle(ONBOARDING_MEMORY_TITLES.persona, 'Persona')?.content ?? null,
+      preferred_report_format: this.store.findLatestMemoryByTitle(ONBOARDING_MEMORY_TITLES.reportFormat, 'Preferences')?.content ?? null,
+      communication_style: this.store.findLatestMemoryByTitle(ONBOARDING_MEMORY_TITLES.communicationStyle, 'Preferences')?.content ?? null,
+      quality_bar: this.store.findLatestMemoryByTitle(ONBOARDING_MEMORY_TITLES.qualityBar, 'Preferences')?.content ?? null,
+      planning_playbook: this.store.findLatestMemoryByTitle(ONBOARDING_MEMORY_TITLES.planningPlaybook, 'Procedures')?.content ?? null,
+      completed: this.store.getSetting('onboarding.completed') === 'true',
+    };
   }
 
   private getPlanningHints(): string[] {

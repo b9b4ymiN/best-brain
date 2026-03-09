@@ -1,23 +1,52 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { BestBrain } from '../src/services/brain.ts';
+import {
+  loadConsultEvalFixtures,
+  prepareConsultEvalData,
+  runConsultEvaluation,
+  writeConsultEvalReport,
+} from '../src/eval/consult.ts';
 
-const prompts = [
-  'If you were the owner, how should this mission start?',
-  'What report format does the owner prefer?',
-  'What should happen before claiming the mission is complete?',
-];
+const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/consult-eval.json');
+const reportPath = path.resolve(process.cwd(), 'artifacts/consult-eval.latest.json');
+const baselinePath = path.resolve(process.cwd(), 'artifacts/consult-eval.baseline.json');
+const useRuntimeDb = process.env.BEST_BRAIN_EVAL_USE_RUNTIME_DB === '1';
+const dataDir = useRuntimeDb ? undefined : fs.mkdtempSync(path.join(os.tmpdir(), 'best-brain-eval-'));
+const dbPath = dataDir ? path.join(dataDir, 'best-brain.db') : undefined;
 
-const brain = await BestBrain.open();
+const brain = await BestBrain.open({
+  owner: 'eval-owner',
+  dataDir,
+  dbPath,
+  port: 0,
+});
 
-for (const prompt of prompts) {
-  const result = await brain.consult({ query: prompt });
-  console.log(`\n# Prompt\n${prompt}`);
-  console.log('\n# Response');
-  console.log(result.answer);
-  console.log('\n# Manual rubric');
-  console.log('- consult usefulness score: TBD');
-  console.log('- answer groundedness score: TBD');
-  console.log('- persona alignment score: TBD');
-  console.log('- actionability score: TBD');
+try {
+  await prepareConsultEvalData(brain);
+  const fixtures = loadConsultEvalFixtures(fixturePath);
+  const report = await runConsultEvaluation(brain, fixtures, fixturePath, baselinePath);
+
+  writeConsultEvalReport(reportPath, report);
+  console.log(JSON.stringify({
+    report_path: reportPath,
+    fixture_path: fixturePath,
+    generated_at: report.generated_at,
+    summary: report.summary,
+    regression_vs_baseline: report.regression_vs_baseline,
+  }, null, 2));
+
+  if (!report.summary.passes_v1_gate) {
+    process.exitCode = 1;
+  }
+} finally {
+  brain.close();
+  if (dataDir) {
+    try {
+      fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+    } catch {
+      // Windows can keep SQLite WAL files open briefly.
+    }
+  }
 }
-
-brain.close();

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "best-brain": {
+      "type": "stdio",
+      "command": "bun",
+      "args": [
+        "src/mcp/index.ts"
+      ],
+      "env": {}
+    }
+  }
+}

@@ -1,0 +1,69 @@
+[
+  {
+    "id": "persona-guidance",
+    "category": "persona_consistency",
+    "prompt": "If you were the owner, how should this mission start?",
+    "expected_policy_path": "deterministic.persona_guidance.v1",
+    "expected_memory_titles": ["Owner persona"],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 5,
+      "persona_alignment": 5,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "preference-format",
+    "category": "consult_usefulness",
+    "prompt": "What report format does the owner prefer?",
+    "expected_policy_path": "deterministic.preference_lookup.v1",
+    "expected_memory_titles": ["Preferred report format"],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 5,
+      "persona_alignment": 4,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "procedure-checklist",
+    "category": "actionability",
+    "prompt": "What procedure checklist should run before claiming the mission is complete?",
+    "expected_policy_path": "deterministic.procedure_lookup.v1",
+    "expected_memory_titles": ["Planning and verification playbook"],
+    "manual_scores": {
+      "usefulness": 5,
+      "groundedness": 4,
+      "persona_alignment": 4,
+      "actionability": 5
+    }
+  },
+  {
+    "id": "recent-mission-context",
+    "category": "mission_proof",
+    "prompt": "What happened in the latest mission?",
+    "mission_id": "mission-eval",
+    "expected_policy_path": "deterministic.recent_mission.v1",
+    "expected_memory_titles": ["Mission outcome: Close brain-v1 evaluation fixture"],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 5,
+      "persona_alignment": 4,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "failure-lesson",
+    "category": "groundedness",
+    "prompt": "What failure lesson should we avoid repeating?",
+    "mission_id": "mission-eval",
+    "expected_policy_path": "deterministic.failure_lesson.v1",
+    "expected_memory_titles": ["Evaluation smoke failure"],
+    "manual_scores": {
+      "usefulness": 4,
+      "groundedness": 5,
+      "persona_alignment": 4,
+      "actionability": 4
+    }
+  }
+]

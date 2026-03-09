@@ -147,8 +147,29 @@ export class BrainStore {
     return rows.map(asMemoryRecord);
   }
 
+  listActiveMemories(): MemoryRecord[] {
+    const rows = this.sqlite
+      .prepare(`SELECT * FROM memory_items WHERE status = 'active' ORDER BY updated_at DESC`)
+      .all() as RawRow[];
+    return rows.map(asMemoryRecord);
+  }
+
   getMemory(id: string): MemoryRecord | null {
     const row = this.sqlite.prepare('SELECT * FROM memory_items WHERE id = ?').get(id) as RawRow | null;
+    return row ? asMemoryRecord(row) : null;
+  }
+
+  findLatestMemoryByTitle(title: string, memoryType?: string): MemoryRecord | null {
+    const row = this.sqlite
+      .prepare(
+        `SELECT * FROM memory_items
+         WHERE title = ?
+           AND (? IS NULL OR memory_type = ?)
+         ORDER BY updated_at DESC
+         LIMIT 1`,
+      )
+      .get(title, memoryType ?? null, memoryType ?? null) as RawRow | null;
+
     return row ? asMemoryRecord(row) : null;
   }
 

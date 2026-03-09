@@ -21,10 +21,22 @@ const PREFERRED_TYPES: Record<ConsultIntent, MemoryType[]> = {
 
 export function classifyIntent(query: string, missionId?: string | null): ConsultIntent {
   const normalized = query.toLowerCase();
+  let bestIntent: ConsultIntent | null = null;
+  let bestScore = 0;
+
   for (const hint of INTENT_HINTS) {
-    if (hint.keywords.some((keyword) => normalized.includes(keyword))) {
-      return hint.intent;
+    const score = hint.keywords.reduce((sum, keyword) => (
+      normalized.includes(keyword) ? sum + 1 : sum
+    ), 0);
+
+    if (score > bestScore) {
+      bestIntent = hint.intent;
+      bestScore = score;
     }
+  }
+
+  if (bestIntent && bestScore > 0) {
+    return bestIntent;
   }
 
   if (missionId) {
