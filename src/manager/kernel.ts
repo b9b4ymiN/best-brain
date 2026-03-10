@@ -11,6 +11,7 @@ import type {
 } from './types.ts';
 import type { CompletionProofState } from '../types.ts';
 import type { MissionTaskGraph } from './graph.ts';
+import type { RuntimeSessionBundle } from '../runtime/types.ts';
 
 export function buildManagerSummary(
   input: ManagerInput,
@@ -93,6 +94,7 @@ export function finalizeRun(
   brief: MissionBrief,
   briefValidation: MissionBriefValidation,
   missionGraph: MissionTaskGraph,
+  runtimeBundle: RuntimeSessionBundle | null,
   workerResult: WorkerExecutionResult | null,
   verificationResult: CompletionProofState | null,
   brainWrites: BrainWriteRecord[],
@@ -105,6 +107,7 @@ export function finalizeRun(
     mission_brief: brief,
     mission_brief_validation: briefValidation,
     mission_graph: missionGraph,
+    runtime_bundle: runtimeBundle,
     worker_result: workerResult,
     verification_result: verificationResult,
     brain_writes: brainWrites,

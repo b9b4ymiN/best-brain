@@ -56,6 +56,8 @@ export interface ManagerProofInput {
   goal_ambiguity_detection?: boolean;
   false_complete_count?: number;
   blocked_with_correct_reason_rate?: number;
+  runtime_session_capture?: boolean;
+  checkpoint_capture?: boolean;
 }
 
 export interface ProgramScorecardInput {
@@ -299,6 +301,22 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     'Derived from manager smoke capture.',
   ));
   metricValues.push(equalityMetric(
+    'runtime_session_capture',
+    'Runtime session captured on manager runs',
+    'runtime',
+    input.manager_proof?.runtime_session_capture,
+    true,
+    'Manager proof should show a completed runtime session bundle on successful live runs.',
+  ));
+  metricValues.push(equalityMetric(
+    'checkpoint_capture',
+    'Runtime checkpoints captured on execution runs',
+    'runtime',
+    input.manager_proof?.checkpoint_capture,
+    true,
+    'Execution runs should create retry-safe checkpoints after primary work and verification.',
+  ));
+  metricValues.push(equalityMetric(
     'mission_console_visibility',
     'Mission console visibility completeness',
     'console',
@@ -321,7 +339,9 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     && input.manager_proof.false_complete_count === 0
     && (input.manager_proof.blocked_with_correct_reason_rate ?? 0) >= 95;
   const runtimeEvidenceReady = input.bootstrap_smoke?.first_run_db_init_success === true
-    && input.consult_eval?.orphan_evidence_count === 0;
+    && input.consult_eval?.orphan_evidence_count === 0
+    && input.manager_proof?.runtime_session_capture === true
+    && input.manager_proof?.checkpoint_capture === true;
 
   const phaseReadiness: ProgramPhaseReadiness[] = [
     {
@@ -342,7 +362,7 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
       phase: 'Phase2_WorkerFabricRuntimeSpine',
       status: runtimeEvidenceReady ? 'partial' : 'fail',
       note: runtimeEvidenceReady
-        ? 'Artifact lineage and bootstrap proof exist, but runtime session/checkpoint implementation is still contract-level.'
+        ? 'Artifact lineage, bootstrap proof, and live runtime session/checkpoint capture exist, but worker fabric breadth and checkpoint restore are still incomplete.'
         : 'Runtime proof is incomplete.',
     },
     {

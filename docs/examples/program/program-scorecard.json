@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T00:13:54.551Z",
+  "generated_at": "2026-03-10T00:28:28.088Z",
   "success_bar": "Repeatable One-Mission",
   "proving_mission": "Thai equities daily stock scanner",
   "acceptance_run_set": "thai_equities_daily_controlled_acceptance_runs",
@@ -167,6 +167,24 @@
       "note": "Derived from manager smoke capture."
     },
     {
+      "id": "runtime_session_capture",
+      "label": "Runtime session captured on manager runs",
+      "category": "runtime",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Manager proof should show a completed runtime session bundle on successful live runs."
+    },
+    {
+      "id": "checkpoint_capture",
+      "label": "Runtime checkpoints captured on execution runs",
+      "category": "runtime",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Execution runs should create retry-safe checkpoints after primary work and verification."
+    },
+    {
       "id": "mission_console_visibility",
       "label": "Mission console visibility completeness",
       "category": "console",
@@ -190,7 +208,7 @@
     {
       "phase": "Phase2_WorkerFabricRuntimeSpine",
       "status": "partial",
-      "note": "Artifact lineage and bootstrap proof exist, but runtime session/checkpoint implementation is still contract-level."
+      "note": "Artifact lineage, bootstrap proof, and live runtime session/checkpoint capture exist, but worker fabric breadth and checkpoint restore are still incomplete."
     },
     {
       "phase": "Phase3_ThaiEquitiesStockScanner",

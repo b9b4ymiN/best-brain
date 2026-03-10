@@ -4,12 +4,13 @@
     "mission_id": "mission_program_example",
     "workspace_root": "C:\\Programing\\PersonalAI\\best-brain",
     "owner": "example-owner",
-    "status": "active",
+    "status": "completed",
     "checkpoint_ids": [
-      "checkpoint_before_verification"
+      "checkpoint_after_primary_work",
+      "checkpoint_after_verification"
     ],
-    "created_at": 1773101634551,
-    "updated_at": 1773101634551
+    "created_at": 1773102508088,
+    "updated_at": 1773102508088
   },
   "processes": [
     {
@@ -27,8 +28,8 @@
       "exit_code": 0,
       "stdout_artifact_id": "artifact_stdout",
       "stderr_artifact_id": null,
-      "started_at": 1773101664551,
-      "completed_at": 1773101674551
+      "started_at": 1773102538088,
+      "completed_at": 1773102548088
     }
   ],
   "artifacts": [
@@ -42,7 +43,7 @@
       "description": "Mission analysis note.",
       "checksum": null,
       "source": "claude",
-      "created_at": 1773101649551
+      "created_at": 1773102523088
     },
     {
       "id": "artifact_stdout",
@@ -54,21 +55,33 @@
       "description": "Scanner stdout output.",
       "checksum": null,
       "source": "shell",
-      "created_at": 1773101674551
+      "created_at": 1773102548088
     }
   ],
   "checkpoints": [
     {
-      "id": "checkpoint_before_verification",
+      "id": "checkpoint_after_primary_work",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "label": "Before verifier run",
+      "label": "After primary work",
       "artifact_ids": [
         "artifact_analysis_note",
         "artifact_stdout"
       ],
       "restore_supported": true,
-      "created_at": 1773101679551
+      "created_at": 1773102543088
+    },
+    {
+      "id": "checkpoint_after_verification",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "label": "After verification",
+      "artifact_ids": [
+        "artifact_analysis_note",
+        "artifact_stdout"
+      ],
+      "restore_supported": false,
+      "created_at": 1773102553088
     }
   ],
   "events": [
@@ -81,7 +94,22 @@
       "actor": "manager",
       "detail": "Mission launched from a single user goal.",
       "data": {},
-      "created_at": 1773101634551
+      "created_at": 1773102508088
+    },
+    {
+      "id": "event_runtime_finalized",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "task_id": null,
+      "event_type": "runtime_session_finalized",
+      "actor": "runtime",
+      "detail": "Runtime session finalized after verification status verified_complete.",
+      "data": {
+        "verification_status": "verified_complete",
+        "evidence_count": 2,
+        "checks_total": 2
+      },
+      "created_at": 1773102558088
     }
   ]
 }

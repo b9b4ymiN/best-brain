@@ -1,5 +1,6 @@
 import type { FailureInput, StrictMissionOutcomeInput } from '../types.ts';
 import { validateMissionOutcomeStrictInput } from '../validation.ts';
+import { LocalRuntimeSpine } from '../runtime/spine.ts';
 import { createId } from '../utils/id.ts';
 import { dispatchPrimaryWorker } from './dispatcher.ts';
 import { validateMissionBrief } from './brief-validator.ts';
@@ -97,6 +98,10 @@ function artifactRefs(workerResult: WorkerExecutionResult): string[] {
   return workerResult.artifacts.map((artifact) => artifact.ref);
 }
 
+function mapWorkerStatusToRuntimeStatus(status: WorkerExecutionResult['status']): 'succeeded' | 'failed' {
+  return status === 'success' ? 'succeeded' : 'failed';
+}
+
 export class ManagerRuntime {
   readonly brain: BrainAdapter;
   readonly workers: Partial<Record<ManagerWorker, WorkerAdapter>>;
@@ -114,6 +119,7 @@ export class ManagerRuntime {
 
   async run(rawInput: Pick<ManagerInput, 'goal'> & Partial<Omit<ManagerInput, 'goal'>>): Promise<ManagerRunResult> {
     const input = normalizeInput(rawInput);
+    const runtimeSpine = new LocalRuntimeSpine();
     await this.brain.ensureAvailable();
     const startedBrainServer = this.brain.wasStartedByAdapter();
     let decision = routeIntent(input);
@@ -149,6 +155,33 @@ export class ManagerRuntime {
       brief.brain_citations.map((citation) => citation.memory_id),
     );
     brief.mission_graph = missionGraph;
+    let runtimeBundle = brief.kind === 'chat'
+      ? null
+      : runtimeSpine.openSession({
+          missionId,
+          workspaceRoot: input.cwd,
+          owner: 'manager-alpha',
+        });
+
+    if (runtimeBundle) {
+      runtimeSpine.recordEvent({
+        task_id: 'context_review',
+        event_type: 'mission_brief_compiled',
+        actor: 'manager',
+        detail: `Compiled mission brief using playbook ${brief.playbook.id}.`,
+        data: {
+          mission_kind: brief.mission_kind,
+          playbook_id: brief.playbook.id,
+          trace_id: brief.brain_trace_id,
+        },
+      });
+      runtimeSpine.recordVerificationArtifacts(
+        'context_review',
+        'brain',
+        brief.brain_citations.flatMap((citation) => citation.evidence_ref),
+      );
+      runtimeBundle = runtimeSpine.snapshot();
+    }
 
     if (!briefValidation.is_complete && decision.kind !== 'chat') {
       decision = buildBlockedDecision(
@@ -158,16 +191,55 @@ export class ManagerRuntime {
     }
 
     if (!decision.should_execute) {
-      return finalizeRun(input, decision, ambiguity, brief, briefValidation, missionGraph, null, null, [], startedBrainServer);
+      if (runtimeBundle) {
+        runtimeSpine.finalize(
+          decision.blocked_reason ? 'aborted' : 'completed',
+          decision.blocked_reason ?? 'Planning-only manager run completed without execution.',
+          {
+            blocked_reason: decision.blocked_reason,
+            dry_run: input.dry_run,
+            no_execute: input.no_execute,
+          },
+        );
+        runtimeBundle = runtimeSpine.snapshot();
+      }
+
+      return finalizeRun(input, decision, ambiguity, brief, briefValidation, missionGraph, runtimeBundle, null, null, [], startedBrainServer);
     }
 
     const executionRequest = buildExecutionRequest(brief, input.cwd);
     if (!executionRequest) {
-      return finalizeRun(input, decision, ambiguity, brief, briefValidation, missionGraph, null, null, [], startedBrainServer);
+      if (runtimeBundle) {
+        runtimeSpine.finalize('aborted', 'No executable task was ready in the mission graph.', {});
+        runtimeBundle = runtimeSpine.snapshot();
+      }
+      return finalizeRun(input, decision, ambiguity, brief, briefValidation, missionGraph, runtimeBundle, null, null, [], startedBrainServer);
     }
 
     missionGraph = updateTaskStatus(missionGraph, 'primary_work', 'running');
     brief.mission_graph = missionGraph;
+    const runtimeProcess = runtimeBundle
+      ? runtimeSpine.startProcess({
+          actor: executionRequest.selected_worker,
+          command: executionRequest.selected_worker,
+          args: [executionRequest.task_id, executionRequest.playbook_id],
+          cwd: executionRequest.cwd,
+        })
+      : null;
+    if (runtimeBundle) {
+      runtimeSpine.recordEvent({
+        task_id: executionRequest.task_id,
+        event_type: 'worker_dispatched',
+        actor: 'manager',
+        detail: `Dispatched ${executionRequest.selected_worker} for ${executionRequest.task_id}.`,
+        data: {
+          task_title: executionRequest.task_title,
+          playbook_id: executionRequest.playbook_id,
+          expected_artifacts: executionRequest.expected_artifacts,
+        },
+      });
+      runtimeBundle = runtimeSpine.snapshot();
+    }
 
     const brainWrites: BrainWriteRecord[] = [];
     let workerResult: WorkerExecutionResult;
@@ -183,9 +255,52 @@ export class ManagerRuntime {
       artifactRefs(workerResult),
     );
     brief.mission_graph = missionGraph;
+    if (runtimeBundle && runtimeProcess) {
+      const runtimeArtifacts = runtimeSpine.recordVerificationArtifacts(
+        executionRequest.task_id,
+        executionRequest.selected_worker,
+        workerResult.artifacts,
+      );
+      runtimeSpine.completeProcess(runtimeProcess.id, {
+        status: mapWorkerStatusToRuntimeStatus(workerResult.status),
+        exit_code: workerResult.status === 'success' ? 0 : 1,
+        stdout: workerResult.raw_output,
+        stderr: workerResult.status === 'success' ? null : workerResult.summary,
+        task_id: executionRequest.task_id,
+      });
+      runtimeSpine.createCheckpoint({
+        label: 'after_primary_work',
+        artifact_ids: runtimeArtifacts.map((artifact) => artifact.id),
+        restore_supported: true,
+      });
+      runtimeSpine.setSessionStatus('active');
+      runtimeSpine.recordEvent({
+        task_id: executionRequest.task_id,
+        event_type: 'worker_completed',
+        actor: executionRequest.selected_worker,
+        detail: `Primary worker completed with status ${workerResult.status}.`,
+        data: {
+          proposed_checks: workerResult.proposed_checks.length,
+        },
+      });
+      runtimeBundle = runtimeSpine.snapshot();
+    }
 
     const verificationRequest = await this.verifier.review(executionRequest, workerResult);
     assertCompletionPolicy(verificationRequest);
+    if (runtimeBundle) {
+      runtimeSpine.recordEvent({
+        task_id: 'verification_gate',
+        event_type: 'verification_requested',
+        actor: 'manager',
+        detail: `Verification prepared with status ${verificationRequest.status}.`,
+        data: {
+          checks: verificationRequest.verification_checks.length,
+          evidence: verificationRequest.evidence.length,
+        },
+      });
+      runtimeBundle = runtimeSpine.snapshot();
+    }
 
     const strictOutcome = validateMissionOutcomeStrictInput({
       mission_id: missionId,
@@ -246,6 +361,28 @@ export class ManagerRuntime {
       );
       brief.mission_graph = missionGraph;
     }
+    if (runtimeBundle) {
+      const verificationArtifacts = runtimeSpine.recordVerificationArtifacts(
+        'verification_gate',
+        'verifier',
+        verificationRequest.evidence,
+      );
+      runtimeSpine.createCheckpoint({
+        label: 'after_verification',
+        artifact_ids: verificationArtifacts.map((artifact) => artifact.id),
+        restore_supported: verificationResult.status !== 'verified_complete',
+      });
+      runtimeSpine.finalize(
+        verificationResult.status === 'verified_complete' ? 'completed' : 'failed',
+        `Runtime session finalized after verification status ${verificationResult.status}.`,
+        {
+          verification_status: verificationResult.status,
+          evidence_count: verificationResult.evidence_count,
+          checks_total: verificationResult.checks_total,
+        },
+      );
+      runtimeBundle = runtimeSpine.snapshot();
+    }
 
     if (verificationResult.status !== 'verified_complete') {
       const failureInput = buildFailureWrite(brief.goal, missionId, workerResult) as FailureInput;
@@ -265,6 +402,7 @@ export class ManagerRuntime {
       brief,
       briefValidation,
       missionGraph,
+      runtimeBundle,
       workerResult,
       verificationResult,
       brainWrites,

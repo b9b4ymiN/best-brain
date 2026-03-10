@@ -52,6 +52,8 @@ describe('program scorecard', () => {
         goal_ambiguity_detection: true,
         false_complete_count: 0,
         blocked_with_correct_reason_rate: 100,
+        runtime_session_capture: true,
+        checkpoint_capture: true,
       },
     });
 
@@ -60,8 +62,10 @@ describe('program scorecard', () => {
     expect(scorecard.acceptance_run_set).toBe('thai_equities_daily_controlled_acceptance_runs');
     expect(scorecard.metric_values.some((metric) => metric.id === 'routing_accuracy' && metric.status === 'pass')).toBe(true);
     expect(scorecard.metric_values.some((metric) => metric.id === 'false_complete_count' && metric.status === 'pass')).toBe(true);
+    expect(scorecard.metric_values.some((metric) => metric.id === 'runtime_session_capture' && metric.status === 'pass')).toBe(true);
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase0_ProgramLock')?.status).toBe('pass');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase1_ManagerBeta')?.status).toBe('partial');
+    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase2_WorkerFabricRuntimeSpine')?.status).toBe('partial');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase3_ThaiEquitiesStockScanner')?.status).toBe('fail');
   });
 });

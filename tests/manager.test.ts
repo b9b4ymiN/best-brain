@@ -230,6 +230,7 @@ describe('manager alpha unit flow', () => {
       expect(result.decision.kind).toBe('chat');
       expect(result.worker_result).toBeNull();
       expect(result.verification_result).toBeNull();
+      expect(result.runtime_bundle).toBeNull();
       expect(result.brain_writes).toHaveLength(0);
       expect(brain.calls.consult).toHaveLength(1);
       expect(brain.calls.saveOutcome).toHaveLength(0);
@@ -300,6 +301,8 @@ describe('manager alpha unit flow', () => {
       expect(result.goal_ambiguity.is_ambiguous).toBe(true);
       expect(result.decision.should_execute).toBe(false);
       expect(result.decision.blocked_reason).toContain('ambiguous');
+      expect(result.runtime_bundle?.session.status).toBe('aborted');
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'runtime_session_finalized')).toBe(true);
       expect(result.worker_result).toBeNull();
       expect(result.brain_writes).toHaveLength(0);
       expect(worker.requests).toHaveLength(0);
@@ -351,6 +354,11 @@ describe('manager alpha unit flow', () => {
       expect(worker.requests[0]?.task_id).toBe('primary_work');
       expect(worker.requests[0]?.playbook_id).toBe(result.mission_brief.playbook.id);
       expect(worker.requests[0]?.context_citations).toHaveLength(result.mission_brief.brain_citations.length);
+      expect(result.runtime_bundle?.session.status).toBe('completed');
+      expect(result.runtime_bundle?.processes).toHaveLength(1);
+      expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
+      expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.kind === 'stdout')).toBe(true);
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'worker_dispatched')).toBe(true);
       expect(result.mission_graph.nodes.find((node) => node.id === 'primary_work')?.status).toBe('completed');
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
       expect(result.mission_graph.nodes.find((node) => node.id === 'final_report')?.status).toBe('completed');
@@ -387,6 +395,8 @@ describe('manager alpha unit flow', () => {
       expect(result.brain_writes.some((entry) => entry.action === 'save_failure')).toBe(true);
       expect(brain.calls.completeVerification[0]?.status).toBe('verification_failed');
       expect(brain.calls.saveFailure).toHaveLength(1);
+      expect(result.runtime_bundle?.session.status).toBe('failed');
+      expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('failed');
     } finally {
       await runtime.dispose();

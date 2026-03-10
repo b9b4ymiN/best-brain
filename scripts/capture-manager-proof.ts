@@ -85,6 +85,18 @@ const falseCompleteCount = [results.thin_manager, results.claude_primary, result
     }
     return total;
   }, 0);
+const runtimeSessionCapture = successRuns.every((result) => {
+  const runtimeBundle = result.parsed?.runtime_bundle as {
+    session?: { status?: string };
+  } | null | undefined;
+  return runtimeBundle?.session?.status === 'completed';
+});
+const checkpointCapture = [results.claude_primary, results.codex_primary].every((result) => {
+  const runtimeBundle = result.parsed?.runtime_bundle as {
+    checkpoints?: unknown[];
+  } | null | undefined;
+  return Array.isArray(runtimeBundle?.checkpoints) && runtimeBundle.checkpoints.length >= 2;
+});
 
 const payload = {
   generated_at: new Date().toISOString(),
@@ -97,6 +109,8 @@ const payload = {
   goal_ambiguity_detection: ambiguityBlockedCorrectly,
   false_complete_count: falseCompleteCount,
   blocked_with_correct_reason_rate: blockedCorrectReasonRate,
+  runtime_session_capture: runtimeSessionCapture,
+  checkpoint_capture: checkpointCapture,
   runs: results,
 };
 

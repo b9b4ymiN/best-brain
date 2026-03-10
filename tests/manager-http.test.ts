@@ -89,6 +89,10 @@ describe('manager alpha via brain HTTP', () => {
       expect(result.mission_brief_validation.is_complete).toBe(true);
       expect(result.mission_brief.playbook.mission_kind).toBe('repo_change_mission');
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
+      expect(result.runtime_bundle?.session.status).toBe('completed');
+      expect(result.runtime_bundle?.processes).toHaveLength(1);
+      expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'runtime_session_finalized')).toBe(true);
 
       const contextResponse = await fetch(`http://127.0.0.1:${server.port}/brain/context?mission_id=mission_http_manager&query=latest%20mission%20context`);
       const context = await contextResponse.json() as {
@@ -150,6 +154,9 @@ describe('manager alpha via brain HTTP', () => {
       expect(followUp.mission_brief.brain_citations.some((citation) => citation.title.includes('Mission outcome: Implement the first verified manager mission.'))).toBe(true);
       expect(followUp.mission_brief_validation.completeness_score).toBe(100);
       expect(followUp.mission_brief.playbook.verifier_checklist.length).toBeGreaterThan(0);
+      expect(followUp.runtime_bundle?.session.status).toBe('completed');
+      expect(followUp.runtime_bundle?.processes).toHaveLength(0);
+      expect(followUp.runtime_bundle?.events.some((event) => event.event_type === 'runtime_session_finalized')).toBe(true);
       expect(followUp.brain_writes).toHaveLength(0);
     } finally {
       await runtime.dispose();
@@ -188,6 +195,7 @@ describe('manager alpha via brain HTTP', () => {
       expect(result.started_brain_server).toBe(true);
       expect(result.mission_brief.brain_trace_id.startsWith('trace_')).toBe(true);
       expect(result.mission_graph.nodes.some((node) => node.id === 'context_review')).toBe(true);
+      expect(result.runtime_bundle).toBeNull();
     } finally {
       await runtime.dispose();
       try {

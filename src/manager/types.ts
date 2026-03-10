@@ -7,6 +7,7 @@ import type {
   VerificationCheck,
 } from '../types.ts';
 import type { MissionPlaybook } from '../playbooks/types.ts';
+import type { RuntimeSessionBundle } from '../runtime/types.ts';
 import type { MissionTaskGraph } from './graph.ts';
 
 export const MANAGER_WORKER_PREFERENCES = ['auto', 'claude', 'codex'] as const;
@@ -117,6 +118,7 @@ export interface ManagerRunResult {
   mission_brief: MissionBrief;
   mission_brief_validation: MissionBriefValidation;
   mission_graph: MissionTaskGraph;
+  runtime_bundle: RuntimeSessionBundle | null;
   worker_result: WorkerExecutionResult | null;
   verification_result: CompletionProofState | null;
   brain_writes: BrainWriteRecord[];
