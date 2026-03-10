@@ -2,6 +2,7 @@ import type { MissionPlaybook } from '../playbooks/types.ts';
 import type { ManagerInput, ManagerWorker } from '../manager/types.ts';
 import type { MissionContextBundle } from '../types.ts';
 import { listThaiEquitiesDemoCandidates, resolveThaiEquitiesDemoScenario } from '../market/demo.ts';
+import { isThaiEquitiesStockScannerGoal } from './packs.ts';
 import type {
   InputAdapterDecision,
   InputAdapterDefinition,
@@ -171,10 +172,7 @@ export function buildInputAdapterRegistry(input: ManagerInput, context: MissionC
     },
   ];
 
-  const normalizedGoal = input.goal.toLowerCase();
-  const isThaiEquitiesGoal = normalizedGoal.includes('thai')
-    && (normalizedGoal.includes('equities') || normalizedGoal.includes('stock') || normalizedGoal.includes('stocks') || normalizedGoal.includes('set'))
-    && (normalizedGoal.includes('scanner') || normalizedGoal.includes('scan'));
+  const isThaiEquitiesGoal = isThaiEquitiesStockScannerGoal(input.goal);
 
   if (isThaiEquitiesGoal) {
     const scenario = resolveThaiEquitiesDemoScenario(input.goal);

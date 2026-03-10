@@ -1,18 +1,23 @@
 import type { MissionPlaybook } from '../playbooks/types.ts';
 import type { MissionContextBundle } from '../types.ts';
-import { resolveThaiEquitiesDemoScenario } from '../market/demo.ts';
 import type { ManagerDecision, ManagerInput, MissionBrief } from '../manager/types.ts';
+import { tokenize } from '../utils/text.ts';
+import { resolveThaiEquitiesDemoScenario } from '../market/demo.ts';
 
-function tokenize(value: string): string[] {
-  return value.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
-}
+const THAI_SCANNER_TEXT = '\u0e2a\u0e41\u0e01\u0e19\u0e2b\u0e38\u0e49\u0e19';
+const THAI_SYSTEM_SCANNER_TEXT = '\u0e23\u0e30\u0e1a\u0e1a\u0e2a\u0e41\u0e01\u0e19\u0e2b\u0e38\u0e49\u0e19';
+const THAI_EQUITIES_TEXT = '\u0e2b\u0e38\u0e49\u0e19\u0e44\u0e17\u0e22';
+const THAI_STOCK_TEXT = '\u0e2b\u0e38\u0e49\u0e19';
 
 export function isThaiEquitiesStockScannerGoal(goal: string): boolean {
   const tokens = tokenize(goal);
+  const normalized = goal.toLowerCase();
   const hasScanner = tokens.includes('scanner') || tokens.includes('scan');
   const hasThai = tokens.includes('thai');
   const hasEquities = tokens.includes('equities') || tokens.includes('stocks') || tokens.includes('stock') || tokens.includes('set');
-  return hasScanner && hasThai && hasEquities;
+  const hasThaiScannerText = normalized.includes(THAI_SCANNER_TEXT) || normalized.includes(THAI_SYSTEM_SCANNER_TEXT);
+  const hasThaiEquitiesText = normalized.includes(THAI_EQUITIES_TEXT) || normalized.includes(THAI_STOCK_TEXT);
+  return (hasScanner && hasThai && hasEquities) || (hasThaiScannerText && hasThaiEquitiesText);
 }
 
 const DEMO_HINTS = ['demo', 'controlled', 'acceptance mission'];
@@ -50,28 +55,28 @@ export function buildThaiEquitiesStockScannerPlaybook(
     verifier_checklist: [
       {
         id: 'check_note_evidence',
-          name: 'Owner-facing note evidence exists',
-          required: true,
-          artifact_kind: 'note',
-          validation_source: 'artifact',
-          detail: 'Stock scanner demo must produce an owner-facing note summary.',
-        },
-        {
-          id: 'check_market_data_artifact',
-          name: 'Market data evidence exists',
-          required: true,
-          artifact_kind: 'other',
-          validation_source: 'artifact',
-          detail: 'Stock scanner demo must include machine-readable market-data evidence.',
-        },
-        {
-          id: 'check_worker_checks',
-          name: 'Worker and manager checks are recorded',
-          required: true,
-          artifact_kind: null,
-          validation_source: 'any',
-          detail: 'The run must emit explicit freshness and completeness checks.',
-        },
+        name: 'Owner-facing note evidence exists',
+        required: true,
+        artifact_kind: 'note',
+        validation_source: 'artifact',
+        detail: 'Stock scanner demo must produce an owner-facing note summary.',
+      },
+      {
+        id: 'check_market_data_artifact',
+        name: 'Market data evidence exists',
+        required: true,
+        artifact_kind: 'other',
+        validation_source: 'artifact',
+        detail: 'Stock scanner demo must include machine-readable market-data evidence.',
+      },
+      {
+        id: 'check_worker_checks',
+        name: 'Worker and manager checks are recorded',
+        required: true,
+        artifact_kind: null,
+        validation_source: 'any',
+        detail: 'The run must emit explicit freshness and completeness checks.',
+      },
     ],
     repair_heuristics: [
       {

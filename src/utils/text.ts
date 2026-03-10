@@ -1,7 +1,7 @@
 export function tokenize(value: string): string[] {
   return value
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/[^\p{L}\p{N}\s]/gu, ' ')
     .split(/\s+/)
     .filter((token) => token.length > 1);
 }

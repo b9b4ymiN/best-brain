@@ -317,6 +317,42 @@ export class ControlRoomService {
     fs.writeFileSync(this.missionPath(record.mission_id), JSON.stringify(record, null, 2));
   }
 
+  private persistRun(goal: string, run: StoredMissionRun): StoredMissionRecord {
+    const missionId = run.result.mission_brief.mission_id;
+    const existing = this.readRecord(missionId);
+    const timestamp = this.now();
+    const record: StoredMissionRecord = existing
+      ? {
+          ...existing,
+          goal,
+          updated_at: timestamp,
+          runs: [...existing.runs, run],
+          operator_review: createInitialOperatorReview(),
+        }
+      : {
+          mission_id: missionId,
+          goal,
+          created_at: timestamp,
+          updated_at: timestamp,
+          runs: [run],
+          operator_events: [],
+          operator_review: createInitialOperatorReview(),
+        };
+    this.writeRecord(record);
+    return record;
+  }
+
+  recordManagerResult(goal: string, result: ManagerRunResult): MissionConsoleView {
+    const run: StoredMissionRun = {
+      id: `launch_mission_${this.now()}`,
+      action: 'launch_mission',
+      recorded_at: this.now(),
+      result,
+    };
+    const record = this.persistRun(goal, run);
+    return buildMissionConsoleView(result, record.operator_review, record.operator_events);
+  }
+
   listDashboard(): ControlRoomDashboardView {
     const missions = fs.readdirSync(this.missionsDir)
       .filter((entry) => entry.endsWith('.json'))
@@ -347,15 +383,9 @@ export class ControlRoomService {
   ): Promise<StoredMissionRun> {
     const manager = await this.managerFactory();
     try {
-      const workerPreference = request.worker_preference === 'claude'
-        || request.worker_preference === 'codex'
-        || request.worker_preference === 'shell'
-        || request.worker_preference === 'auto'
-        ? request.worker_preference
-        : 'auto';
       const result = await manager.run({
         goal: request.goal,
-        worker_preference: workerPreference,
+        worker_preference: 'auto',
         mission_id: overrides.mission_id ?? null,
         dry_run: request.dry_run,
         no_execute: request.no_execute ?? false,
@@ -377,18 +407,7 @@ export class ControlRoomService {
       mission_id: null,
       action: 'launch_mission',
     });
-    const missionId = run.result.mission_brief.mission_id;
-    const timestamp = this.now();
-    const record: StoredMissionRecord = {
-      mission_id: missionId,
-      goal: request.goal,
-      created_at: timestamp,
-      updated_at: timestamp,
-      runs: [run],
-      operator_events: [],
-      operator_review: createInitialOperatorReview(),
-    };
-    this.writeRecord(record);
+    const record = this.persistRun(request.goal, run);
     return buildMissionConsoleView(run.result, record.operator_review, record.operator_events);
   }
 
@@ -411,8 +430,6 @@ export class ControlRoomService {
     if (request.action === 'retry_mission' || request.action === 'resume_mission') {
       const rerun = await this.runManagerMission({
         goal: record.goal,
-        mode: 'mission',
-        worker_preference: latestRun.result.input.worker_preference,
         dry_run: false,
         no_execute: false,
       }, {

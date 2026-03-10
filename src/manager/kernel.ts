@@ -98,6 +98,7 @@ export function finalizeRun(
   workerResult: WorkerExecutionResult | null,
   verificationResult: CompletionProofState | null,
   brainWrites: BrainWriteRecord[],
+  ownerResponse: string,
   startedBrainServer: boolean,
 ): ManagerRunResult {
   return {
@@ -111,6 +112,7 @@ export function finalizeRun(
     worker_result: workerResult,
     verification_result: verificationResult,
     brain_writes: brainWrites,
+    owner_response: ownerResponse,
     final_message: buildManagerSummary(input, decision, ambiguity, brief, briefValidation, workerResult, verificationResult),
     retryable: verificationResult?.status === 'verification_failed',
     started_brain_server: startedBrainServer,

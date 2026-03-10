@@ -92,8 +92,6 @@ describe('control room HTTP', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           goal: 'I want a Thai stock scanner system that matches how I invest.',
-          mode: 'mission',
-          worker_preference: 'claude',
           dry_run: false,
         }),
       });

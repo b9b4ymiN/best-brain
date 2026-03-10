@@ -4,6 +4,7 @@ import { buildMissionReportDocument } from '../proving/report.ts';
 import { LocalRuntimeSpine } from '../runtime/spine.ts';
 import { WorkerFabric } from '../workers/fabric.ts';
 import { createId } from '../utils/id.ts';
+import { buildChatOwnerResponse } from './chat-response.ts';
 import { validateMissionBrief } from './brief-validator.ts';
 import { detectGoalAmbiguity } from './goal-ambiguity.ts';
 import { updateTaskStatus } from './graph.ts';
@@ -39,6 +40,7 @@ export interface ManagerRuntimeOptions {
   workers?: Partial<Record<ManagerWorker, WorkerAdapter>>;
   verifier?: VerifierAdapter;
   brainHttpOptions?: ConstructorParameters<typeof BrainHttpAdapter>[0];
+  now?: () => Date;
 }
 
 function normalizeOutputMode(value: ManagerOutputMode | undefined): ManagerOutputMode {
@@ -149,6 +151,7 @@ export class ManagerRuntime {
   readonly workers: Partial<Record<ManagerWorker, WorkerAdapter>>;
   readonly verifier: VerifierAdapter;
   readonly fabric: WorkerFabric;
+  readonly now: () => Date;
 
   constructor(options: ManagerRuntimeOptions = {}) {
     this.brain = options.brain ?? new BrainHttpAdapter(options.brainHttpOptions);
@@ -160,6 +163,7 @@ export class ManagerRuntime {
     };
     this.verifier = options.verifier ?? new ManagerVerifierAdapter();
     this.fabric = new WorkerFabric(this.workers, this.verifier);
+    this.now = options.now ?? (() => new Date());
   }
 
   async run(rawInput: Pick<ManagerInput, 'goal'> & Partial<Omit<ManagerInput, 'goal'>>): Promise<ManagerRunResult> {
@@ -287,6 +291,11 @@ export class ManagerRuntime {
     }
 
     if (!decision.should_execute) {
+      const ownerResponse = decision.kind === 'chat'
+        ? buildChatOwnerResponse(input.goal, consult, context, this.now())
+        : decision.blocked_reason
+          ? decision.blocked_reason
+          : `Planned ${brief.kind} path. Next: ${brief.execution_plan[0] ?? 'Review the mission brief.'}`;
       if (runtimeBundle) {
         runtimeSpine.finalize(
           decision.blocked_reason ? 'aborted' : 'completed',
@@ -300,7 +309,20 @@ export class ManagerRuntime {
         runtimeBundle = runtimeSpine.snapshot();
       }
 
-      return finalizeRun(input, decision, ambiguity, brief, briefValidation, missionGraph, runtimeBundle, null, null, [], startedBrainServer);
+      return finalizeRun(
+        input,
+        decision,
+        ambiguity,
+        brief,
+        briefValidation,
+        missionGraph,
+        runtimeBundle,
+        null,
+        null,
+        [],
+        ownerResponse,
+        startedBrainServer,
+      );
     }
 
     const executionRequest = buildExecutionRequest(brief, input.cwd);
@@ -309,7 +331,20 @@ export class ManagerRuntime {
         runtimeSpine.finalize('aborted', 'No executable task was ready in the mission graph.', {});
         runtimeBundle = runtimeSpine.snapshot();
       }
-      return finalizeRun(input, decision, ambiguity, brief, briefValidation, missionGraph, runtimeBundle, null, null, [], startedBrainServer);
+      return finalizeRun(
+        input,
+        decision,
+        ambiguity,
+        brief,
+        briefValidation,
+        missionGraph,
+        runtimeBundle,
+        null,
+        null,
+        [],
+        'No executable task was ready in the mission graph.',
+        startedBrainServer,
+      );
     }
 
     missionGraph = updateTaskStatus(missionGraph, 'primary_work', 'running');
@@ -574,6 +609,11 @@ export class ManagerRuntime {
       workerResult,
       verificationResult,
       brainWrites,
+      verificationResult.status === 'verified_complete'
+        ? workerResult.summary
+        : verificationResult.status === 'verification_failed'
+          ? `Verification failed. ${workerResult.summary}`
+          : workerResult.summary,
       startedBrainServer,
     );
   }

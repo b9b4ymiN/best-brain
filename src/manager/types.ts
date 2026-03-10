@@ -167,6 +167,7 @@ export interface ManagerRunResult {
   worker_result: WorkerExecutionResult | null;
   verification_result: CompletionProofState | null;
   brain_writes: BrainWriteRecord[];
+  owner_response: string;
   final_message: string;
   retryable: boolean;
   started_brain_server: boolean;

@@ -41,9 +41,8 @@ export function validateMissionBrief(brief: MissionBrief): MissionBriefValidatio
       passed: brief.mission_kind !== 'thai_equities_manager_led_scanner'
         || (
           brief.manager_derivation != null
-          && brief.manager_derivation.owner_archetype !== 'unknown'
-          && brief.manager_derivation.screening_criteria.length >= 3
           && brief.manager_derivation.derived_from_memory_ids.length >= 1
+          && brief.manager_derivation.planned_outputs.length >= 2
         ),
     },
   ];

@@ -14,9 +14,6 @@ export const CONTROL_ROOM_ACTIONS = [
 
 export type ControlRoomAction = (typeof CONTROL_ROOM_ACTIONS)[number];
 
-export const CONTROL_ROOM_MODES = ['auto', 'chat', 'task', 'mission'] as const;
-export type ControlRoomMode = (typeof CONTROL_ROOM_MODES)[number];
-
 export const WORKER_CARD_STATUSES = [
   'idle',
   'queued',
@@ -30,8 +27,6 @@ export type WorkerCardStatus = (typeof WORKER_CARD_STATUSES)[number];
 
 export interface ControlRoomLaunchRequest {
   goal: string;
-  mode: ControlRoomMode;
-  worker_preference: 'auto' | WorkerId;
   dry_run: boolean;
   no_execute?: boolean;
 }

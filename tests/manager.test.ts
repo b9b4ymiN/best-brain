@@ -20,6 +20,8 @@ import type {
   WorkerExecutionResult,
 } from '../src/manager/types.ts';
 
+const THAI_TODAY_QUESTION = '\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49\u0e27\u0e31\u0e19\u0e2d\u0e30\u0e44\u0e23';
+
 function makeInput(goal: string, overrides: Partial<ManagerInput> = {}): ManagerInput {
   return {
     goal,
@@ -205,6 +207,7 @@ describe('manager alpha unit flow', () => {
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.')).selected_worker).toBe('codex');
     expect(routeIntent(makeInput('Run `bun --version` locally and summarize the result.')).selected_worker).toBe('shell');
     expect(routeIntent(makeInput('I want a Thai stock scanner system that matches how I invest.')).selected_worker).toBe('claude');
+    expect(routeIntent(makeInput(THAI_TODAY_QUESTION)).kind).toBe('chat');
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.', { worker_preference: 'claude' })).selected_worker).toBe('claude');
   });
 
@@ -234,6 +237,7 @@ describe('manager alpha unit flow', () => {
       expect(result.verification_result).toBeNull();
       expect(result.runtime_bundle).toBeNull();
       expect(result.brain_writes).toHaveLength(0);
+      expect(result.owner_response.length).toBeGreaterThan(0);
       expect(brain.calls.consult).toHaveLength(1);
       expect(brain.calls.saveOutcome).toHaveLength(0);
       expect(result.mission_graph.nodes.some((node) => node.id === 'final_response')).toBe(true);
@@ -364,6 +368,65 @@ describe('manager alpha unit flow', () => {
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')).toBe(true);
       expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.uri.startsWith('input-adapter://'))).toBe(true);
       expect(brain.calls.consult).toHaveLength(2);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('actual manager-led stock mission still proceeds when persona derivation is thin but memory is grounded', async () => {
+    const brain = new FakeBrainAdapter({
+      consultResponse: makeConsultResponse({
+        citations: [
+          {
+            memory_id: 'mem_owner_preferences',
+            title: 'Preferred report format',
+            memory_type: 'Preferences',
+            summary: 'Objective, owner profile, screening criteria, system plan, evidence, risks, next action.',
+            source: 'onboarding',
+            verified_by: 'user',
+            evidence_ref: [{ type: 'note', ref: 'onboarding://report-format' }],
+          },
+        ],
+        followup_actions: [
+          'Keep the final answer owner-facing and grounded in memory.',
+        ],
+        trace_id: 'trace_actual_stock_manager_thin',
+      }),
+      contextResponse: makeContextBundle({
+        preferred_format: 'Objective, owner profile, screening criteria, system plan, evidence, risks, next action.',
+        planning_hints: [
+          'Recall the owner memory that exists, then continue without hidden human steps.',
+        ],
+      }),
+    });
+    const worker = new FakeWorkerAdapter('claude', {
+      summary: 'Produced a grounded owner-facing Thai stock scanner system plan from the available memory.',
+      status: 'success',
+      artifacts: [{
+        type: 'note',
+        ref: 'worker://claude/stock-scanner-plan-thin',
+        description: 'Owner-facing stock-scanner system plan from thin persona memory.',
+      }],
+      proposed_checks: [],
+      raw_output: 'Owner-facing grounded stock scanner system plan.',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      workers: { claude: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'I want a Thai stock scanner system that matches how I invest.',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('mission');
+      expect(result.decision.blocked_reason).toBeNull();
+      expect(result.mission_brief_validation.is_complete).toBe(true);
+      expect(result.mission_brief.manager_derivation).not.toBeNull();
+      expect(result.verification_result?.status).toBe('verified_complete');
+      expect(worker.requests).toHaveLength(1);
     } finally {
       await runtime.dispose();
     }

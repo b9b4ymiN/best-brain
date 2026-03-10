@@ -65,6 +65,11 @@ export function buildManagerDerivation(
   const signals = collectSignals(consult, context);
   const signalText = signals
     .map((signal) => `${signal.title}. ${signal.summary}`)
+    .concat([
+      consult.answer,
+      ...context.planning_hints,
+      context.preferred_format,
+    ])
     .join('\n');
   const ownerArchetype: ManagerDerivation['owner_archetype'] = VALUE_INVESTOR_PATTERNS.some((pattern) => pattern.test(signalText))
     ? 'value_investor'

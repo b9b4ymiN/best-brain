@@ -201,26 +201,6 @@ export function renderControlRoomPage(): string {
               <span>Goal</span>
               <textarea id="goal" placeholder="Describe the goal once. The manager should continue from there."></textarea>
             </label>
-            <div class="detail-grid">
-              <label class="two-line">
-                <span>Mode hint</span>
-                <select id="mode">
-                  <option value="auto">auto</option>
-                  <option value="mission">mission</option>
-                  <option value="task">task</option>
-                  <option value="chat">chat</option>
-                </select>
-              </label>
-              <label class="two-line">
-                <span>Primary worker</span>
-                <select id="worker">
-                  <option value="auto">auto</option>
-                  <option value="claude">claude</option>
-                  <option value="codex">codex</option>
-                  <option value="shell">shell</option>
-                </select>
-              </label>
-            </div>
             <label><input id="dryRun" type="checkbox" /> Dry run</label>
             <label><input id="noExecute" type="checkbox" /> No execute</label>
             <button id="launch">Launch mission</button>
@@ -248,6 +228,7 @@ export function renderControlRoomPage(): string {
         dashboard: null,
         selectedMissionId: null,
       };
+      const requestedMissionId = new URLSearchParams(window.location.search).get('mission_id');
 
       function badgeClass(status) {
         if (status === 'verified_complete' || status === 'completed') return 'status good';
@@ -374,7 +355,9 @@ export function renderControlRoomPage(): string {
       async function loadDashboard() {
         const response = await fetch('/control-room/api/overview');
         state.dashboard = await response.json();
-        if (!state.selectedMissionId && state.dashboard.latest_mission_id) {
+        if (!state.selectedMissionId && requestedMissionId) {
+          state.selectedMissionId = requestedMissionId;
+        } else if (!state.selectedMissionId && state.dashboard.latest_mission_id) {
           state.selectedMissionId = state.dashboard.latest_mission_id;
         }
         renderDashboard();
@@ -396,8 +379,6 @@ export function renderControlRoomPage(): string {
       document.getElementById('launch').addEventListener('click', async () => {
         const payload = {
           goal: document.getElementById('goal').value.trim(),
-          mode: document.getElementById('mode').value,
-          worker_preference: document.getElementById('worker').value,
           dry_run: document.getElementById('dryRun').checked,
           no_execute: document.getElementById('noExecute').checked,
         };

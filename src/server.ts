@@ -1,3 +1,4 @@
+import { ChatService } from './chat/service.ts';
 import { ControlRoomService } from './control-room/service.ts';
 import { BestBrain } from './services/brain.ts';
 import { createApp } from './http/app.ts';
@@ -6,16 +7,21 @@ import { ManagerRuntime } from './manager/runtime.ts';
 
 const brain = await BestBrain.open();
 let server: ReturnType<typeof Bun.serve>;
-const controlRoom = new ControlRoomService({
-  dataDir: brain.config.dataDir,
-  managerFactory: () => new ManagerRuntime({
-    brain: new BrainHttpAdapter({
-      baseUrl: `http://127.0.0.1:${server.port}`,
-      autoStart: false,
-    }),
+const managerFactory = () => new ManagerRuntime({
+  brain: new BrainHttpAdapter({
+    baseUrl: `http://127.0.0.1:${server.port}`,
+    autoStart: false,
   }),
 });
-const app = createApp(brain, { controlRoom });
+const controlRoom = new ControlRoomService({
+  dataDir: brain.config.dataDir,
+  managerFactory,
+});
+const chat = new ChatService({
+  managerFactory,
+  controlRoom,
+});
+const app = createApp(brain, { chat, controlRoom });
 
 server = Bun.serve({
   port: brain.config.port,

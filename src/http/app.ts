@@ -1,10 +1,12 @@
 import { Hono } from 'hono';
+import { renderChatPage } from '../chat/page.ts';
+import type { ChatService } from '../chat/service.ts';
+import type { ChatMessageRequest } from '../chat/types.ts';
 import type { BestBrain } from '../services/brain.ts';
 import { renderControlRoomPage } from '../control-room/page.ts';
 import type { ControlRoomService } from '../control-room/service.ts';
 import {
   CONTROL_ROOM_ACTIONS,
-  CONTROL_ROOM_MODES,
   type ControlRoomActionRequest,
   type ControlRoomLaunchRequest,
 } from '../control-room/types.ts';
@@ -37,20 +39,8 @@ function validateControlRoomLaunchRequest(input: unknown): ControlRoomLaunchRequ
     throw new Error('control-room goal is required');
   }
 
-  const mode = typeof payload.mode === 'string' && CONTROL_ROOM_MODES.includes(payload.mode as (typeof CONTROL_ROOM_MODES)[number])
-    ? payload.mode as ControlRoomLaunchRequest['mode']
-    : 'auto';
-  const workerPreference = typeof payload.worker_preference === 'string'
-    ? payload.worker_preference
-    : 'auto';
-  if (!['auto', 'claude', 'codex', 'shell', 'browser', 'mail', 'verifier'].includes(workerPreference)) {
-    throw new Error('control-room worker_preference is invalid');
-  }
-
   return {
     goal,
-    mode,
-    worker_preference: workerPreference as ControlRoomLaunchRequest['worker_preference'],
     dry_run: payload.dry_run === true,
     no_execute: payload.no_execute === true,
   };
@@ -71,12 +61,37 @@ function validateControlRoomActionRequest(input: unknown): ControlRoomActionRequ
   };
 }
 
+function validateChatMessageRequest(input: unknown): ChatMessageRequest {
+  if (!input || typeof input !== 'object') {
+    throw new Error('chat request must be an object');
+  }
+  const payload = input as Record<string, unknown>;
+  const message = typeof payload.message === 'string' ? payload.message.trim() : '';
+  if (!message) {
+    throw new Error('chat message is required');
+  }
+
+  return {
+    message,
+  };
+}
+
 export interface AppServices {
+  chat?: ChatService | null;
   controlRoom?: ControlRoomService | null;
 }
 
 export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   const app = new Hono();
+
+  if (services.chat) {
+    app.get('/', (c) => c.html(renderChatPage()));
+    app.get('/chat', (c) => c.html(renderChatPage()));
+    app.post('/chat/api/message', async (c) => {
+      const body = validateChatMessageRequest(await readJsonBody(c));
+      return c.json(await services.chat!.sendMessage(body));
+    });
+  }
 
   app.get('/health', (c) => c.json(brain.health()));
 
