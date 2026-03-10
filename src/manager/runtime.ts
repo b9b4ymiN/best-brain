@@ -2,6 +2,9 @@ import type { FailureInput, StrictMissionOutcomeInput } from '../types.ts';
 import { validateMissionOutcomeStrictInput } from '../validation.ts';
 import { createId } from '../utils/id.ts';
 import { dispatchPrimaryWorker } from './dispatcher.ts';
+import { validateMissionBrief } from './brief-validator.ts';
+import { detectGoalAmbiguity } from './goal-ambiguity.ts';
+import { buildMissionTaskGraph, updateTaskStatus } from './graph.ts';
 import { routeIntent } from './intent-router.ts';
 import {
   assertCompletionPolicy,
@@ -21,6 +24,7 @@ import type {
   ManagerInput,
   ManagerOutputMode,
   ManagerRunResult,
+  ManagerDecision,
   ManagerWorker,
   ManagerWorkerPreference,
   WorkerExecutionResult,
@@ -79,6 +83,20 @@ function normalizeWorkerFailure(selectedWorker: ManagerWorker | null, error: unk
   };
 }
 
+function buildBlockedDecision(decision: ManagerDecision, blockedReason: string): ManagerDecision {
+  return {
+    ...decision,
+    should_execute: false,
+    verification_required: false,
+    blocked_reason: blockedReason,
+    reason: blockedReason,
+  };
+}
+
+function artifactRefs(workerResult: WorkerExecutionResult): string[] {
+  return workerResult.artifacts.map((artifact) => artifact.ref);
+}
+
 export class ManagerRuntime {
   readonly brain: BrainAdapter;
   readonly workers: Partial<Record<ManagerWorker, WorkerAdapter>>;
@@ -98,7 +116,7 @@ export class ManagerRuntime {
     const input = normalizeInput(rawInput);
     await this.brain.ensureAvailable();
     const startedBrainServer = this.brain.wasStartedByAdapter();
-    const decision = routeIntent(input);
+    let decision = routeIntent(input);
     const existingMissionId = input.mission_id;
     const consult = await this.brain.consult({
       query: input.goal,
@@ -112,21 +130,42 @@ export class ManagerRuntime {
       query: input.goal,
     });
     const missionId = existingMissionId ?? createId('mission');
+    const ambiguity = detectGoalAmbiguity(input, decision);
+    if (ambiguity.is_ambiguous) {
+      decision = buildBlockedDecision(decision, ambiguity.reason);
+    }
+
     const brief = compileMissionBrief({
       input,
       consult,
       context,
       decision,
     }, missionId);
+    const briefValidation = validateMissionBrief(brief);
+    let missionGraph = updateTaskStatus(
+      buildMissionTaskGraph(brief),
+      'context_review',
+      'completed',
+      brief.brain_citations.map((citation) => citation.memory_id),
+    );
+
+    if (!briefValidation.is_complete && decision.kind !== 'chat') {
+      decision = buildBlockedDecision(
+        decision,
+        `Mission brief is incomplete: ${briefValidation.missing_fields.join(', ')}.`,
+      );
+    }
 
     if (!decision.should_execute) {
-      return finalizeRun(input, decision, brief, null, null, [], startedBrainServer);
+      return finalizeRun(input, decision, ambiguity, brief, briefValidation, missionGraph, null, null, [], startedBrainServer);
     }
 
     const executionRequest = buildExecutionRequest(brief, input.cwd);
     if (!executionRequest) {
-      return finalizeRun(input, decision, brief, null, null, [], startedBrainServer);
+      return finalizeRun(input, decision, ambiguity, brief, briefValidation, missionGraph, null, null, [], startedBrainServer);
     }
+
+    missionGraph = updateTaskStatus(missionGraph, 'primary_work', 'running');
 
     const brainWrites: BrainWriteRecord[] = [];
     let workerResult: WorkerExecutionResult;
@@ -135,6 +174,12 @@ export class ManagerRuntime {
     } catch (error) {
       workerResult = normalizeWorkerFailure(decision.selected_worker, error);
     }
+    missionGraph = updateTaskStatus(
+      missionGraph,
+      'primary_work',
+      workerResult.status === 'success' ? 'completed' : 'failed',
+      artifactRefs(workerResult),
+    );
 
     const verificationRequest = await this.verifier.review(executionRequest, workerResult);
     assertCompletionPolicy(verificationRequest);
@@ -182,6 +227,20 @@ export class ManagerRuntime {
       `Verification finished with status ${verificationResult.status}.`,
       verificationResult,
     ));
+    missionGraph = updateTaskStatus(
+      missionGraph,
+      'verification_gate',
+      verificationResult.status === 'verified_complete' ? 'completed' : 'failed',
+      verificationRequest.evidence.map((artifact) => artifact.ref),
+    );
+    if (verificationResult.status === 'verified_complete') {
+      missionGraph = updateTaskStatus(
+        missionGraph,
+        'final_report',
+        'completed',
+        verificationRequest.evidence.map((artifact) => artifact.ref),
+      );
+    }
 
     if (verificationResult.status !== 'verified_complete') {
       const failureInput = buildFailureWrite(brief.goal, missionId, workerResult) as FailureInput;
@@ -197,7 +256,10 @@ export class ManagerRuntime {
     return finalizeRun(
       input,
       decision,
+      ambiguity,
       brief,
+      briefValidation,
+      missionGraph,
       workerResult,
       verificationResult,
       brainWrites,

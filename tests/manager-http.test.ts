@@ -83,6 +83,8 @@ describe('manager alpha via brain HTTP', () => {
 
       expect(result.verification_result?.status).toBe('verified_complete');
       expect(result.started_brain_server).toBe(false);
+      expect(result.mission_brief_validation.is_complete).toBe(true);
+      expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
 
       const contextResponse = await fetch(`http://127.0.0.1:${server.port}/brain/context?mission_id=mission_http_manager&query=latest%20mission%20context`);
       const context = await contextResponse.json() as {
@@ -139,6 +141,7 @@ describe('manager alpha via brain HTTP', () => {
       });
 
       expect(followUp.mission_brief.brain_citations.some((citation) => citation.title.includes('Mission outcome: Implement the first verified manager mission.'))).toBe(true);
+      expect(followUp.mission_brief_validation.completeness_score).toBe(100);
       expect(followUp.brain_writes).toHaveLength(0);
     } finally {
       await runtime.dispose();
@@ -176,6 +179,7 @@ describe('manager alpha via brain HTTP', () => {
 
       expect(result.started_brain_server).toBe(true);
       expect(result.mission_brief.brain_trace_id.startsWith('trace_')).toBe(true);
+      expect(result.mission_graph.nodes.some((node) => node.id === 'context_review')).toBe(true);
     } finally {
       await runtime.dispose();
       try {

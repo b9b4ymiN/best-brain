@@ -10,6 +10,7 @@ import type {
   VerificationStartInput,
 } from '../src/types.ts';
 import { routeIntent } from '../src/manager/intent-router.ts';
+import { detectGoalAmbiguity } from '../src/manager/goal-ambiguity.ts';
 import { ManagerRuntime } from '../src/manager/runtime.ts';
 import type { BrainAdapter, BrainHealthResponse, VerifierAdapter, WorkerAdapter } from '../src/manager/adapters/types.ts';
 import type {
@@ -205,6 +206,17 @@ describe('manager alpha unit flow', () => {
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.', { worker_preference: 'claude' })).selected_worker).toBe('claude');
   });
 
+  test('goal ambiguity detector blocks underspecified execution goals', () => {
+    const input = makeInput('Fix it');
+    const decision = routeIntent(input);
+    const ambiguity = detectGoalAmbiguity(input, decision);
+
+    expect(decision.kind).toBe('task');
+    expect(ambiguity.is_ambiguous).toBe(true);
+    expect(ambiguity.missing_clarifications).toContain('target_scope');
+    expect(ambiguity.missing_clarifications).toContain('success_criteria');
+  });
+
   test('chat path consults the brain but does not execute a worker or write mission state', async () => {
     const brain = new FakeBrainAdapter();
     const runtime = new ManagerRuntime({ brain, workers: {} });
@@ -221,6 +233,7 @@ describe('manager alpha unit flow', () => {
       expect(result.brain_writes).toHaveLength(0);
       expect(brain.calls.consult).toHaveLength(1);
       expect(brain.calls.saveOutcome).toHaveLength(0);
+      expect(result.mission_graph.nodes.some((node) => node.id === 'final_response')).toBe(true);
     } finally {
       await runtime.dispose();
     }
@@ -248,6 +261,45 @@ describe('manager alpha unit flow', () => {
       expect(result.mission_brief.preferred_format).toContain('proof chain');
       expect(result.mission_brief.planning_hints).toContain('Reuse the last verified mission.');
       expect(result.mission_brief.success_criteria.some((item) => item.includes('Do not claim done'))).toBe(true);
+      expect(result.mission_brief_validation.is_complete).toBe(true);
+      expect(result.mission_brief_validation.completeness_score).toBe(100);
+      expect(result.mission_graph.nodes.map((node) => node.id)).toEqual([
+        'context_review',
+        'primary_work',
+        'verification_gate',
+        'final_report',
+      ]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('ambiguous execution goals are blocked before worker dispatch and ask for clarification', async () => {
+    const brain = new FakeBrainAdapter();
+    const worker = new FakeWorkerAdapter('codex', {
+      summary: 'Should not run.',
+      status: 'success',
+      artifacts: [{ type: 'note', ref: 'worker://codex/should-not-run' }],
+      proposed_checks: [{ name: 'should-not-run', passed: true }],
+      raw_output: '{}',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      workers: { codex: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Fix it',
+        output_mode: 'json',
+      });
+
+      expect(result.goal_ambiguity.is_ambiguous).toBe(true);
+      expect(result.decision.should_execute).toBe(false);
+      expect(result.decision.blocked_reason).toContain('ambiguous');
+      expect(result.worker_result).toBeNull();
+      expect(result.brain_writes).toHaveLength(0);
+      expect(worker.requests).toHaveLength(0);
     } finally {
       await runtime.dispose();
     }
@@ -293,6 +345,9 @@ describe('manager alpha unit flow', () => {
       expect(brain.calls.saveOutcome[0]?.domain).toBe('best-brain');
       expect(brain.calls.completeVerification[0]?.status).toBe('verified_complete');
       expect(worker.requests).toHaveLength(1);
+      expect(result.mission_graph.nodes.find((node) => node.id === 'primary_work')?.status).toBe('completed');
+      expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
+      expect(result.mission_graph.nodes.find((node) => node.id === 'final_report')?.status).toBe('completed');
     } finally {
       await runtime.dispose();
     }
@@ -326,6 +381,7 @@ describe('manager alpha unit flow', () => {
       expect(result.brain_writes.some((entry) => entry.action === 'save_failure')).toBe(true);
       expect(brain.calls.completeVerification[0]?.status).toBe('verification_failed');
       expect(brain.calls.saveFailure).toHaveLength(1);
+      expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('failed');
     } finally {
       await runtime.dispose();
     }

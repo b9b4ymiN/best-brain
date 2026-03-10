@@ -1,0 +1,42 @@
+{
+  "id": "playbook_thai_equities_daily",
+  "slug": "thai-equities-daily-scanner",
+  "title": "Thai equities daily proving mission",
+  "scope": "domain",
+  "mission_kind": "thai_equities_daily_scanner",
+  "preferred_workers": [
+    "claude",
+    "codex",
+    "shell",
+    "verifier"
+  ],
+  "planning_hints": [
+    "Confirm market freshness before scanning.",
+    "Do not finalize without report evidence."
+  ],
+  "report_format": "Short status, rationale, evidence, risks, next action.",
+  "verifier_checklist": [
+    {
+      "id": "check_fresh_data",
+      "name": "Fresh market data available",
+      "required": true,
+      "artifact_kind": "other",
+      "detail": "Scanner must use the latest trading-day data or block explicitly."
+    },
+    {
+      "id": "check_report_complete",
+      "name": "Report contains rationale and risks",
+      "required": true,
+      "artifact_kind": "note",
+      "detail": "Owner-facing report must contain results, rationale, risk, and next action."
+    }
+  ],
+  "repair_heuristics": [
+    {
+      "id": "repair_retry_data_adapter",
+      "trigger": "live_data_blocked",
+      "instruction": "Switch to the next available market-data adapter and rerun freshness checks.",
+      "max_retries": 2
+    }
+  ]
+}

@@ -1,0 +1,87 @@
+{
+  "session": {
+    "id": "session_program_example",
+    "mission_id": "mission_program_example",
+    "workspace_root": "C:\\Programing\\PersonalAI\\best-brain",
+    "owner": "example-owner",
+    "status": "active",
+    "checkpoint_ids": [
+      "checkpoint_before_verification"
+    ],
+    "created_at": 1773100980317,
+    "updated_at": 1773100980317
+  },
+  "processes": [
+    {
+      "id": "proc_scanner",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "actor": "shell",
+      "command": "bun",
+      "args": [
+        "run",
+        "scanner"
+      ],
+      "cwd": "C:\\Programing\\PersonalAI\\best-brain",
+      "status": "succeeded",
+      "exit_code": 0,
+      "stdout_artifact_id": "artifact_stdout",
+      "stderr_artifact_id": null,
+      "started_at": 1773101010317,
+      "completed_at": 1773101020317
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "artifact_analysis_note",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "task_id": "task_analysis",
+      "kind": "report",
+      "uri": "example://artifact-analysis-note",
+      "description": "Mission analysis note.",
+      "checksum": null,
+      "source": "claude",
+      "created_at": 1773100995317
+    },
+    {
+      "id": "artifact_stdout",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "task_id": "task_implementation",
+      "kind": "stdout",
+      "uri": "example://artifact-stdout",
+      "description": "Scanner stdout output.",
+      "checksum": null,
+      "source": "shell",
+      "created_at": 1773101020317
+    }
+  ],
+  "checkpoints": [
+    {
+      "id": "checkpoint_before_verification",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "label": "Before verifier run",
+      "artifact_ids": [
+        "artifact_analysis_note",
+        "artifact_stdout"
+      ],
+      "restore_supported": true,
+      "created_at": 1773101025317
+    }
+  ],
+  "events": [
+    {
+      "id": "event_manager_launch",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "task_id": null,
+      "event_type": "mission_started",
+      "actor": "manager",
+      "detail": "Mission launched from a single user goal.",
+      "data": {},
+      "created_at": 1773100980317
+    }
+  ]
+}

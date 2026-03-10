@@ -52,5 +52,6 @@ export function routeIntent(input: ManagerInput): ManagerDecision {
     selected_worker: kind === 'chat' ? null : selectWorker(input.goal, input.worker_preference),
     reason,
     verification_required: kind !== 'chat',
+    blocked_reason: null,
   };
 }

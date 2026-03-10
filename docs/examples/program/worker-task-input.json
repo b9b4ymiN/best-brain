@@ -1,0 +1,19 @@
+{
+  "worker": "claude",
+  "mission_id": "mission_program_example",
+  "task_id": "task_analysis",
+  "objective": "Analyze the Thai equities daily scanner mission and propose a plan.",
+  "instructions": "Read the mission brief, inspect existing memory, and return a grounded plan summary.",
+  "cwd": "C:\\Programing\\PersonalAI\\best-brain",
+  "constraints": [
+    "Use manager/kernel rails only.",
+    "Do not claim completion without verification."
+  ],
+  "expected_artifacts": [
+    "note",
+    "other"
+  ],
+  "context_citations": [],
+  "verification_required": true,
+  "playbook_id": "playbook_thai_equities_daily"
+}

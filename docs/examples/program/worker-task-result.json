@@ -1,0 +1,30 @@
+{
+  "worker": "claude",
+  "mission_id": "mission_program_example",
+  "task_id": "task_analysis",
+  "status": "success",
+  "summary": "Produced a grounded analysis note and a scanner task breakdown.",
+  "artifacts": [
+    {
+      "type": "note",
+      "ref": "example://worker-analysis-note",
+      "description": "Analysis note for the proving mission."
+    },
+    {
+      "type": "other",
+      "ref": "example://worker-analysis-json",
+      "description": "Structured task breakdown."
+    }
+  ],
+  "checks": [
+    {
+      "name": "analysis-grounded",
+      "passed": true,
+      "detail": "Worker result cites the mission brief and owner format."
+    }
+  ],
+  "raw_output": "{\"summary\":\"Produced a grounded analysis note and a scanner task breakdown.\"}",
+  "started_at": 1773100980317,
+  "completed_at": 1773101000317,
+  "retry_recommendation": null
+}

@@ -1,0 +1,49 @@
+{
+  "mission_id": "mission_program_example",
+  "created_at": 1773100980317,
+  "updated_at": 1773100980317,
+  "nodes": [
+    {
+      "id": "task_analysis",
+      "title": "Analyze mission and draft plan",
+      "objective": "Turn the goal into a mission graph and report format.",
+      "node_type": "analysis",
+      "assigned_worker": "claude",
+      "depends_on": [],
+      "status": "completed",
+      "verification_gate": false,
+      "retry_count": 0,
+      "artifact_ids": [
+        "artifact_analysis_note"
+      ]
+    },
+    {
+      "id": "task_implementation",
+      "title": "Implement scanner logic",
+      "objective": "Build the scanner execution step for the proving mission.",
+      "node_type": "implementation",
+      "assigned_worker": "codex",
+      "depends_on": [
+        "task_analysis"
+      ],
+      "status": "ready",
+      "verification_gate": false,
+      "retry_count": 0,
+      "artifact_ids": []
+    },
+    {
+      "id": "task_verification",
+      "title": "Verify scanner output",
+      "objective": "Check report completeness, freshness, and artifact evidence.",
+      "node_type": "verification",
+      "assigned_worker": "verifier",
+      "depends_on": [
+        "task_implementation"
+      ],
+      "status": "pending",
+      "verification_gate": true,
+      "retry_count": 0,
+      "artifact_ids": []
+    }
+  ]
+}

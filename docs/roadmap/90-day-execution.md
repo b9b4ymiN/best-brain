@@ -1,0 +1,86 @@
+# 90-Day Execution Plan
+
+This is the delivery breakdown for the first success bar: `Repeatable One-Mission`.
+
+## Day 0-15: Program Lock
+
+Outputs:
+
+- final concept locked
+- system overview locked
+- contracts freeze locked
+- measurement plan locked
+- program scorecard baseline exists
+- acceptance run set defined as `thai_equities_daily_controlled_acceptance_runs`
+- explicit assumption locked: no hidden human-in-the-loop steps inside acceptance proofs
+
+Exit:
+
+- all five pillars are represented in docs or contracts
+- no unresolved ambiguity about success bar or proving mission
+- no acceptance claim depends on undocumented manual rescue or operator-only judgment
+
+## Day 16-35: Manager Beta Rails
+
+Outputs:
+
+- manager mission graph primitives
+- reusable playbook contract
+- stronger routing and mission compilation rails
+- decision-safe review and retry model
+- MissionBrief completeness validator
+- goal ambiguity detector before mission compilation
+
+Exit:
+
+- manager can build a mission graph from one goal
+- no illegal completion path exists
+- manager can block or request clarification when the goal is materially ambiguous
+- mission briefs can be scored for completeness instead of being trusted implicitly
+
+## Day 36-55: Worker Fabric and Runtime Spine
+
+Outputs:
+
+- worker contract formalized
+- shell/verifier runtime path formalized
+- session/process/artifact/checkpoint/event contracts active
+- manager proof artifact captured locally
+
+Exit:
+
+- one-worker paths are stable
+- runtime artifacts and verifier evidence stay linked
+
+## Day 56-75: Thai Equities Vertical Slice
+
+Outputs:
+
+- proving mission playbook
+- live market-data adapter selection policy
+- end-to-end scanner mission path
+- verified owner-facing report
+- controlled acceptance run set is executable without hidden manual intervention
+
+Exit:
+
+- mission completes end-to-end under controlled runs
+- stale data cannot create a false success
+- blocked missions fail closed with a correct explicit reason instead of drifting into false completion
+
+## Day 76-90: Mission Console and Repeatability
+
+Outputs:
+
+- local mission console
+- repeated proving mission runs
+- memory reuse and repair hints visible across runs
+- program scorecard updated with real repeated-run evidence
+- false-complete count tracked in the scorecard
+- blocked-with-correct-reason rate tracked in the scorecard
+
+Exit:
+
+- mission launch, inspect, retry, approve, reject all work from the console
+- repeated proving mission reaches the success bar
+- acceptance run set evidence is strong enough to distinguish real blocked runs from silent failures

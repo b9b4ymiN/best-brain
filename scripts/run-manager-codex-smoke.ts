@@ -16,6 +16,15 @@ try {
   if (result.verification_result?.status !== 'verified_complete') {
     throw new Error(`Codex manager smoke did not verify: ${result.verification_result?.status ?? 'missing verification result'}`);
   }
+  if (!result.mission_brief_validation.is_complete) {
+    throw new Error(`Codex manager smoke expected a complete mission brief, missing: ${result.mission_brief_validation.missing_fields.join(', ')}`);
+  }
+  if (result.goal_ambiguity.is_ambiguous) {
+    throw new Error(`Codex manager smoke did not expect an ambiguous goal: ${result.goal_ambiguity.reason}`);
+  }
+  if (result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status !== 'completed') {
+    throw new Error('Codex manager smoke expected the verification gate node to be completed');
+  }
 
   console.log(JSON.stringify(result, null, 2));
 } finally {

@@ -6,6 +6,7 @@ import type {
   VerificationArtifact,
   VerificationCheck,
 } from '../types.ts';
+import type { MissionTaskGraph } from './graph.ts';
 
 export const MANAGER_WORKER_PREFERENCES = ['auto', 'claude', 'codex'] as const;
 export type ManagerWorkerPreference = (typeof MANAGER_WORKER_PREFERENCES)[number];
@@ -35,6 +36,14 @@ export interface ManagerDecision {
   selected_worker: ManagerWorker | null;
   reason: string;
   verification_required: boolean;
+  blocked_reason: string | null;
+}
+
+export interface GoalAmbiguityAssessment {
+  is_ambiguous: boolean;
+  reason: string;
+  missing_clarifications: string[];
+  confidence: 'low' | 'medium' | 'high';
 }
 
 export interface MissionBrief {
@@ -49,6 +58,13 @@ export interface MissionBrief {
   brain_citations: ConsultCitation[];
   brain_trace_id: string;
   execution_plan: string[];
+}
+
+export interface MissionBriefValidation {
+  is_complete: boolean;
+  completeness_score: number;
+  missing_fields: string[];
+  warnings: string[];
 }
 
 export interface ExecutionRequest {
@@ -86,7 +102,10 @@ export interface BrainWriteRecord {
 export interface ManagerRunResult {
   input: ManagerInput;
   decision: ManagerDecision;
+  goal_ambiguity: GoalAmbiguityAssessment;
   mission_brief: MissionBrief;
+  mission_brief_validation: MissionBriefValidation;
+  mission_graph: MissionTaskGraph;
   worker_result: WorkerExecutionResult | null;
   verification_result: CompletionProofState | null;
   brain_writes: BrainWriteRecord[];

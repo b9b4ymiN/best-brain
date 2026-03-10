@@ -1,0 +1,211 @@
+{
+  "generated_at": "2026-03-10T00:03:00.317Z",
+  "success_bar": "Repeatable One-Mission",
+  "proving_mission": "Thai equities daily stock scanner",
+  "acceptance_run_set": "thai_equities_daily_controlled_acceptance_runs",
+  "control_surface_target": "Full Mission Console",
+  "execution_style": "general_engine_plus_reusable_playbooks",
+  "manager_beta_rails": [
+    "mission_brief_completeness_validator",
+    "goal_ambiguity_detector"
+  ],
+  "operating_assumptions": [
+    "no_hidden_human_in_the_loop_steps"
+  ],
+  "metric_values": [
+    {
+      "id": "mission_brief_completeness",
+      "label": "Mission brief completeness",
+      "category": "manager",
+      "target": ">= 100",
+      "actual": 100,
+      "status": "pass",
+      "note": "Must come from the MissionBrief completeness validator."
+    },
+    {
+      "id": "goal_ambiguity_detector",
+      "label": "Goal ambiguity detector enabled",
+      "category": "manager",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Unavailable until manager proof capture records ambiguous-goal handling."
+    },
+    {
+      "id": "false_complete_count",
+      "label": "False-complete count",
+      "category": "manager",
+      "target": "= 0",
+      "actual": 0,
+      "status": "pass",
+      "note": "Counts missions that looked complete but failed proof or later validation."
+    },
+    {
+      "id": "blocked_with_correct_reason_rate",
+      "label": "Blocked-with-correct-reason rate",
+      "category": "manager",
+      "target": ">= 95",
+      "actual": 100,
+      "status": "pass",
+      "note": "Measures whether the manager blocks with an explicitly correct reason instead of drifting or failing open."
+    },
+    {
+      "id": "acceptance_run_set_defined",
+      "label": "Acceptance run set defined",
+      "category": "north_star",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "The proving mission must have a named acceptance run set before success claims count."
+    },
+    {
+      "id": "no_hidden_human_loop_assumption",
+      "label": "No hidden human-in-the-loop steps locked",
+      "category": "north_star",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Acceptance runs must not depend on undocumented manual rescue steps."
+    },
+    {
+      "id": "routing_accuracy",
+      "label": "Routing accuracy",
+      "category": "brain",
+      "target": ">= 90",
+      "actual": 100,
+      "status": "pass",
+      "note": "Derived from consult eval summary."
+    },
+    {
+      "id": "citation_completeness",
+      "label": "Citation completeness",
+      "category": "brain",
+      "target": ">= 95",
+      "actual": 100,
+      "status": "pass",
+      "note": "Derived from consult eval summary."
+    },
+    {
+      "id": "persona_alignment",
+      "label": "Persona alignment median",
+      "category": "brain",
+      "target": ">= 4",
+      "actual": 4,
+      "status": "pass",
+      "note": "Manual consult-eval median."
+    },
+    {
+      "id": "usefulness",
+      "label": "Owner usefulness median",
+      "category": "north_star",
+      "target": ">= 4",
+      "actual": 4,
+      "status": "pass",
+      "note": "Manual consult-eval median is the current proxy for owner usefulness."
+    },
+    {
+      "id": "memory_reuse_gain",
+      "label": "Seeded context gain",
+      "category": "brain",
+      "target": ">= 70",
+      "actual": 100,
+      "status": "pass",
+      "note": "Current proxy for memory reuse readiness before repeated mission runs exist."
+    },
+    {
+      "id": "orphan_evidence_count",
+      "label": "Orphan evidence count",
+      "category": "runtime",
+      "target": "= 0",
+      "actual": 0,
+      "status": "pass",
+      "note": "Should remain zero once artifact lineage is healthy."
+    },
+    {
+      "id": "first_run_db_init_success",
+      "label": "First-run DB init success",
+      "category": "runtime",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Current local bootstrap proof."
+    },
+    {
+      "id": "windows_bootstrap_proof",
+      "label": "Windows bootstrap proof captured",
+      "category": "runtime",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "macOS and Linux proofs stay pending until captured."
+    },
+    {
+      "id": "manager_thin_path",
+      "label": "Thin manager path pass",
+      "category": "manager",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Derived from manager smoke capture."
+    },
+    {
+      "id": "manager_claude_path",
+      "label": "Claude primary worker path pass",
+      "category": "manager",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Derived from manager smoke capture."
+    },
+    {
+      "id": "manager_codex_path",
+      "label": "Codex primary worker path pass",
+      "category": "manager",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Derived from manager smoke capture."
+    },
+    {
+      "id": "mission_console_visibility",
+      "label": "Mission console visibility completeness",
+      "category": "console",
+      "target": "= true",
+      "actual": null,
+      "status": "unavailable",
+      "note": "Unavailable until the control room exists."
+    }
+  ],
+  "phase_readiness": [
+    {
+      "phase": "Phase0_ProgramLock",
+      "status": "pass",
+      "note": "Docs, examples, and frozen contracts exist."
+    },
+    {
+      "phase": "Phase1_ManagerBeta",
+      "status": "partial",
+      "note": "Manager paths pass and core safety rails are measured, but mission graph and playbook execution are still scaffolding-level."
+    },
+    {
+      "phase": "Phase2_WorkerFabricRuntimeSpine",
+      "status": "partial",
+      "note": "Artifact lineage and bootstrap proof exist, but runtime session/checkpoint implementation is still contract-level."
+    },
+    {
+      "phase": "Phase3_ThaiEquitiesStockScanner",
+      "status": "fail",
+      "note": "No proving mission vertical slice exists yet."
+    },
+    {
+      "phase": "Phase4_FullMissionConsole",
+      "status": "fail",
+      "note": "Console contracts exist, but no real control-room implementation exists yet."
+    },
+    {
+      "phase": "Phase5_Repeatability",
+      "status": "fail",
+      "note": "Repeatable one-mission proof requires the stock-scanner vertical slice first."
+    }
+  ]
+}

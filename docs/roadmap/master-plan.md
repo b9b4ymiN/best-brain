@@ -212,6 +212,30 @@ To stay aligned with the final concept, the next recommended order is:
 4. prove the full architecture on one end-to-end mission such as the stock scanner
 5. add the first control surface beyond CLI
 
+## Measurement discipline to add now
+
+The roadmap should explicitly carry these six controls while manager beta grows:
+
+- `MissionBrief completeness validator`
+- `Goal ambiguity detector`
+- `Acceptance run set definition`
+- `False-complete count`
+- `Blocked-with-correct-reason rate`
+- `No hidden human-in-the-loop steps` assumption
+
+These are not optional polish items. They are part of how `best-brain` avoids looking successful while still depending on hidden operator rescue or incomplete mission briefs.
+
+## Execution baseline
+
+The concrete 90-day execution breakdown lives in:
+
+- `docs/roadmap/90-day-execution.md`
+
+Program-level score tracking lives in:
+
+- `docs/metrics/measurement-plan.md`
+- `artifacts/program-scorecard.latest.json`
+
 ## Scope discipline
 
 The following should remain explicit while the project grows:

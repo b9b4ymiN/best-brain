@@ -1,26 +1,43 @@
 import type {
   BrainWriteRecord,
+  GoalAmbiguityAssessment,
   ManagerDecision,
   ManagerInput,
   ManagerRunResult,
+  MissionBriefValidation,
   MissionBrief,
   VerificationRequest,
   WorkerExecutionResult,
 } from './types.ts';
 import type { CompletionProofState } from '../types.ts';
+import type { MissionTaskGraph } from './graph.ts';
 
 export function buildManagerSummary(
   input: ManagerInput,
+  decision: ManagerDecision,
+  ambiguity: GoalAmbiguityAssessment,
   brief: MissionBrief,
+  briefValidation: MissionBriefValidation,
   workerResult: WorkerExecutionResult | null,
   verificationResult: CompletionProofState | null,
 ): string {
+  if (decision.blocked_reason) {
+    return [
+      `Decision: ${brief.kind}`,
+      `Mission ID: ${brief.mission_id}`,
+      `Blocked: ${decision.blocked_reason}`,
+      `Ambiguity: ${ambiguity.reason}`,
+      `Clarify: ${ambiguity.missing_clarifications.join(', ') || 'none'}`,
+    ].join('\n');
+  }
+
   if (input.dry_run || input.no_execute || brief.kind === 'chat') {
     return [
       `Decision: ${brief.kind}`,
       `Mission ID: ${brief.mission_id}`,
       `Worker: ${brief.selected_worker ?? 'none'}`,
       `Trace: ${brief.brain_trace_id}`,
+      `Brief completeness: ${briefValidation.completeness_score}%`,
       `Next: ${brief.execution_plan[0] ?? 'Review the mission brief.'}`,
     ].join('\n');
   }
@@ -31,6 +48,7 @@ export function buildManagerSummary(
     `Worker: ${brief.selected_worker ?? 'none'}`,
     `Worker status: ${workerResult?.status ?? 'none'}`,
     `Verification: ${verificationResult?.status ?? 'not-run'}`,
+    `Brief completeness: ${briefValidation.completeness_score}%`,
     `Summary: ${workerResult?.summary ?? 'No worker summary.'}`,
   ].join('\n');
 }
@@ -71,7 +89,10 @@ export function assertCompletionPolicy(request: VerificationRequest): void {
 export function finalizeRun(
   input: ManagerInput,
   decision: ManagerDecision,
+  ambiguity: GoalAmbiguityAssessment,
   brief: MissionBrief,
+  briefValidation: MissionBriefValidation,
+  missionGraph: MissionTaskGraph,
   workerResult: WorkerExecutionResult | null,
   verificationResult: CompletionProofState | null,
   brainWrites: BrainWriteRecord[],
@@ -80,11 +101,14 @@ export function finalizeRun(
   return {
     input,
     decision,
+    goal_ambiguity: ambiguity,
     mission_brief: brief,
+    mission_brief_validation: briefValidation,
+    mission_graph: missionGraph,
     worker_result: workerResult,
     verification_result: verificationResult,
     brain_writes: brainWrites,
-    final_message: buildManagerSummary(input, brief, workerResult, verificationResult),
+    final_message: buildManagerSummary(input, decision, ambiguity, brief, briefValidation, workerResult, verificationResult),
     retryable: verificationResult?.status === 'verification_failed',
     started_brain_server: startedBrainServer,
   };

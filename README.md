@@ -100,6 +100,10 @@ bun run manager -- "Plan the next mission using the latest mission proof."
 bun run smoke:manager
 bun run smoke:manager:claude
 bun run smoke:manager:codex
+bun run smoke:manager:ambiguity
+bun run proof:manager
+bun run examples:program
+bun run scorecard:program
 ```
 
 ## Current entrypoints
@@ -175,6 +179,12 @@ Manager alpha always uses the brain HTTP API as its canonical adapter. It will a
 
 For note-only missions, manager alpha can normalize usable freeform worker output into a note artifact plus a verification check. That keeps analysis-style `claude` and `codex` runs verifiable without pretending a file or test artifact exists.
 
+Manager alpha now also blocks materially ambiguous execution goals before dispatch. That rail is part of the proof path and can be checked with:
+
+```bash
+bun run smoke:manager:ambiguity
+```
+
 ## Repo direction
 
 The target system architecture has five long-term pillars:
@@ -193,6 +203,16 @@ The current repo is strongest in the first two:
 - `Runtime OS`: still emerging
 - `Control Surface`: not built yet
 
+## Program lock
+
+The 90-day program is now frozen around:
+
+- success bar: `Repeatable One-Mission`
+- proving mission: `Thai equities daily stock scanner`
+- execution style: `general engine + reusable playbooks`
+- data strategy: `live-data-first` through adapter selection, not hard-coded source logic
+- control surface target: `full mission console`
+
 ## Manager examples
 
 Generated manager-facing examples live in `docs/examples/manager/`. Refresh them with:
@@ -201,11 +221,26 @@ Generated manager-facing examples live in `docs/examples/manager/`. Refresh them
 bun run examples:manager
 ```
 
+Generated program-facing examples live in `docs/examples/program/`. Refresh them with:
+
+```bash
+bun run examples:program
+```
+
+Generate the current program scorecard with:
+
+```bash
+bun run scorecard:program
+```
+
 ## Docs
 
 - [Final Concept](./docs/vision/final-concept.md)
 - [System Overview](./docs/architecture/system-overview.md)
 - [Master Roadmap](./docs/roadmap/master-plan.md)
+- [90-Day Execution](./docs/roadmap/90-day-execution.md)
+- [Contracts Freeze](./docs/architecture/contracts-freeze.md)
+- [Measurement Plan](./docs/metrics/measurement-plan.md)
 - [Brain Spec](./docs/brain-v1-spec.md)
 - [Memory Model](./docs/memory-model.md)
 - [Retention Lifecycle](./docs/retention-lifecycle.md)

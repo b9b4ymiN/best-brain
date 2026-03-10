@@ -1,0 +1,89 @@
+{
+  "mission_id": "mission_program_example",
+  "goal": "Run the Thai equities daily scanner and produce a verified owner report.",
+  "status": "awaiting_verification",
+  "plan_overview": [
+    "task_analysis: Analyze mission and draft plan",
+    "task_implementation: Implement scanner logic",
+    "task_verification: Verify scanner output"
+  ],
+  "timeline": [
+    {
+      "id": "timeline_launch",
+      "mission_id": "mission_program_example",
+      "source": "manager",
+      "status": "completed",
+      "title": "Mission launched",
+      "detail": "Manager compiled the mission brief and task graph.",
+      "artifact_ids": [],
+      "created_at": 1773100980317
+    },
+    {
+      "id": "timeline_worker",
+      "mission_id": "mission_program_example",
+      "source": "worker",
+      "status": "completed",
+      "title": "Primary worker finished analysis",
+      "detail": "Produced a grounded analysis note and a scanner task breakdown.",
+      "artifact_ids": [
+        "artifact_analysis_note"
+      ],
+      "created_at": 1773101000317
+    }
+  ],
+  "workers": [
+    {
+      "worker": "claude",
+      "status": "completed",
+      "current_task_id": null,
+      "current_task_title": null,
+      "last_update_at": 1773101000317
+    },
+    {
+      "worker": "codex",
+      "status": "queued",
+      "current_task_id": "task_implementation",
+      "current_task_title": "Implement scanner logic",
+      "last_update_at": 1773101000317
+    }
+  ],
+  "artifacts": [
+    {
+      "id": "artifact_analysis_note",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "task_id": "task_analysis",
+      "kind": "report",
+      "uri": "example://artifact-analysis-note",
+      "description": "Mission analysis note.",
+      "checksum": null,
+      "source": "claude",
+      "created_at": 1773100995317
+    },
+    {
+      "id": "artifact_stdout",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "task_id": "task_implementation",
+      "kind": "stdout",
+      "uri": "example://artifact-stdout",
+      "description": "Scanner stdout output.",
+      "checksum": null,
+      "source": "shell",
+      "created_at": 1773101020317
+    }
+  ],
+  "verdict": {
+    "mission_id": "mission_program_example",
+    "status": "awaiting_verification",
+    "summary": "Implementation is waiting for the verifier result.",
+    "evidence_count": 2,
+    "checks_passed": 0,
+    "checks_total": 2
+  },
+  "allowed_actions": [
+    "retry_mission",
+    "approve_verdict",
+    "reject_verdict"
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "market": "th_equities_daily",
+  "selected_adapter_id": "thai_public_feed_primary",
+  "decision": "use_adapter",
+  "reason": "Selected the freshest available adapter that meets confidence policy.",
+  "considered": [
+    {
+      "id": "thai_public_feed_primary",
+      "market": "th_equities_daily",
+      "source_kind": "public_web_feed",
+      "available": true,
+      "freshness_ms": 1800000,
+      "confidence": 0.82,
+      "notes": [
+        "Primary daily source"
+      ]
+    },
+    {
+      "id": "thai_official_backup",
+      "market": "th_equities_daily",
+      "source_kind": "official_source",
+      "available": true,
+      "freshness_ms": 5400000,
+      "confidence": 0.9,
+      "notes": [
+        "Backup source"
+      ]
+    }
+  ]
+}
