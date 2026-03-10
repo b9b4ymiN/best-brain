@@ -1,4 +1,6 @@
 import { ManagerRuntime } from '../src/manager/runtime.ts';
+import { LocalCliChatResponder } from '../src/manager/chat-responder.ts';
+import { LocalCliManagerReasoner } from '../src/manager/reasoner.ts';
 
 function parseArgs(argv: string[]): {
   goal: string;
@@ -65,7 +67,10 @@ function parseArgs(argv: string[]): {
   };
 }
 
-const runtime = new ManagerRuntime();
+const runtime = new ManagerRuntime({
+  reasoner: new LocalCliManagerReasoner(),
+  chatResponder: new LocalCliChatResponder(),
+});
 
 try {
   const args = parseArgs(process.argv.slice(2));

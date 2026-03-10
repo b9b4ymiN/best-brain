@@ -150,7 +150,8 @@ export function renderChatPage(): string {
         const card = document.createElement('section');
         card.className = 'bubble user';
         card.innerHTML = '<strong>You</strong><pre>' + escapeHtml(message) + '</pre>';
-        thread.prepend(card);
+        thread.appendChild(card);
+        card.scrollIntoView({ block: 'end', behavior: 'smooth' });
       }
 
       function addAssistantBubble(payload) {
@@ -176,7 +177,8 @@ export function renderChatPage(): string {
           + meta
           + '<pre>' + escapeHtml(payload.answer) + '</pre>'
           + links;
-        thread.prepend(card);
+        thread.appendChild(card);
+        card.scrollIntoView({ block: 'end', behavior: 'smooth' });
       }
 
       async function sendMessage() {

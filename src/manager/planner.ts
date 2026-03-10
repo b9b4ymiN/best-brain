@@ -159,7 +159,7 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
     selected_worker: brief.selected_worker,
     shell_command: shellCommand,
     prompt: [
-      'You are the primary worker inside best-brain manager alpha.',
+      'Work on the current task and return only the required JSON result.',
       `Mission ID: ${brief.mission_id}`,
       `Mission kind: ${brief.mission_kind}`,
       `Mission definition: ${brief.mission_definition_id}`,
@@ -185,6 +185,7 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
       'proposed_checks must be an array of objects with name, passed, optional detail.',
       'If no file or test artifact exists, include at least one note artifact that points to your concrete result.',
       'If the mission is analysis-only, prefer note artifacts and do not edit files.',
+      'Do not introduce yourself.',
       'Do not claim verified_complete. The manager owns verification.',
     ].join('\n'),
     cwd,

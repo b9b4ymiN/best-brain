@@ -3,6 +3,8 @@ import { ControlRoomService } from './control-room/service.ts';
 import { BestBrain } from './services/brain.ts';
 import { createApp } from './http/app.ts';
 import { BrainHttpAdapter } from './manager/adapters/brain-http.ts';
+import { LocalCliChatResponder } from './manager/chat-responder.ts';
+import { LocalCliManagerReasoner } from './manager/reasoner.ts';
 import { ManagerRuntime } from './manager/runtime.ts';
 
 const brain = await BestBrain.open();
@@ -12,6 +14,8 @@ const managerFactory = () => new ManagerRuntime({
     baseUrl: `http://127.0.0.1:${server.port}`,
     autoStart: false,
   }),
+  reasoner: new LocalCliManagerReasoner(),
+  chatResponder: new LocalCliChatResponder(),
 });
 const controlRoom = new ControlRoomService({
   dataDir: brain.config.dataDir,

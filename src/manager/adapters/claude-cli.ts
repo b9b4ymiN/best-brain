@@ -116,15 +116,16 @@ export class ClaudeCliAdapter implements WorkerAdapter {
 
     const result = await runCommand('claude', [
       '-p',
+      '--no-session-persistence',
       '--output-format', 'json',
       '--allow-dangerously-skip-permissions',
       '--dangerously-skip-permissions',
       '--permission-mode', 'bypassPermissions',
-      prompt,
     ], {
       cwd: request.cwd,
       env: toEnvRecord({}),
       timeoutMs: 180000,
+      stdin: prompt,
     });
 
     if (result.exitCode !== 0) {

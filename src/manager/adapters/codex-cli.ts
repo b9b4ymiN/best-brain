@@ -128,11 +128,12 @@ export class CodexCliAdapter implements WorkerAdapter {
         '-c', 'model_reasoning_effort=high',
         '--output-last-message', lastMessageFile,
         '-C', request.cwd,
-        prompt,
+        '-',
       ], {
         cwd: request.cwd,
         env: toEnvRecord({}),
         timeoutMs: 180000,
+        stdin: prompt,
       });
 
       const lastMessage = fs.existsSync(lastMessageFile)

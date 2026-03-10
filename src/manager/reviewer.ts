@@ -14,6 +14,27 @@ function uniqueArtifacts(artifacts: VerificationArtifact[]): VerificationArtifac
   return result;
 }
 
+function uniqueChecks(checks: VerificationCheck[]): VerificationCheck[] {
+  const seen = new Map<string, VerificationCheck>();
+
+  for (const check of checks) {
+    const key = check.name.trim().toLowerCase();
+    const existing = seen.get(key);
+    if (!existing) {
+      seen.set(key, check);
+      continue;
+    }
+
+    seen.set(key, {
+      name: existing.name,
+      passed: existing.passed && check.passed,
+      detail: [existing.detail, check.detail].filter(Boolean).join(' | ') || undefined,
+    });
+  }
+
+  return Array.from(seen.values());
+}
+
 function ensureNoteEvidence(workerResult: WorkerExecutionResult, missionId: string): VerificationArtifact[] {
   const artifacts = uniqueArtifacts(workerResult.artifacts);
   if (artifacts.length > 0) {
@@ -98,13 +119,14 @@ export function buildVerificationRequest(request: ExecutionRequest, workerResult
     ...ensureChecks(workerResult),
     ...buildPlaybookChecks(request, evidence, workerResult),
   ];
-  const allChecksPass = verificationChecks.every((check) => check.passed);
+  const uniqueVerificationChecks = uniqueChecks(verificationChecks);
+  const allChecksPass = uniqueVerificationChecks.every((check) => check.passed);
 
   return {
     mission_id: request.mission_id,
     summary: workerResult.summary,
     evidence,
-    verification_checks: verificationChecks,
+    verification_checks: uniqueVerificationChecks,
     status: workerResult.status === 'success' && allChecksPass
       ? 'verified_complete'
       : 'verification_failed',

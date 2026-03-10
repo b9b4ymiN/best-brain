@@ -5,11 +5,13 @@ import { LocalRuntimeSpine } from '../runtime/spine.ts';
 import { WorkerFabric } from '../workers/fabric.ts';
 import { createId } from '../utils/id.ts';
 import { buildChatOwnerResponse } from './chat-response.ts';
+import type { ChatResponder } from './chat-responder.ts';
 import { validateMissionBrief } from './brief-validator.ts';
 import { detectGoalAmbiguity } from './goal-ambiguity.ts';
 import { updateTaskStatus } from './graph.ts';
-import { routeIntent } from './intent-router.ts';
+import { routeIntent, selectWorker } from './intent-router.ts';
 import { isThaiEquitiesActualManagerGoal } from '../proving/packs.ts';
+import type { ManagerReasoner, ManagerTriageResult } from './reasoner.ts';
 import {
   assertCompletionPolicy,
   buildFailureWrite,
@@ -41,6 +43,8 @@ export interface ManagerRuntimeOptions {
   verifier?: VerifierAdapter;
   brainHttpOptions?: ConstructorParameters<typeof BrainHttpAdapter>[0];
   now?: () => Date;
+  reasoner?: ManagerReasoner | null;
+  chatResponder?: ChatResponder | null;
 }
 
 function normalizeOutputMode(value: ManagerOutputMode | undefined): ManagerOutputMode {
@@ -152,6 +156,8 @@ export class ManagerRuntime {
   readonly verifier: VerifierAdapter;
   readonly fabric: WorkerFabric;
   readonly now: () => Date;
+  readonly reasoner: ManagerReasoner | null;
+  readonly chatResponder: ChatResponder | null;
 
   constructor(options: ManagerRuntimeOptions = {}) {
     this.brain = options.brain ?? new BrainHttpAdapter(options.brainHttpOptions);
@@ -164,6 +170,20 @@ export class ManagerRuntime {
     this.verifier = options.verifier ?? new ManagerVerifierAdapter();
     this.fabric = new WorkerFabric(this.workers, this.verifier);
     this.now = options.now ?? (() => new Date());
+    this.reasoner = options.reasoner ?? null;
+    this.chatResponder = options.chatResponder ?? null;
+  }
+
+  private shouldInvokeReasoner(
+    input: ManagerInput,
+    _decision: ManagerDecision,
+    _ambiguity: ReturnType<typeof detectGoalAmbiguity>,
+  ): boolean {
+    if (!this.reasoner) {
+      return false;
+    }
+
+    return !input.dry_run && !input.no_execute;
   }
 
   async run(rawInput: Pick<ManagerInput, 'goal'> & Partial<Omit<ManagerInput, 'goal'>>): Promise<ManagerRunResult> {
@@ -172,6 +192,7 @@ export class ManagerRuntime {
     await this.brain.ensureAvailable();
     const startedBrainServer = this.brain.wasStartedByAdapter();
     let decision = routeIntent(input);
+    let aiTriage: ManagerTriageResult | null = null;
     const existingMissionId = input.mission_id;
     let consult = await this.brain.consult({
       query: input.goal,
@@ -193,6 +214,28 @@ export class ManagerRuntime {
       domain: 'best-brain',
       query: input.goal,
     });
+    const initialAmbiguity = detectGoalAmbiguity(input, decision);
+    const reasoner = this.reasoner;
+    if (reasoner && this.shouldInvokeReasoner(input, decision, initialAmbiguity)) {
+      aiTriage = await reasoner.triage({
+        goal: input.goal,
+        cwd: input.cwd,
+        heuristic: decision,
+        consult,
+        context,
+      });
+      if (aiTriage) {
+        decision = {
+          kind: aiTriage.kind,
+          should_execute: aiTriage.kind !== 'chat' && !input.dry_run && !input.no_execute,
+          selected_worker: aiTriage.kind === 'chat' ? null : selectWorker(input.goal, input.worker_preference),
+          reason: aiTriage.reason,
+          verification_required: aiTriage.kind !== 'chat',
+          blocked_reason: null,
+          blocked_reason_code: null,
+        };
+      }
+    }
     const missionId = existingMissionId ?? createId('mission');
     const ambiguity = detectGoalAmbiguity(input, decision);
     if (ambiguity.is_ambiguous) {
@@ -291,8 +334,16 @@ export class ManagerRuntime {
     }
 
     if (!decision.should_execute) {
+      const directChatResponse = decision.kind === 'chat' && aiTriage?.direct_answer == null && this.chatResponder
+        ? await this.chatResponder.answer({
+            goal: input.goal,
+            cwd: input.cwd,
+            consult,
+            context,
+          })
+        : null;
       const ownerResponse = decision.kind === 'chat'
-        ? buildChatOwnerResponse(input.goal, consult, context, this.now())
+        ? (directChatResponse ?? aiTriage?.direct_answer ?? buildChatOwnerResponse(input.goal, consult, context))
         : decision.blocked_reason
           ? decision.blocked_reason
           : `Planned ${brief.kind} path. Next: ${brief.execution_plan[0] ?? 'Review the mission brief.'}`;

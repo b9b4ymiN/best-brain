@@ -11,6 +11,8 @@ import type {
 } from '../src/types.ts';
 import { routeIntent } from '../src/manager/intent-router.ts';
 import { detectGoalAmbiguity } from '../src/manager/goal-ambiguity.ts';
+import type { ChatResponder } from '../src/manager/chat-responder.ts';
+import type { ManagerReasoner, ManagerTriageResult } from '../src/manager/reasoner.ts';
 import { ManagerRuntime } from '../src/manager/runtime.ts';
 import type { BrainAdapter, BrainHealthResponse, VerifierAdapter, WorkerAdapter } from '../src/manager/adapters/types.ts';
 import type {
@@ -22,6 +24,8 @@ import type {
 
 const THAI_TODAY_QUESTION = '\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49\u0e27\u0e31\u0e19\u0e2d\u0e30\u0e44\u0e23';
 const THAI_MONDAY_FRAGMENT = '\u0e27\u0e31\u0e19\u0e08\u0e31\u0e19\u0e17\u0e23\u0e4c';
+const THAI_MONDAY_COLOR_QUESTION = '\u0e27\u0e31\u0e19\u0e08\u0e31\u0e19\u0e17\u0e23\u0e4c\u0e2a\u0e35\u0e2d\u0e30\u0e44\u0e23';
+const THAI_MONTH_QUESTION = '\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e19\u0e35\u0e49\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e44\u0e23';
 
 function makeInput(goal: string, overrides: Partial<ManagerInput> = {}): ManagerInput {
   return {
@@ -202,6 +206,34 @@ class FakeVerifierAdapter implements VerifierAdapter {
   }
 }
 
+class FakeReasoner implements ManagerReasoner {
+  readonly result: ManagerTriageResult | null;
+  calls = 0;
+
+  constructor(result: ManagerTriageResult | null) {
+    this.result = result;
+  }
+
+  async triage(): Promise<ManagerTriageResult | null> {
+    this.calls += 1;
+    return this.result;
+  }
+}
+
+class FakeChatResponder implements ChatResponder {
+  readonly result: string | null;
+  calls = 0;
+
+  constructor(result: string | null) {
+    this.result = result;
+  }
+
+  async answer(): Promise<string | null> {
+    this.calls += 1;
+    return this.result;
+  }
+}
+
 describe('manager alpha unit flow', () => {
   test('intent routing auto-selects claude or codex and respects override', () => {
     expect(routeIntent(makeInput('Analyze the current mission plan.')).selected_worker).toBe('claude');
@@ -243,6 +275,102 @@ describe('manager alpha unit flow', () => {
       expect(brain.calls.consult).toHaveLength(1);
       expect(brain.calls.saveOutcome).toHaveLength(0);
       expect(result.mission_graph.nodes.some((node) => node.id === 'final_response')).toBe(true);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('simple chat questions are classified by the AI reasoner first and can return a direct answer', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'chat',
+      reason: 'The user is asking a direct factual question.',
+      direct_answer: '\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e19\u0e35\u0e49\u0e04\u0e37\u0e2d \u0e21\u0e35\u0e19\u0e32\u0e04\u0e21 2569',
+    });
+    const chatResponder = new FakeChatResponder(null);
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+      chatResponder,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: THAI_MONTH_QUESTION,
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('chat');
+      expect(result.owner_response).toContain('\u0e21\u0e35\u0e19\u0e32\u0e04\u0e21');
+      expect(result.worker_result).toBeNull();
+      expect(reasoner.calls).toBe(1);
+      expect(chatResponder.calls).toBe(0);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('generic chat questions fall through from the AI reasoner to the AI chat responder when needed', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'chat',
+      reason: 'The message is a normal chat question.',
+      direct_answer: null,
+    });
+    const chatResponder = new FakeChatResponder('\u0e27\u0e31\u0e19\u0e08\u0e31\u0e19\u0e17\u0e23\u0e4c\u0e2a\u0e35\u0e40\u0e2b\u0e25\u0e37\u0e2d\u0e07');
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+      chatResponder,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: THAI_MONDAY_COLOR_QUESTION,
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('chat');
+      expect(result.owner_response).toContain('\u0e40\u0e2b\u0e25\u0e37\u0e2d\u0e07');
+      expect(reasoner.calls).toBe(1);
+      expect(chatResponder.calls).toBe(1);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('external reasoner is still used for concrete executable missions', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'mission',
+      reason: 'This goal needs a verified system outcome.',
+      direct_answer: null,
+    });
+    const worker = new FakeWorkerAdapter('claude', {
+      summary: 'Produced an owner-facing Thai stock scanner system plan aligned to the VI persona.',
+      status: 'success',
+      artifacts: [{
+        type: 'note',
+        ref: 'worker://claude/stock-scanner-plan',
+        description: 'Owner-facing stock-scanner system plan with VI criteria.',
+      }],
+      proposed_checks: [],
+      raw_output: 'Owner-facing VI stock scanner system plan.',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+      workers: { claude: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'I want a Thai stock scanner system that matches how I invest.',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('mission');
+      expect(reasoner.calls).toBe(1);
     } finally {
       await runtime.dispose();
     }
