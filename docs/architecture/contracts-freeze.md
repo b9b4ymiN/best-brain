@@ -63,6 +63,8 @@ This document freezes the program-level contracts that later phases must build o
 - the proving mission must have an explicit acceptance run set: `thai_equities_daily_controlled_acceptance_runs`
 - acceptance proofs must assume `no_hidden_human_in_the_loop_steps`
 - phase 3 proving-framework rails must not hardcode stock-scanner logic inside manager, kernel, or runtime
+- phase 4 demo / acceptance proof does not count as the final mission path by itself
+- phase 5 actual mission must start from one user goal, consult persona memory, derive its own criteria and plan, control workers end-to-end, and avoid demo-shortcut execution paths
 
 ## Current code anchors
 

@@ -102,7 +102,7 @@ function buildStockScannerDefinition(playbook: MissionPlaybook): ProvingMissionD
     ...buildGenericMissionDefinition(playbook),
     id: 'mission_definition_thai_equities_daily_scanner',
     slug: 'thai-equities-daily-scanner',
-    title: 'First proving mission definition: Thai equities daily stock scanner',
+    title: 'First demo / acceptance mission definition: Thai equities daily stock scanner',
     goal_template: 'Run the Thai equities daily stock scanner and produce a verified owner report.',
     required_inputs: [buildMarketInput(true), buildWorkspaceInput(false)],
     report_contract: buildReportContract('report_contract_thai_equities_daily_scanner', 'Owner report for the Thai equities daily stock scanner'),

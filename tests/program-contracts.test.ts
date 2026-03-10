@@ -35,8 +35,9 @@ describe('program contract freeze', () => {
       'Phase1_ManagerBeta',
       'Phase2_WorkerFabricRuntimeSpine',
       'Phase3_ProvingMissionFramework',
-      'Phase4_FirstProvingMission',
-      'Phase5_Repeatability',
+      'Phase4_DemoAcceptanceMission',
+      'Phase5_ActualManagerLedMission',
+      'Phase6_Repeatability',
     ]);
     expect(PROGRAM_SUCCESS_BAR).toBe('Repeatable One-Mission');
     expect(PROGRAM_PROVING_MISSION).toBe('Thai equities daily stock scanner');

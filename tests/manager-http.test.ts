@@ -241,7 +241,7 @@ describe('manager alpha via brain HTTP', () => {
     }
   });
 
-  test('runs the first proving mission stock-scanner demo to verified completion', async () => {
+  test('runs the first demo / acceptance stock-scanner mission to verified completion', async () => {
     const { brain, cleanup } = await createTestBrain();
     const app = createApp(brain);
     const server = Bun.serve({

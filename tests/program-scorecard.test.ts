@@ -95,6 +95,8 @@ describe('program scorecard', () => {
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase1_ManagerBeta')?.status).toBe('partial');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase2_WorkerFabricRuntimeSpine')?.status).toBe('pass');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase3_ProvingMissionFramework')?.status).toBe('pass');
-    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase4_FirstProvingMission')?.status).toBe('pass');
+    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase4_DemoAcceptanceMission')?.status).toBe('pass');
+    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase5_ActualManagerLedMission')?.status).toBe('fail');
+    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase6_Repeatability')?.status).toBe('fail');
   });
 });

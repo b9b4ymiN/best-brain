@@ -33,6 +33,7 @@ Current status:
 - CLI-first
 - HTTP-backed against the brain
 - one primary worker at a time
+- the current stock-scanner proof path is still a demo / acceptance mission, not the final manager-led mission behavior
 
 ### 3. Worker Swarm
 
@@ -174,5 +175,6 @@ Expected behavior:
 The repo should be read as:
 
 - `final concept`: full local AI work operating system
-- `current implementation`: brain-v1 plus manager alpha
+- `current implementation`: brain-v1 plus manager alpha, with a proven demo / acceptance mission
+- `next concept-critical milestone`: actual manager-led mission flow from one user goal, persona memory, self-generated plan, worker control, and proof-driven final answer
 - `next growth path`: expand workers, runtime OS, and control surface without replacing the brain/manager core

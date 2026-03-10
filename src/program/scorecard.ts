@@ -85,6 +85,14 @@ export interface Phase4ProofInput {
   latest_verified_mission_reused: boolean;
 }
 
+export interface ActualMissionProofInput {
+  single_goal_manager_led_pass: boolean;
+  persona_memory_applied: boolean;
+  manager_generated_plan: boolean;
+  worker_control_end_to_end: boolean;
+  no_demo_shortcut_path: boolean;
+}
+
 export interface ProgramScorecardInput {
   generated_at: string;
   contract_snapshot: ProgramContractSnapshot;
@@ -95,6 +103,7 @@ export interface ProgramScorecardInput {
   manager_proof?: ManagerProofInput;
   proving_harness?: ProvingHarnessSummaryInput;
   phase4_proof?: Phase4ProofInput;
+  actual_mission_proof?: ActualMissionProofInput;
 }
 
 export interface ProgramMetricValue {
@@ -449,15 +458,15 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
   ));
   metricValues.push(equalityMetric(
     'phase4_demo_success',
-    'First proving mission success run pass',
+    'Demo / acceptance mission success run pass',
     'north_star',
     input.phase4_proof?.success_run_pass,
     true,
-    'The first proving mission must complete to verified_complete on the default demo path.',
+    'The first demo / acceptance mission must complete to verified_complete on the controlled demo path.',
   ));
   metricValues.push(equalityMetric(
     'phase4_demo_blocked_reason',
-    'First proving mission blocked path is correct',
+    'Demo / acceptance mission blocked path is correct',
     'manager',
     input.phase4_proof?.blocked_with_correct_reason,
     true,
@@ -465,7 +474,7 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
   ));
   metricValues.push(equalityMetric(
     'phase4_demo_retryable',
-    'First proving mission retryable failure path works',
+    'Demo / acceptance mission retryable failure path works',
     'manager',
     input.phase4_proof?.retryable_verification_failed,
     true,
@@ -473,27 +482,67 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
   ));
   metricValues.push(equalityMetric(
     'phase4_final_report_artifact',
-    'First proving mission final report artifact exists',
+    'Demo / acceptance mission final report artifact exists',
     'runtime',
     input.phase4_proof?.final_report_artifact_present,
     true,
-    'The first proving mission must emit a final report artifact after verification resolves.',
+    'The first demo / acceptance mission must emit a final report artifact after verification resolves.',
   ));
   metricValues.push(equalityMetric(
     'phase4_market_data_evidence',
-    'First proving mission market-data evidence exists',
+    'Demo / acceptance mission market-data evidence exists',
     'runtime',
     input.phase4_proof?.market_data_evidence_present,
     true,
-    'The first proving mission must carry machine-readable market-data evidence.',
+    'The first demo / acceptance mission must carry machine-readable market-data evidence.',
   ));
   metricValues.push(equalityMetric(
     'phase4_memory_reuse',
-    'First proving mission reuse appears in follow-up context',
+    'Demo / acceptance mission reuse appears in follow-up context',
     'brain',
     input.phase4_proof?.latest_verified_mission_reused,
     true,
-    'The follow-up proving mission brief should reuse the latest verified stock-scanner mission.',
+    'The follow-up demo / acceptance mission brief should reuse the latest verified stock-scanner mission.',
+  ));
+  metricValues.push(equalityMetric(
+    'actual_manager_single_goal_pass',
+    'Actual manager-led mission starts from one user goal',
+    'north_star',
+    input.actual_mission_proof?.single_goal_manager_led_pass,
+    true,
+    'The target concept requires the owner to state only the goal, then the manager continues the mission flow itself.',
+  ));
+  metricValues.push(equalityMetric(
+    'actual_manager_persona_memory_applied',
+    'Actual manager-led mission applies persona memory',
+    'brain',
+    input.actual_mission_proof?.persona_memory_applied,
+    true,
+    'The manager must consult persona and memory to derive what matters, not wait for the user to spell out the screening checklist.',
+  ));
+  metricValues.push(equalityMetric(
+    'actual_manager_generated_plan',
+    'Actual manager-led mission generates its own plan',
+    'manager',
+    input.actual_mission_proof?.manager_generated_plan,
+    true,
+    'The manager must derive the mission brief, criteria, and task graph from memory and context.',
+  ));
+  metricValues.push(equalityMetric(
+    'actual_manager_worker_control',
+    'Actual manager-led mission controls workers end-to-end',
+    'manager',
+    input.actual_mission_proof?.worker_control_end_to_end,
+    true,
+    'The manager must control worker execution, verification, and repair loops instead of delegating to a demo shortcut.',
+  ));
+  metricValues.push(equalityMetric(
+    'actual_manager_no_demo_shortcut',
+    'Actual manager-led mission avoids demo shortcut paths',
+    'manager',
+    input.actual_mission_proof?.no_demo_shortcut_path,
+    true,
+    'The actual mission path must not rely on proving-mission helper runners as the primary execution path.',
   ));
 
   const phase0ContractsFrozen = input.contract_snapshot.docs_locked
@@ -532,6 +581,11 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     && input.phase4_proof?.final_report_artifact_present === true
     && input.phase4_proof?.market_data_evidence_present === true
     && input.phase4_proof?.latest_verified_mission_reused === true;
+  const phase5ActualMissionReady = input.actual_mission_proof?.single_goal_manager_led_pass === true
+    && input.actual_mission_proof?.persona_memory_applied === true
+    && input.actual_mission_proof?.manager_generated_plan === true
+    && input.actual_mission_proof?.worker_control_end_to_end === true
+    && input.actual_mission_proof?.no_demo_shortcut_path === true;
 
   const phaseReadiness: ProgramPhaseReadiness[] = [
     {
@@ -563,16 +617,25 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
         : 'Proving mission framework contracts or acceptance harness evidence are still incomplete.',
     },
     {
-      phase: 'Phase4_FirstProvingMission',
+      phase: 'Phase4_DemoAcceptanceMission',
       status: phase4Ready ? 'pass' : 'fail',
       note: phase4Ready
-        ? 'The Thai equities daily stock-scanner proving mission runs end-to-end with success, blocked, retryable, and memory-reuse proof.'
-        : 'The first proving mission vertical slice has not been implemented or proven yet.',
+        ? 'The Thai equities daily stock-scanner demo mission is proven as an acceptance harness with success, blocked, retryable, and memory-reuse evidence.'
+        : 'The first demo / acceptance mission has not been implemented or proven yet.',
     },
     {
-      phase: 'Phase5_Repeatability',
+      phase: 'Phase5_ActualManagerLedMission',
+      status: phase5ActualMissionReady ? 'pass' : 'fail',
+      note: phase5ActualMissionReady
+        ? 'The actual manager-led mission path can start from one goal, apply persona memory, generate its own plan, and control workers without a demo shortcut.'
+        : 'The actual manager-led mission path is not implemented yet. The next bar is: user states one goal, the brain recalls persona and memory, the manager derives the criteria and plan, controls workers, verifies, and returns the final answer without a demo shortcut.',
+    },
+    {
+      phase: 'Phase6_Repeatability',
       status: 'fail',
-      note: 'Repeatable one-mission proof requires the first proving mission vertical slice first.',
+      note: phase5ActualMissionReady
+        ? 'Repeatable one-mission proof still requires repeated actual manager-led runs over the acceptance set.'
+        : 'Repeatability is deferred until the actual manager-led mission path exists.',
     },
   ];
 

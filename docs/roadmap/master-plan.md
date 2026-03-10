@@ -69,7 +69,7 @@ Status:
 - complete
 - generic proving-mission definitions, adapter policy, acceptance harness, and report proof-chain rails are proven
 
-### Phase 4 - First Proving Mission: Thai Equities Stock Scanner
+### Phase 4 - Demo / Acceptance Mission: Thai Equities Stock Scanner
 
 Goal:
 
@@ -87,11 +87,30 @@ Status:
 - implemented and locally proven
 - success, blocked, retryable, final-report, market-evidence, and memory-reuse paths are all captured in local proof
 
-### Phase 5 - Repeatability
+### Phase 5 - Actual Manager-led Mission: Thai Equities Stock Scanner
 
 Goal:
 
-- turn the first proving mission into a repeatable product behavior
+- make the stock-scanner mission behave like the real concept, not like a demo shortcut
+
+Key outputs:
+
+- one user goal is enough to start the mission
+- brain memory is used to infer the owner's style and criteria
+- manager derives the mission brief and task graph itself
+- manager controls real workers end-to-end
+- verification closes the mission only after proof
+- no demo-runner shortcut is the primary execution path
+
+Status:
+
+- not started
+
+### Phase 6 - Repeatability
+
+Goal:
+
+- turn the actual manager-led mission into a repeatable product behavior
 
 Key outputs:
 
@@ -104,7 +123,7 @@ Status:
 
 - not started
 
-### Phase 6 - Lightweight Chat
+### Phase 7 - Lightweight Chat
 
 Goal:
 
@@ -121,7 +140,7 @@ Status:
 - partially available through manager/brain routing
 - not mature as a dedicated chat surface yet
 
-### Phase 7 - Browser + Mail Task Flow
+### Phase 8 - Browser + Mail Task Flow
 
 Goal:
 
@@ -138,7 +157,7 @@ Status:
 
 - not started
 
-### Phase 8 - Control Room UI
+### Phase 9 - Control Room UI
 
 Goal:
 
@@ -157,7 +176,7 @@ Status:
 
 - not started
 
-### Phase 9 - Procedural Maturity
+### Phase 10 - Procedural Maturity
 
 Goal:
 
@@ -176,7 +195,7 @@ Status:
 - partial foundations exist in memory and failure learning
 - not mature yet
 
-### Phase 10 - Operator Mode
+### Phase 11 - Operator Mode
 
 Goal:
 
@@ -199,10 +218,10 @@ Status:
 To stay aligned with the final concept, the next recommended order is:
 
 1. harden manager alpha into a reliable mission manager beta
-2. turn the first proving mission into repeatable evidence with memory reuse
-3. add the first control surface beyond CLI
-4. broaden task-mode quality for normal daily use
-5. keep later proving missions on the same general engine instead of adding mission-specific glue
+2. replace the stock demo shortcut with an actual manager-led mission from one user goal
+3. turn the actual manager-led mission into repeatable evidence with memory reuse
+4. add the first control surface beyond CLI
+5. broaden task-mode quality for normal daily use
 
 ## Measurement discipline to add now
 

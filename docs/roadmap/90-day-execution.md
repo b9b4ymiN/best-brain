@@ -73,20 +73,29 @@ Exit:
 - final reports are emitted only after verification path resolves
 - no stock-specific logic exists inside manager, kernel, or runtime paths
 
-## Day 76-90: First Demo / Acceptance Mission and Repeatability
+## Day 76-90: First Demo / Acceptance Mission
 
 Outputs:
 
-- first proving mission: `Thai equities daily stock scanner`
+- first demo / acceptance mission: `Thai equities daily stock scanner`
 - demo / acceptance proof for success, blocked, retryable, and memory-reuse paths
-- repeated proving mission runs
-- memory reuse and repair hints visible across runs
-- program scorecard updated with real repeated-run evidence
+- program scorecard updated with real demo-proof evidence
 - false-complete count tracked in the scorecard
 - blocked-with-correct-reason rate tracked in the scorecard
 
 Exit:
 
-- first proving mission completes end-to-end under controlled runs
-- repeated proving mission reaches the success bar
+- first demo / acceptance mission completes end-to-end under controlled runs
 - acceptance run set evidence is strong enough to distinguish real blocked runs from silent failures
+
+## Next bar after the demo proof
+
+The next concept-critical phase is not "more demo".
+
+It is:
+
+- one user goal starts the mission
+- the brain recalls persona and mission memory
+- the manager derives what to check and how to proceed
+- the manager builds the plan and controls workers itself
+- the system verifies and answers back without a demo shortcut

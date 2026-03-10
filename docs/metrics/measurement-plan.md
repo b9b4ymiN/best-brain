@@ -43,6 +43,11 @@ Current local source:
 - report contract completeness
 - adapter selection correctness
 - mission demo without hidden steps
+- actual single-goal mission pass
+- actual persona-memory application
+- actual manager-generated plan
+- actual worker control end-to-end
+- actual mission without demo shortcut
 
 Interpretation notes:
 
@@ -87,7 +92,7 @@ Current local source:
 
 ## Acceptance run set
 
-The canonical first-proving-mission acceptance run set is:
+The canonical first demo / acceptance mission run set is:
 
 - `thai_equities_daily_controlled_acceptance_runs`
 
@@ -125,8 +130,9 @@ That scorecard is the local baseline for current program readiness. It is expect
 - `Phase1_ManagerBeta`: partial
 - `Phase2_WorkerFabricRuntimeSpine`: pass
 - `Phase3_ProvingMissionFramework`: pass only after the generic proving harness is green
-- `Phase4_FirstProvingMission`: pass only after the demo mission proof is green
-- `Phase5_Repeatability`: fail until repeated proving-mission runs exist
+- `Phase4_DemoAcceptanceMission`: pass only after the demo mission proof is green
+- `Phase5_ActualManagerLedMission`: fail until one-goal manager-led execution is real
+- `Phase6_Repeatability`: fail until repeated actual mission runs exist
 
 The scorecard should also track these plan-critical signals even before they are fully instrumented:
 
@@ -141,3 +147,8 @@ The scorecard should also track these plan-critical signals even before they are
 - `report_contract_completeness`
 - `adapter_selection_correctness`
 - `mission_demo_without_hidden_steps`
+- `actual_manager_single_goal_pass`
+- `actual_manager_persona_memory_applied`
+- `actual_manager_generated_plan`
+- `actual_manager_worker_control`
+- `actual_manager_no_demo_shortcut`

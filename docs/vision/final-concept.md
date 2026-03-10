@@ -37,12 +37,27 @@ Thai framing:
 - `Verification is mandatory`: completion without verification is not completion
 - `Local-first`: the primary runtime must work on the user's machine
 - `Progressive autonomy`: light work stays light; heavy work earns heavier planning and verification
+- `Single-goal execution`: the owner should be able to state the goal once, and the manager must continue by consulting memory, deriving criteria, planning, dispatching workers, verifying, and answering back
 
 ## Required operating modes
 
 - `Chat Mode`: fast answer, explanation, brainstorming, or summarization
 - `Task Mode`: bounded work with one or two workers and light verification
 - `Mission Mode`: planning, task graph, worker dispatch, review loop, repair loop, and final proof of done
+
+## Actual mission expectation
+
+For concept-correct mission work, the owner should not need to enumerate the checklist step by step.
+
+The expected path is:
+
+- owner states the goal once
+- the brain recalls persona, preferences, and prior mission memory
+- the manager derives what matters from that memory
+- the manager builds the mission brief and task graph
+- workers execute under manager control
+- verification decides whether the work is actually done
+- the system returns a final answer with proof
 
 ## Definition of done
 

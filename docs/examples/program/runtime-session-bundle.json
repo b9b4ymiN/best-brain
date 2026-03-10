@@ -14,8 +14,8 @@
       "checkpoint_after_primary_work",
       "checkpoint_after_verification"
     ],
-    "created_at": 1773107532611,
-    "updated_at": 1773107532611
+    "created_at": 1773109792024,
+    "updated_at": 1773109792024
   },
   "processes": [
     {
@@ -34,8 +34,8 @@
       "exit_code": 0,
       "stdout_artifact_id": "artifact_stdout",
       "stderr_artifact_id": null,
-      "started_at": 1773107537611,
-      "completed_at": 1773107552611
+      "started_at": 1773109797024,
+      "completed_at": 1773109812024
     }
   ],
   "worker_tasks": [
@@ -66,9 +66,9 @@
         "[prompt]"
       ],
       "verifier_owned": false,
-      "created_at": 1773107532611,
-      "updated_at": 1773107552611,
-      "completed_at": 1773107552611
+      "created_at": 1773109792024,
+      "updated_at": 1773109812024,
+      "completed_at": 1773109812024
     },
     {
       "id": "worker_task_verifier",
@@ -96,9 +96,9 @@
         "verification_gate"
       ],
       "verifier_owned": true,
-      "created_at": 1773107553611,
-      "updated_at": 1773107557611,
-      "completed_at": 1773107557611
+      "created_at": 1773109813024,
+      "updated_at": 1773109817024,
+      "completed_at": 1773109817024
     }
   ],
   "artifacts": [
@@ -113,7 +113,7 @@
       "description": "Owner-facing summary.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773107550611
+      "created_at": 1773109810024
     },
     {
       "id": "artifact_file",
@@ -126,7 +126,7 @@
       "description": "Implementation artifact.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773107551111
+      "created_at": 1773109810524
     },
     {
       "id": "artifact_stdout",
@@ -139,7 +139,7 @@
       "description": "Structured worker stdout.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773107552611
+      "created_at": 1773109812024
     },
     {
       "id": "artifact_final_report",
@@ -152,7 +152,7 @@
       "description": "Final mission report emitted after verification.",
       "checksum": null,
       "source": "manager",
-      "created_at": 1773107558611
+      "created_at": 1773109818024
     }
   ],
   "checkpoints": [
@@ -167,7 +167,7 @@
       ],
       "restore_supported": true,
       "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-after_primary_work.json",
-      "created_at": 1773107552611
+      "created_at": 1773109812024
     },
     {
       "id": "checkpoint_after_verification",
@@ -181,7 +181,7 @@
       ],
       "restore_supported": false,
       "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-after_verification.json",
-      "created_at": 1773107558611
+      "created_at": 1773109818024
     }
   ],
   "events": [
@@ -194,7 +194,7 @@
       "actor": "manager",
       "detail": "Mission launched from a single user goal.",
       "data": {},
-      "created_at": 1773107532611
+      "created_at": 1773109792024
     },
     {
       "id": "event_final_report_emitted",
@@ -208,7 +208,7 @@
         "artifact_id": "artifact_final_report",
         "uri": "report://repo-change/final"
       },
-      "created_at": 1773107558611
+      "created_at": 1773109818024
     }
   ]
 }

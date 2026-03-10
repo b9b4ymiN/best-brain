@@ -19,6 +19,7 @@ The repo does not implement the whole target system yet. The current state is:
 - `Brain v1`: implemented and verified
 - `Manager alpha`: implemented as a CLI-first, HTTP-backed manager with one primary worker at a time
 - `First demo / acceptance mission`: implemented and locally proven with the Thai equities stock-scanner mission
+- `Actual manager-led stock mission`: not implemented yet; this is the next concept-critical step
 - `Worker swarm`, `runtime OS`, and `control room UI`: only partially present or still planned
 
 ## Final concept
@@ -213,9 +214,15 @@ The 90-day program is now frozen around:
 
 - success bar: `Repeatable One-Mission`
 - first demo / acceptance mission: `Thai equities daily stock scanner`
+- next concept-critical phase: `actual manager-led mission from one user goal`
 - execution style: `general engine + reusable playbooks`
 - data strategy: `live-data-first` through adapter selection, not hard-coded source logic
 - control surface target: `full mission console`
+
+Current caveat:
+
+- the stock-scanner path that is proven today is a demo / acceptance mission, not the final mission behavior
+- the target behavior is: the user states one goal, the brain recalls persona and memory, the manager derives what to check, builds the plan, controls workers, verifies, and returns the final answer without a demo shortcut
 
 ## Manager examples
 
