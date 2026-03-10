@@ -28,6 +28,15 @@ try {
   if (result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status !== 'completed') {
     throw new Error('Claude manager smoke expected the verification gate node to be completed');
   }
+  if (result.runtime_bundle?.processes[0]?.command !== 'claude') {
+    throw new Error('Claude manager smoke expected the runtime bundle to capture the claude command.');
+  }
+  if (!result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.status === 'success')) {
+    throw new Error('Claude manager smoke expected a claude worker task record.');
+  }
+  if (!result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')) {
+    throw new Error('Claude manager smoke expected a verifier worker task record.');
+  }
 
   console.log(JSON.stringify(result, null, 2));
 } finally {

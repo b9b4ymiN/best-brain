@@ -60,9 +60,13 @@ const managerProof = readJson<{
   goal_ambiguity_detection?: boolean;
   false_complete_count?: number;
   blocked_with_correct_reason_rate?: number;
+  worker_invocation_pass_rate?: number;
+  artifact_lineage_completeness?: number;
+  verifier_worker_path?: boolean;
   runtime_session_capture?: boolean;
   checkpoint_capture?: boolean;
   checkpoint_restore_capture?: boolean;
+  checkpoint_restore_breadth?: number;
 }>(path.join(artifactsDir, 'manager-proof.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 const capturedBootstrapProofs = fs.existsSync(bootstrapProofDir)

@@ -55,6 +55,8 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
         detail: 'Codex worker did not return the required JSON object.',
       }],
       raw_output: output,
+      invocation: null,
+      process_output: null,
     };
   }
 
@@ -72,6 +74,8 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
       detail: 'Codex returned usable freeform text for a note-only mission.',
     }],
     raw_output: output,
+    invocation: null,
+    process_output: null,
   };
 }
 
@@ -94,6 +98,8 @@ function parseWorkerResult(output: string, request: ExecutionRequest, fallbackSu
       artifacts: normalizeArtifacts(payload.artifacts),
       proposed_checks: normalizeChecks(payload.proposed_checks),
       raw_output: output,
+      invocation: null,
+      process_output: null,
     };
   } catch {
     return buildFreeformFallback(output, request, fallbackSummary);
@@ -148,10 +154,57 @@ export class CodexCliAdapter implements WorkerAdapter {
             detail: `Codex worker exited with code ${String(result.exitCode)}.`,
           }],
           raw_output: [result.stdout, result.stderr, lastMessage].filter(Boolean).join('\n'),
+          invocation: {
+            command: 'codex',
+            args: [
+              'exec',
+              '--json',
+              '--full-auto',
+              '--skip-git-repo-check',
+              '-c', 'model_reasoning_effort=high',
+              '--output-last-message', '[temp-file]',
+              '-C', request.cwd,
+              '[prompt]',
+            ],
+            cwd: request.cwd,
+            exit_code: result.exitCode,
+            timed_out: result.timedOut,
+            started_at: result.startedAt,
+            completed_at: result.completedAt,
+            transport: 'cli',
+          },
+          process_output: {
+            stdout: result.stdout,
+            stderr: result.stderr,
+          },
         };
       }
 
-      return parseWorkerResult(lastMessage, request, 'Codex worker completed without a structured summary.');
+      const parsed = parseWorkerResult(lastMessage, request, 'Codex worker completed without a structured summary.');
+      parsed.invocation = {
+        command: 'codex',
+        args: [
+          'exec',
+          '--json',
+          '--full-auto',
+          '--skip-git-repo-check',
+          '-c', 'model_reasoning_effort=high',
+          '--output-last-message', '[temp-file]',
+          '-C', request.cwd,
+          '[prompt]',
+        ],
+        cwd: request.cwd,
+        exit_code: result.exitCode,
+        timed_out: result.timedOut,
+        started_at: result.startedAt,
+        completed_at: result.completedAt,
+        transport: 'cli',
+      };
+      parsed.process_output = {
+        stdout: result.stdout,
+        stderr: result.stderr,
+      };
+      return parsed;
     } finally {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });

@@ -44,6 +44,7 @@ Outputs:
 
 - worker contract formalized
 - shell/verifier runtime path formalized
+- claude/codex/shell/verifier worker fabric registry active
 - session/process/artifact/checkpoint/event contracts active
 - manager proof artifact captured locally
 
@@ -51,6 +52,8 @@ Exit:
 
 - one-worker paths are stable
 - runtime artifacts and verifier evidence stay linked
+- worker invocation metadata is captured across Claude, Codex, and Shell
+- checkpoint restore is proven on more than one worker path
 
 ## Day 56-75: Thai Equities Vertical Slice
 

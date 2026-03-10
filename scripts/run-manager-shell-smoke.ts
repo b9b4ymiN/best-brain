@@ -22,6 +22,12 @@ try {
   if (result.runtime_bundle?.processes[0]?.command !== 'bun') {
     throw new Error('Shell manager smoke expected the runtime bundle to capture the bun command.');
   }
+  if (!result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'shell' && task.status === 'success')) {
+    throw new Error('Shell manager smoke expected a shell worker task record.');
+  }
+  if (!result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')) {
+    throw new Error('Shell manager smoke expected a verifier worker task record.');
+  }
   if ((result.runtime_bundle?.checkpoints.length ?? 0) < 2) {
     throw new Error('Shell manager smoke expected runtime checkpoints.');
   }

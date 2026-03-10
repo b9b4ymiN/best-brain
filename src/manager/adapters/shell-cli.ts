@@ -45,6 +45,8 @@ export class ShellCliAdapter implements WorkerAdapter {
           detail: 'Provide an explicit command such as `bun --version` for shell execution.',
         }],
         raw_output: '',
+        invocation: null,
+        process_output: null,
       };
     }
 
@@ -78,6 +80,20 @@ export class ShellCliAdapter implements WorkerAdapter {
       artifacts: [noteArtifact, machineArtifact],
       proposed_checks: buildChecks(result.exit_code, result.timed_out),
       raw_output: [result.stdout, result.stderr].filter(Boolean).join('\n'),
+      invocation: {
+        command: request.shell_command.command,
+        args: request.shell_command.args,
+        cwd: request.cwd,
+        exit_code: result.exit_code,
+        timed_out: result.timed_out,
+        started_at: result.started_at,
+        completed_at: result.completed_at,
+        transport: 'local_process',
+      },
+      process_output: {
+        stdout: result.stdout,
+        stderr: result.stderr,
+      },
     };
   }
 }

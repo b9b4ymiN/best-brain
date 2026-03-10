@@ -1,8 +1,8 @@
 import type { FailureInput, StrictMissionOutcomeInput } from '../types.ts';
 import { validateMissionOutcomeStrictInput } from '../validation.ts';
 import { LocalRuntimeSpine } from '../runtime/spine.ts';
+import { WorkerFabric } from '../workers/fabric.ts';
 import { createId } from '../utils/id.ts';
-import { dispatchPrimaryWorker } from './dispatcher.ts';
 import { validateMissionBrief } from './brief-validator.ts';
 import { detectGoalAmbiguity } from './goal-ambiguity.ts';
 import { updateTaskStatus } from './graph.ts';
@@ -82,6 +82,8 @@ function normalizeWorkerFailure(selectedWorker: ManagerWorker | null, error: unk
       detail,
     }],
     raw_output: detail,
+    invocation: null,
+    process_output: null,
   };
 }
 
@@ -107,6 +109,7 @@ export class ManagerRuntime {
   readonly brain: BrainAdapter;
   readonly workers: Partial<Record<ManagerWorker, WorkerAdapter>>;
   readonly verifier: VerifierAdapter;
+  readonly fabric: WorkerFabric;
 
   constructor(options: ManagerRuntimeOptions = {}) {
     this.brain = options.brain ?? new BrainHttpAdapter(options.brainHttpOptions);
@@ -117,6 +120,7 @@ export class ManagerRuntime {
       ...(options.workers ?? {}),
     };
     this.verifier = options.verifier ?? new ManagerVerifierAdapter();
+    this.fabric = new WorkerFabric(this.workers, this.verifier);
   }
 
   async run(rawInput: Pick<ManagerInput, 'goal'> & Partial<Omit<ManagerInput, 'goal'>>): Promise<ManagerRunResult> {
@@ -220,18 +224,14 @@ export class ManagerRuntime {
 
     missionGraph = updateTaskStatus(missionGraph, 'primary_work', 'running');
     brief.mission_graph = missionGraph;
-    const runtimeCommand = executionRequest.selected_worker === 'shell' && executionRequest.shell_command
-      ? executionRequest.shell_command.command
-      : executionRequest.selected_worker;
-    const runtimeArgs = executionRequest.selected_worker === 'shell' && executionRequest.shell_command
-      ? executionRequest.shell_command.args
-      : [executionRequest.task_id, executionRequest.playbook_id];
-    const runtimeProcess = runtimeBundle
-      ? runtimeSpine.startProcess({
-          actor: executionRequest.selected_worker,
-          command: runtimeCommand,
-          args: runtimeArgs,
-          cwd: executionRequest.cwd,
+    const primaryWorkerTask = runtimeBundle
+      ? runtimeSpine.startWorkerTask({
+          task_id: executionRequest.task_id,
+          worker: executionRequest.selected_worker,
+          execution_mode: this.fabric.definitions[executionRequest.selected_worker].execution_mode,
+          objective: executionRequest.task_title,
+          playbook_id: executionRequest.playbook_id,
+          verifier_owned: false,
         })
       : null;
     if (runtimeBundle) {
@@ -250,12 +250,8 @@ export class ManagerRuntime {
     }
 
     const brainWrites: BrainWriteRecord[] = [];
-    let workerResult: WorkerExecutionResult;
-    try {
-      workerResult = await dispatchPrimaryWorker(executionRequest, this.workers);
-    } catch (error) {
-      workerResult = normalizeWorkerFailure(decision.selected_worker, error);
-    }
+    const primaryDispatch = await this.fabric.dispatchPrimary(executionRequest);
+    const workerResult = primaryDispatch.manager_result;
     missionGraph = updateTaskStatus(
       missionGraph,
       'primary_work',
@@ -263,19 +259,39 @@ export class ManagerRuntime {
       artifactRefs(workerResult),
     );
     brief.mission_graph = missionGraph;
-    if (runtimeBundle && runtimeProcess) {
+    if (runtimeBundle) {
       const runtimeArtifacts = runtimeSpine.recordVerificationArtifacts(
         executionRequest.task_id,
         executionRequest.selected_worker,
         workerResult.artifacts,
       );
-      runtimeSpine.completeProcess(runtimeProcess.id, {
-        status: mapWorkerStatusToRuntimeStatus(workerResult.status),
-        exit_code: workerResult.status === 'success' ? 0 : 1,
-        stdout: workerResult.raw_output,
-        stderr: workerResult.status === 'success' ? null : workerResult.summary,
-        task_id: executionRequest.task_id,
-      });
+      if (workerResult.invocation) {
+        runtimeSpine.recordCompletedProcess({
+          actor: executionRequest.selected_worker,
+          command: workerResult.invocation.command,
+          args: workerResult.invocation.args,
+          cwd: workerResult.invocation.cwd ?? executionRequest.cwd,
+          status: mapWorkerStatusToRuntimeStatus(workerResult.status),
+          exit_code: workerResult.invocation.exit_code ?? (workerResult.status === 'success' ? 0 : 1),
+          stdout: workerResult.process_output?.stdout ?? workerResult.raw_output,
+          stderr: workerResult.process_output?.stderr ?? (workerResult.status === 'success' ? null : workerResult.summary),
+          task_id: executionRequest.task_id,
+          started_at: workerResult.invocation.started_at,
+          completed_at: workerResult.invocation.completed_at,
+        });
+      }
+      if (primaryWorkerTask) {
+        runtimeSpine.completeWorkerTask({
+          worker_task_id: primaryWorkerTask.id,
+          status: primaryDispatch.task_result.status,
+          summary: primaryDispatch.task_result.summary,
+          artifact_refs: primaryDispatch.task_result.artifacts.map((artifact) => artifact.ref),
+          check_names: primaryDispatch.task_result.checks.map((check) => check.name),
+          retry_recommendation: primaryDispatch.task_result.retry_recommendation,
+          invocation_command: primaryDispatch.task_result.invocation?.command ?? null,
+          invocation_args: primaryDispatch.task_result.invocation?.args ?? [],
+        });
+      }
       runtimeSpine.createCheckpoint({
         label: 'after_primary_work',
         artifact_ids: runtimeArtifacts.map((artifact) => artifact.id),
@@ -294,7 +310,18 @@ export class ManagerRuntime {
       runtimeBundle = runtimeSpine.snapshot();
     }
 
-    const verificationRequest = await this.verifier.review(executionRequest, workerResult);
+    const verifierWorkerTask = runtimeBundle
+      ? runtimeSpine.startWorkerTask({
+          task_id: 'verification_gate',
+          worker: 'verifier',
+          execution_mode: this.fabric.definitions.verifier.execution_mode,
+          objective: 'Verify the mission result against the playbook checklist.',
+          playbook_id: executionRequest.playbook_id,
+          verifier_owned: true,
+        })
+      : null;
+    const verifierDispatch = await this.fabric.dispatchVerifier(executionRequest, workerResult);
+    const verificationRequest = verifierDispatch.verification_request;
     assertCompletionPolicy(verificationRequest);
     if (runtimeBundle) {
       runtimeSpine.recordEvent({
@@ -375,6 +402,18 @@ export class ManagerRuntime {
         'verifier',
         verificationRequest.evidence,
       );
+      if (verifierWorkerTask) {
+        runtimeSpine.completeWorkerTask({
+          worker_task_id: verifierWorkerTask.id,
+          status: verifierDispatch.task_result.status,
+          summary: verifierDispatch.task_result.summary,
+          artifact_refs: verifierDispatch.task_result.artifacts.map((artifact) => artifact.ref),
+          check_names: verifierDispatch.task_result.checks.map((check) => check.name),
+          retry_recommendation: verifierDispatch.task_result.retry_recommendation,
+          invocation_command: verifierDispatch.task_result.invocation?.command ?? null,
+          invocation_args: verifierDispatch.task_result.invocation?.args ?? [],
+        });
+      }
       runtimeSpine.createCheckpoint({
         label: 'after_verification',
         artifact_ids: verificationArtifacts.map((artifact) => artifact.id),

@@ -9,8 +9,8 @@
       "checkpoint_after_primary_work",
       "checkpoint_after_verification"
     ],
-    "created_at": 1773103693701,
-    "updated_at": 1773103693701
+    "created_at": 1773104506965,
+    "updated_at": 1773104506965
   },
   "processes": [
     {
@@ -28,8 +28,65 @@
       "exit_code": 0,
       "stdout_artifact_id": "artifact_stdout",
       "stderr_artifact_id": null,
-      "started_at": 1773103723701,
-      "completed_at": 1773103733701
+      "started_at": 1773104536965,
+      "completed_at": 1773104546965
+    }
+  ],
+  "worker_tasks": [
+    {
+      "id": "worker_task_analysis",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "task_id": "task_analysis",
+      "worker": "claude",
+      "execution_mode": "cli",
+      "objective": "Turn the goal into a mission graph and report format.",
+      "playbook_id": "playbook_thai_equities_daily",
+      "status": "success",
+      "summary": "Produced a grounded analysis note and a scanner task breakdown.",
+      "artifact_refs": [
+        "example://worker-analysis-note",
+        "example://worker-analysis-json"
+      ],
+      "check_names": [
+        "analysis-grounded"
+      ],
+      "retry_recommendation": null,
+      "invocation_command": "claude",
+      "invocation_args": [
+        "-p",
+        "--output-format",
+        "json",
+        "[prompt]"
+      ],
+      "verifier_owned": false,
+      "created_at": 1773104506965,
+      "updated_at": 1773104526965,
+      "completed_at": 1773104526965
+    },
+    {
+      "id": "worker_task_verifier",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "task_id": "task_verification",
+      "worker": "verifier",
+      "execution_mode": "manager_owned",
+      "objective": "Check report completeness, freshness, and artifact evidence.",
+      "playbook_id": "playbook_thai_equities_daily",
+      "status": "running",
+      "summary": null,
+      "artifact_refs": [],
+      "check_names": [],
+      "retry_recommendation": null,
+      "invocation_command": "verifier",
+      "invocation_args": [
+        "playbook_thai_equities_daily",
+        "task_verification"
+      ],
+      "verifier_owned": true,
+      "created_at": 1773104551965,
+      "updated_at": 1773104551965,
+      "completed_at": null
     }
   ],
   "artifacts": [
@@ -43,7 +100,7 @@
       "description": "Mission analysis note.",
       "checksum": null,
       "source": "claude",
-      "created_at": 1773103708701
+      "created_at": 1773104521965
     },
     {
       "id": "artifact_stdout",
@@ -55,7 +112,7 @@
       "description": "Scanner stdout output.",
       "checksum": null,
       "source": "shell",
-      "created_at": 1773103733701
+      "created_at": 1773104546965
     }
   ],
   "checkpoints": [
@@ -70,7 +127,7 @@
       ],
       "restore_supported": true,
       "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-checkpoint_after_primary_work.json",
-      "created_at": 1773103728701
+      "created_at": 1773104541965
     },
     {
       "id": "checkpoint_after_verification",
@@ -83,7 +140,7 @@
       ],
       "restore_supported": false,
       "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-checkpoint_after_verification.json",
-      "created_at": 1773103738701
+      "created_at": 1773104551965
     }
   ],
   "events": [
@@ -96,7 +153,7 @@
       "actor": "manager",
       "detail": "Mission launched from a single user goal.",
       "data": {},
-      "created_at": 1773103693701
+      "created_at": 1773104506965
     },
     {
       "id": "event_runtime_finalized",
@@ -111,7 +168,7 @@
         "evidence_count": 2,
         "checks_total": 2
       },
-      "created_at": 1773103743701
+      "created_at": 1773104556965
     }
   ]
 }

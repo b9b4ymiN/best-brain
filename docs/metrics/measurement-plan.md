@@ -30,6 +30,7 @@ Current local source:
 - thin manager path pass
 - Claude primary worker path pass
 - Codex primary worker path pass
+- Shell primary worker path pass
 - mission brief completeness
 - goal ambiguity detector coverage
 - illegal completion count
@@ -53,8 +54,11 @@ Current local source:
 
 - first-run DB init success
 - bootstrap proof captured per OS
+- worker invocation pass rate
+- verifier worker path captured
 - artifact lineage completeness
 - checkpoint recovery success
+- checkpoint recovery breadth
 - data freshness SLA compliance
 
 Current local source:

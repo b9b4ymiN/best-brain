@@ -41,8 +41,16 @@ export function runCommand(
     env?: Record<string, string>;
     timeoutMs?: number;
   },
-): Promise<{ stdout: string; stderr: string; exitCode: number | null }> {
+): Promise<{
+  stdout: string;
+  stderr: string;
+  exitCode: number | null;
+  timedOut: boolean;
+  startedAt: number;
+  completedAt: number;
+}> {
   return new Promise((resolve, reject) => {
+    const startedAt = Date.now();
     const child = spawn(command, args, {
       cwd: options.cwd,
       env: options.env,
@@ -50,6 +58,7 @@ export function runCommand(
     });
     let stdout = '';
     let stderr = '';
+    let timedOut = false;
 
     child.stdout.on('data', (chunk) => {
       stdout += String(chunk);
@@ -60,12 +69,20 @@ export function runCommand(
     child.on('error', reject);
     const timeoutMs = options.timeoutMs ?? 180000;
     const timer = setTimeout(() => {
+      timedOut = true;
       stderr += `\nCommand timed out after ${timeoutMs}ms.`;
       child.kill('SIGKILL');
     }, timeoutMs);
     child.on('close', (exitCode) => {
       clearTimeout(timer);
-      resolve({ stdout, stderr, exitCode });
+      resolve({
+        stdout,
+        stderr,
+        exitCode,
+        timedOut,
+        startedAt,
+        completedAt: Date.now(),
+      });
     });
   });
 }

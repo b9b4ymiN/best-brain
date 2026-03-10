@@ -19,6 +19,12 @@ try {
   if (!result.runtime_bundle?.events.some((event) => event.event_type === 'checkpoint_restored')) {
     throw new Error('restore smoke expected runtime checkpoint restore evidence.');
   }
+  if (!result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'shell' && task.status === 'success')) {
+    throw new Error('restore smoke expected a shell worker task record.');
+  }
+  if (!result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'needs_retry')) {
+    throw new Error('restore smoke expected a verifier retry task record.');
+  }
 
   console.log(JSON.stringify(result, null, 2));
 } finally {

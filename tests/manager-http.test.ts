@@ -91,8 +91,11 @@ describe('manager alpha via brain HTTP', () => {
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
       expect(result.runtime_bundle?.session.status).toBe('completed');
       expect(result.runtime_bundle?.processes).toHaveLength(1);
+      expect(result.runtime_bundle?.worker_tasks).toHaveLength(2);
       expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
       expect(result.runtime_bundle?.events.some((event) => event.event_type === 'runtime_session_finalized')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'codex' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')).toBe(true);
 
       const contextResponse = await fetch(`http://127.0.0.1:${server.port}/brain/context?mission_id=mission_http_manager&query=latest%20mission%20context`);
       const context = await contextResponse.json() as {
@@ -193,6 +196,8 @@ describe('manager alpha via brain HTTP', () => {
       expect(result.worker_result?.status).toBe('success');
       expect(result.verification_result?.status).toBe('verified_complete');
       expect(result.runtime_bundle?.processes[0]?.command).toBe('bun');
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'shell' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')).toBe(true);
       expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
     } finally {
       await runtime.dispose();
@@ -228,6 +233,7 @@ describe('manager alpha via brain HTTP', () => {
       expect(result.decision.selected_worker).toBe('shell');
       expect(result.verification_result?.status).toBe('verification_failed');
       expect(result.runtime_bundle?.events.some((event) => event.event_type === 'checkpoint_restored')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'needs_retry')).toBe(true);
     } finally {
       await runtime.dispose();
       server.stop(true);

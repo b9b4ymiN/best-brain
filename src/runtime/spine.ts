@@ -11,6 +11,7 @@ import type {
   RuntimeSessionBundle,
   RuntimeSessionSpec,
   RuntimeSessionStatus,
+  RuntimeWorkerTaskRun,
 } from './types.ts';
 import type { VerificationArtifact } from '../types.ts';
 
@@ -18,6 +19,12 @@ function cloneBundle(bundle: RuntimeSessionBundle): RuntimeSessionBundle {
   return {
     session: { ...bundle.session, checkpoint_ids: [...bundle.session.checkpoint_ids] },
     processes: bundle.processes.map((process) => ({ ...process, args: [...process.args] })),
+    worker_tasks: bundle.worker_tasks.map((task) => ({
+      ...task,
+      artifact_refs: [...task.artifact_refs],
+      check_names: [...task.check_names],
+      invocation_args: [...task.invocation_args],
+    })),
     artifacts: bundle.artifacts.map((artifact) => ({ ...artifact })),
     checkpoints: bundle.checkpoints.map((checkpoint) => ({
       ...checkpoint,
@@ -67,6 +74,7 @@ export class LocalRuntimeSpine {
     this.bundle = {
       session,
       processes: [],
+      worker_tasks: [],
       artifacts: [],
       checkpoints: [],
       events: [],
@@ -155,6 +163,172 @@ export class LocalRuntimeSpine {
       },
     });
     return process;
+  }
+
+  recordCompletedProcess(input: {
+    actor: string;
+    command: string;
+    args: string[];
+    cwd: string;
+    status: RuntimeProcessRun['status'];
+    exit_code: number | null;
+    stdout: string | null;
+    stderr: string | null;
+    task_id: string | null;
+    started_at: number;
+    completed_at: number;
+  }): RuntimeProcessRun {
+    const bundle = this.ensureSession();
+    const process: RuntimeProcessRun = {
+      id: createId('proc'),
+      session_id: bundle.session.id,
+      mission_id: bundle.session.mission_id,
+      actor: input.actor,
+      command: input.command,
+      args: [...input.args],
+      cwd: input.cwd,
+      status: input.status,
+      exit_code: input.exit_code,
+      stdout_artifact_id: null,
+      stderr_artifact_id: null,
+      started_at: input.started_at,
+      completed_at: input.completed_at,
+    };
+    bundle.processes.push(process);
+    this.recordEvent({
+      task_id: input.task_id,
+      event_type: 'process_started',
+      actor: input.actor,
+      detail: `Started runtime process ${input.command}.`,
+      data: {
+        process_id: process.id,
+        args: input.args,
+      },
+    });
+
+    if (input.stdout && input.stdout.trim().length > 0) {
+      const stdoutArtifact = this.recordTextArtifact({
+        task_id: input.task_id,
+        kind: 'stdout',
+        uri: `runtime://${process.id}/stdout`,
+        description: input.stdout.slice(0, 500),
+        source: input.actor,
+      });
+      process.stdout_artifact_id = stdoutArtifact.id;
+    }
+
+    if (input.stderr && input.stderr.trim().length > 0) {
+      const stderrArtifact = this.recordTextArtifact({
+        task_id: input.task_id,
+        kind: 'stderr',
+        uri: `runtime://${process.id}/stderr`,
+        description: input.stderr.slice(0, 500),
+        source: input.actor,
+      });
+      process.stderr_artifact_id = stderrArtifact.id;
+    }
+
+    this.recordEvent({
+      task_id: input.task_id,
+      event_type: 'process_completed',
+      actor: input.actor,
+      detail: `Completed runtime process ${input.command} with status ${input.status}.`,
+      data: {
+        process_id: process.id,
+        exit_code: input.exit_code,
+      },
+    });
+    return process;
+  }
+
+  startWorkerTask(input: {
+    task_id: string;
+    worker: string;
+    execution_mode: string;
+    objective: string;
+    playbook_id: string | null;
+    verifier_owned: boolean;
+  }): RuntimeWorkerTaskRun {
+    const bundle = this.ensureSession();
+    const now = Date.now();
+    const workerTask: RuntimeWorkerTaskRun = {
+      id: createId('worker_task'),
+      session_id: bundle.session.id,
+      mission_id: bundle.session.mission_id,
+      task_id: input.task_id,
+      worker: input.worker,
+      execution_mode: input.execution_mode,
+      objective: input.objective,
+      playbook_id: input.playbook_id,
+      status: 'running',
+      summary: null,
+      artifact_refs: [],
+      check_names: [],
+      retry_recommendation: null,
+      invocation_command: null,
+      invocation_args: [],
+      verifier_owned: input.verifier_owned,
+      created_at: now,
+      updated_at: now,
+      completed_at: null,
+    };
+    bundle.worker_tasks.push(workerTask);
+    this.recordEvent({
+      task_id: input.task_id,
+      event_type: 'worker_task_started',
+      actor: input.worker,
+      detail: `Started worker task ${input.task_id} with ${input.worker}.`,
+      data: {
+        worker_task_id: workerTask.id,
+        execution_mode: input.execution_mode,
+        playbook_id: input.playbook_id,
+        verifier_owned: input.verifier_owned,
+      },
+    });
+    return workerTask;
+  }
+
+  completeWorkerTask(input: {
+    worker_task_id: string;
+    status: RuntimeWorkerTaskRun['status'];
+    summary: string;
+    artifact_refs: string[];
+    check_names: string[];
+    retry_recommendation: string | null;
+    invocation_command: string | null;
+    invocation_args: string[];
+  }): RuntimeWorkerTaskRun {
+    const bundle = this.ensureSession();
+    const workerTask = bundle.worker_tasks.find((candidate) => candidate.id === input.worker_task_id);
+    if (!workerTask) {
+      throw new Error(`runtime worker task not found: ${input.worker_task_id}`);
+    }
+
+    const completedAt = Date.now();
+    workerTask.status = input.status;
+    workerTask.summary = input.summary;
+    workerTask.artifact_refs = [...input.artifact_refs];
+    workerTask.check_names = [...input.check_names];
+    workerTask.retry_recommendation = input.retry_recommendation;
+    workerTask.invocation_command = input.invocation_command;
+    workerTask.invocation_args = [...input.invocation_args];
+    workerTask.updated_at = completedAt;
+    workerTask.completed_at = completedAt;
+    bundle.session.updated_at = completedAt;
+
+    this.recordEvent({
+      task_id: workerTask.task_id,
+      event_type: 'worker_task_completed',
+      actor: workerTask.worker,
+      detail: `Completed worker task ${workerTask.task_id} with status ${input.status}.`,
+      data: {
+        worker_task_id: workerTask.id,
+        artifact_refs: input.artifact_refs,
+        check_names: input.check_names,
+      },
+    });
+
+    return workerTask;
   }
 
   recordTextArtifact(input: {

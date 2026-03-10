@@ -11,6 +11,26 @@ export const WORKER_IDS = [
 
 export type WorkerId = (typeof WORKER_IDS)[number];
 
+export const WORKER_EXECUTION_MODES = [
+  'cli',
+  'local_process',
+  'manager_owned',
+  'reserved',
+] as const;
+
+export type WorkerExecutionMode = (typeof WORKER_EXECUTION_MODES)[number];
+
+export const WORKER_CAPABILITIES = [
+  'analysis',
+  'implementation',
+  'command_execution',
+  'verification',
+  'browser_navigation',
+  'mail_processing',
+] as const;
+
+export type WorkerCapability = (typeof WORKER_CAPABILITIES)[number];
+
 export const WORKER_TASK_STATUSES = [
   'queued',
   'running',
@@ -21,6 +41,28 @@ export const WORKER_TASK_STATUSES = [
 ] as const;
 
 export type WorkerTaskStatus = (typeof WORKER_TASK_STATUSES)[number];
+
+export interface WorkerDefinition {
+  id: WorkerId;
+  title: string;
+  execution_mode: WorkerExecutionMode;
+  capabilities: WorkerCapability[];
+  phase2_required: boolean;
+  produces_runtime_process: boolean;
+  manager_owned: boolean;
+  available: boolean;
+}
+
+export interface WorkerInvocation {
+  command: string;
+  args: string[];
+  cwd: string | null;
+  exit_code: number | null;
+  timed_out: boolean;
+  started_at: number;
+  completed_at: number;
+  transport: Exclude<WorkerExecutionMode, 'reserved'>;
+}
 
 export interface WorkerTaskInput {
   worker: WorkerId;
@@ -48,6 +90,7 @@ export interface WorkerTaskResult {
   started_at: number;
   completed_at: number;
   retry_recommendation: string | null;
+  invocation: WorkerInvocation | null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -97,6 +140,50 @@ function readNumber(input: Record<string, unknown>, key: string): number {
   return value;
 }
 
+function readStringArray(input: Record<string, unknown>, key: string): string[] {
+  const value = readArray(input, key);
+  return value.map((item) => {
+    if (typeof item !== 'string') {
+      throw new Error(`${key} must contain only strings`);
+    }
+    return item;
+  });
+}
+
+function readInvocation(value: unknown): WorkerInvocation | null {
+  if (value == null) {
+    return null;
+  }
+  if (!isRecord(value)) {
+    throw new Error('invocation must be an object');
+  }
+
+  const transport = readString(value, 'transport');
+  if (!WORKER_EXECUTION_MODES.includes(transport as WorkerExecutionMode) || transport === 'reserved') {
+    throw new Error('invocation.transport must be a supported execution mode');
+  }
+
+  return {
+    command: readString(value, 'command'),
+    args: readStringArray(value, 'args'),
+    cwd: readNullableString(value, 'cwd'),
+    exit_code: (() => {
+      const exitCode = value.exit_code;
+      if (exitCode == null) {
+        return null;
+      }
+      if (typeof exitCode !== 'number' || Number.isNaN(exitCode)) {
+        throw new Error('invocation.exit_code must be a number');
+      }
+      return exitCode;
+    })(),
+    timed_out: readBoolean(value, 'timed_out'),
+    started_at: readNumber(value, 'started_at'),
+    completed_at: readNumber(value, 'completed_at'),
+    transport: transport as Exclude<WorkerExecutionMode, 'reserved'>,
+  };
+}
+
 export function validateWorkerTaskInput(value: unknown): WorkerTaskInput {
   if (!isRecord(value)) {
     throw new Error('worker task input must be an object');
@@ -114,7 +201,7 @@ export function validateWorkerTaskInput(value: unknown): WorkerTaskInput {
     objective: readString(value, 'objective'),
     instructions: readString(value, 'instructions'),
     cwd: readNullableString(value, 'cwd'),
-    constraints: readArray(value, 'constraints') as string[],
+    constraints: readStringArray(value, 'constraints'),
     expected_artifacts: readArray(value, 'expected_artifacts') as Array<VerificationArtifact['type']>,
     context_citations: readArray(value, 'context_citations') as ConsultCitation[],
     verification_required: readBoolean(value, 'verification_required'),
@@ -148,5 +235,6 @@ export function validateWorkerTaskResult(value: unknown): WorkerTaskResult {
     started_at: readNumber(value, 'started_at'),
     completed_at: readNumber(value, 'completed_at'),
     retry_recommendation: readNullableString(value, 'retry_recommendation'),
+    invocation: readInvocation(value.invocation),
   };
 }

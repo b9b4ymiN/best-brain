@@ -107,6 +107,20 @@ export interface WorkerExecutionResult {
   proposed_checks: VerificationCheck[];
   raw_output: string;
   status: 'success' | 'needs_retry' | 'failed';
+  invocation?: {
+    command: string;
+    args: string[];
+    cwd: string | null;
+    exit_code: number | null;
+    timed_out: boolean;
+    started_at: number;
+    completed_at: number;
+    transport: 'cli' | 'local_process' | 'manager_owned';
+  } | null;
+  process_output?: {
+    stdout: string;
+    stderr: string;
+  } | null;
 }
 
 export interface BrainWriteRecord {

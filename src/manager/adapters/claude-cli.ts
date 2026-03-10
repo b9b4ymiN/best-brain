@@ -52,6 +52,8 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
         detail: 'Claude worker did not return the required JSON object.',
       }],
       raw_output: output,
+      invocation: null,
+      process_output: null,
     };
   }
 
@@ -69,6 +71,8 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
       detail: 'Claude returned usable freeform text for a note-only mission.',
     }],
     raw_output: output,
+    invocation: null,
+    process_output: null,
   };
 }
 
@@ -91,6 +95,8 @@ function parseWorkerResult(output: string, request: ExecutionRequest, fallbackSu
       artifacts: normalizeArtifacts(payload.artifacts),
       proposed_checks: normalizeChecks(payload.proposed_checks),
       raw_output: output,
+      invocation: null,
+      process_output: null,
     };
   } catch {
     return buildFreeformFallback(output, request, fallbackSummary);
@@ -136,14 +142,79 @@ export class ClaudeCliAdapter implements WorkerAdapter {
           detail: `Claude worker exited with code ${String(result.exitCode)}.`,
         }],
         raw_output: [result.stdout, result.stderr].filter(Boolean).join('\n'),
+        invocation: {
+          command: 'claude',
+          args: [
+            '-p',
+            '--output-format', 'json',
+            '--allow-dangerously-skip-permissions',
+            '--dangerously-skip-permissions',
+            '--permission-mode', 'bypassPermissions',
+            '[prompt]',
+          ],
+          cwd: request.cwd,
+          exit_code: result.exitCode,
+          timed_out: result.timedOut,
+          started_at: result.startedAt,
+          completed_at: result.completedAt,
+          transport: 'cli',
+        },
+        process_output: {
+          stdout: result.stdout,
+          stderr: result.stderr,
+        },
       };
     }
 
     try {
       const envelope = JSON.parse(result.stdout) as { result?: string };
-      return parseWorkerResult(envelope.result ?? result.stdout, request, 'Claude worker completed without a structured summary.');
+      const parsed = parseWorkerResult(envelope.result ?? result.stdout, request, 'Claude worker completed without a structured summary.');
+      parsed.invocation = {
+        command: 'claude',
+        args: [
+          '-p',
+          '--output-format', 'json',
+          '--allow-dangerously-skip-permissions',
+          '--dangerously-skip-permissions',
+          '--permission-mode', 'bypassPermissions',
+          '[prompt]',
+        ],
+        cwd: request.cwd,
+        exit_code: result.exitCode,
+        timed_out: result.timedOut,
+        started_at: result.startedAt,
+        completed_at: result.completedAt,
+        transport: 'cli',
+      };
+      parsed.process_output = {
+        stdout: result.stdout,
+        stderr: result.stderr,
+      };
+      return parsed;
     } catch {
-      return parseWorkerResult(result.stdout, request, 'Claude worker completed without a structured summary.');
+      const parsed = parseWorkerResult(result.stdout, request, 'Claude worker completed without a structured summary.');
+      parsed.invocation = {
+        command: 'claude',
+        args: [
+          '-p',
+          '--output-format', 'json',
+          '--allow-dangerously-skip-permissions',
+          '--dangerously-skip-permissions',
+          '--permission-mode', 'bypassPermissions',
+          '[prompt]',
+        ],
+        cwd: request.cwd,
+        exit_code: result.exitCode,
+        timed_out: result.timedOut,
+        started_at: result.startedAt,
+        completed_at: result.completedAt,
+        transport: 'cli',
+      };
+      parsed.process_output = {
+        stdout: result.stdout,
+        stderr: result.stderr,
+      };
+      return parsed;
     }
   }
 }

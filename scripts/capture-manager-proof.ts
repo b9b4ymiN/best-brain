@@ -41,7 +41,8 @@ const tasks = [
   { id: 'claude_primary', script: 'smoke:manager:claude' },
   { id: 'codex_primary', script: 'smoke:manager:codex' },
   { id: 'shell_primary', script: 'smoke:manager:shell' },
-  { id: 'restore_retry', script: 'smoke:manager:restore' },
+  { id: 'restore_retry_shell', script: 'smoke:manager:restore' },
+  { id: 'restore_retry_codex', script: 'smoke:manager:restore:codex' },
   { id: 'ambiguity_blocked', script: 'smoke:manager:ambiguity' },
 ] as const;
 
@@ -77,7 +78,7 @@ const blockedRuns = [ambiguityRun].filter((result): result is Record<string, unk
 const blockedCorrectReasonRate = blockedRuns.length === 0
   ? null
   : Math.round((blockedRuns.filter(() => ambiguityBlockedCorrectly).length / blockedRuns.length) * 100);
-const falseCompleteCount = [results.thin_manager, results.claude_primary, results.codex_primary, results.shell_primary, results.restore_retry, results.ambiguity_blocked]
+const falseCompleteCount = [results.thin_manager, results.claude_primary, results.codex_primary, results.shell_primary, results.restore_retry_shell, results.restore_retry_codex, results.ambiguity_blocked]
   .reduce((total, result) => {
     const verificationStatus = (result.parsed?.verification_result as { status?: string } | null | undefined)?.status;
     const blockedReason = (result.parsed?.decision as { blocked_reason?: string | null } | undefined)?.blocked_reason;
@@ -99,9 +100,49 @@ const checkpointCapture = [results.claude_primary, results.codex_primary, result
   } | null | undefined;
   return Array.isArray(runtimeBundle?.checkpoints) && runtimeBundle.checkpoints.length >= 2;
 });
-const checkpointRestoreCapture = ((results.restore_retry.parsed?.runtime_bundle as {
+const restoreRuns = [results.restore_retry_shell, results.restore_retry_codex].filter((result) => result.parsed != null);
+const checkpointRestoreCapture = restoreRuns.every((result) => ((result.parsed?.runtime_bundle as {
   events?: Array<{ event_type?: string }>;
-} | null | undefined)?.events ?? []).some((event) => event.event_type === 'checkpoint_restored');
+} | null | undefined)?.events ?? []).some((event) => event.event_type === 'checkpoint_restored'));
+const checkpointRestoreBreadth = restoreRuns.length === 0
+  ? null
+  : Math.round((restoreRuns.filter((result) => ((result.parsed?.runtime_bundle as {
+      events?: Array<{ event_type?: string }>;
+    } | null | undefined)?.events ?? []).some((event) => event.event_type === 'checkpoint_restored')).length / restoreRuns.length) * 100);
+const workerInvocationPassRate = Math.round(([
+  results.claude_primary,
+  results.codex_primary,
+  results.shell_primary,
+].filter((result) => result.pass).length / 3) * 100);
+const verifierWorkerPath = [results.claude_primary, results.codex_primary, results.shell_primary, results.restore_retry_shell, results.restore_retry_codex]
+  .every((result) => ((result.parsed?.runtime_bundle as {
+    worker_tasks?: Array<{ worker?: string; status?: string }>;
+  } | null | undefined)?.worker_tasks ?? []).some((task) => task.worker === 'verifier' && typeof task.status === 'string'));
+const artifactLineageCompleteness = (() => {
+  const executionRuns = [results.claude_primary, results.codex_primary, results.shell_primary, results.restore_retry_shell, results.restore_retry_codex]
+    .filter((result) => result.parsed != null);
+  let totalRefs = 0;
+  let linkedRefs = 0;
+  for (const result of executionRuns) {
+    const runtimeBundle = result.parsed?.runtime_bundle as {
+      artifacts?: Array<{ uri?: string }>;
+      worker_tasks?: Array<{ artifact_refs?: string[] }>;
+    } | null | undefined;
+    const artifactUris = new Set((runtimeBundle?.artifacts ?? []).map((artifact) => artifact.uri).filter((uri): uri is string => typeof uri === 'string'));
+    for (const task of runtimeBundle?.worker_tasks ?? []) {
+      for (const ref of task.artifact_refs ?? []) {
+        totalRefs += 1;
+        if (artifactUris.has(ref)) {
+          linkedRefs += 1;
+        }
+      }
+    }
+  }
+  if (totalRefs === 0) {
+    return null;
+  }
+  return Math.round((linkedRefs / totalRefs) * 100);
+})();
 
 const payload = {
   generated_at: new Date().toISOString(),
@@ -115,9 +156,13 @@ const payload = {
   goal_ambiguity_detection: ambiguityBlockedCorrectly,
   false_complete_count: falseCompleteCount,
   blocked_with_correct_reason_rate: blockedCorrectReasonRate,
+  worker_invocation_pass_rate: workerInvocationPassRate,
+  artifact_lineage_completeness: artifactLineageCompleteness,
+  verifier_worker_path: verifierWorkerPath,
   runtime_session_capture: runtimeSessionCapture,
   checkpoint_capture: checkpointCapture,
   checkpoint_restore_capture: checkpointRestoreCapture,
+  checkpoint_restore_breadth: checkpointRestoreBreadth,
   runs: results,
 };
 

@@ -357,9 +357,12 @@ describe('manager alpha unit flow', () => {
       expect(worker.requests[0]?.context_citations).toHaveLength(result.mission_brief.brain_citations.length);
       expect(result.runtime_bundle?.session.status).toBe('completed');
       expect(result.runtime_bundle?.processes).toHaveLength(1);
+      expect(result.runtime_bundle?.worker_tasks).toHaveLength(2);
       expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
       expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.kind === 'stdout')).toBe(true);
       expect(result.runtime_bundle?.events.some((event) => event.event_type === 'worker_dispatched')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'codex' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')).toBe(true);
       expect(result.mission_graph.nodes.find((node) => node.id === 'primary_work')?.status).toBe('completed');
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
       expect(result.mission_graph.nodes.find((node) => node.id === 'final_report')?.status).toBe('completed');
@@ -397,8 +400,11 @@ describe('manager alpha unit flow', () => {
       expect(brain.calls.completeVerification[0]?.status).toBe('verification_failed');
       expect(brain.calls.saveFailure).toHaveLength(1);
       expect(result.runtime_bundle?.session.status).toBe('failed');
+      expect(result.runtime_bundle?.worker_tasks).toHaveLength(2);
       expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
       expect(result.runtime_bundle?.events.some((event) => event.event_type === 'checkpoint_restored')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.status === 'needs_retry')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'needs_retry')).toBe(true);
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('failed');
     } finally {
       await runtime.dispose();

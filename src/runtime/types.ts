@@ -60,6 +60,28 @@ export interface RuntimeProcessRun {
   completed_at: number | null;
 }
 
+export interface RuntimeWorkerTaskRun {
+  id: string;
+  session_id: string;
+  mission_id: string;
+  task_id: string;
+  worker: string;
+  execution_mode: string;
+  objective: string;
+  playbook_id: string | null;
+  status: 'queued' | 'running' | 'success' | 'needs_retry' | 'failed' | 'blocked';
+  summary: string | null;
+  artifact_refs: string[];
+  check_names: string[];
+  retry_recommendation: string | null;
+  invocation_command: string | null;
+  invocation_args: string[];
+  verifier_owned: boolean;
+  created_at: number;
+  updated_at: number;
+  completed_at: number | null;
+}
+
 export interface RuntimeArtifactRecord {
   id: string;
   session_id: string;
@@ -99,6 +121,7 @@ export interface RuntimeEventRecord {
 export interface RuntimeSessionBundle {
   session: RuntimeSessionSpec;
   processes: RuntimeProcessRun[];
+  worker_tasks: RuntimeWorkerTaskRun[];
   artifacts: RuntimeArtifactRecord[];
   checkpoints: RuntimeCheckpointRecord[];
   events: RuntimeEventRecord[];

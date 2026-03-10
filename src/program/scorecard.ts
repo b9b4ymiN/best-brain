@@ -57,9 +57,13 @@ export interface ManagerProofInput {
   goal_ambiguity_detection?: boolean;
   false_complete_count?: number;
   blocked_with_correct_reason_rate?: number;
+  worker_invocation_pass_rate?: number;
+  artifact_lineage_completeness?: number;
+  verifier_worker_path?: boolean;
   runtime_session_capture?: boolean;
   checkpoint_capture?: boolean;
   checkpoint_restore_capture?: boolean;
+  checkpoint_restore_breadth?: number;
 }
 
 export interface ProgramScorecardInput {
@@ -198,6 +202,30 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     95,
     'Measures whether the manager blocks with an explicitly correct reason instead of drifting or failing open.',
   ));
+  metricValues.push(percentageMetric(
+    'worker_invocation_pass_rate',
+    'Worker invocation pass rate',
+    'runtime',
+    input.manager_proof?.worker_invocation_pass_rate,
+    95,
+    'Covers the current Phase 2 primary workers across smoke runs.',
+  ));
+  metricValues.push(percentageMetric(
+    'artifact_lineage_completeness',
+    'Artifact lineage completeness',
+    'runtime',
+    input.manager_proof?.artifact_lineage_completeness,
+    100,
+    'Every worker-task artifact ref should resolve to a runtime artifact record.',
+  ));
+  metricValues.push(equalityMetric(
+    'verifier_worker_path',
+    'Verifier worker path captured',
+    'runtime',
+    input.manager_proof?.verifier_worker_path,
+    true,
+    'Execution runs should record the verifier as a first-class worker task.',
+  ));
   metricValues.push(equalityMetric(
     'acceptance_run_set_defined',
     'Acceptance run set defined',
@@ -334,6 +362,14 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     true,
     'A failing mission should prove that runtime state can be restored from a checkpoint.',
   ));
+  metricValues.push(percentageMetric(
+    'checkpoint_restore_breadth',
+    'Checkpoint restore breadth',
+    'runtime',
+    input.manager_proof?.checkpoint_restore_breadth,
+    100,
+    'Restore should be proven on more than one worker path, not only shell.',
+  ));
   metricValues.push(equalityMetric(
     'mission_console_visibility',
     'Mission console visibility completeness',
@@ -359,9 +395,13 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
   const runtimeEvidenceReady = input.bootstrap_smoke?.first_run_db_init_success === true
     && input.consult_eval?.orphan_evidence_count === 0
     && input.manager_proof?.shell_primary_pass === true
+    && (input.manager_proof?.worker_invocation_pass_rate ?? 0) >= 95
+    && input.manager_proof?.verifier_worker_path === true
+    && input.manager_proof?.artifact_lineage_completeness === 100
     && input.manager_proof?.runtime_session_capture === true
     && input.manager_proof?.checkpoint_capture === true
-    && input.manager_proof?.checkpoint_restore_capture === true;
+    && input.manager_proof?.checkpoint_restore_capture === true
+    && input.manager_proof?.checkpoint_restore_breadth === 100;
 
   const phaseReadiness: ProgramPhaseReadiness[] = [
     {
@@ -380,9 +420,9 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     },
     {
       phase: 'Phase2_WorkerFabricRuntimeSpine',
-      status: runtimeEvidenceReady ? 'partial' : 'fail',
+      status: runtimeEvidenceReady ? 'pass' : 'fail',
       note: runtimeEvidenceReady
-        ? 'Artifact lineage, shell worker execution, and live runtime session/checkpoint/restore capture exist, but worker fabric breadth and checkpoint recovery breadth are still incomplete.'
+        ? 'Worker fabric is formalized across Claude, Codex, Shell, and Verifier, with artifact lineage and multi-path checkpoint recovery proven in local evidence.'
         : 'Runtime proof is incomplete.',
     },
     {
