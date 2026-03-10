@@ -66,6 +66,16 @@ export interface ManagerProofInput {
   checkpoint_restore_breadth?: number;
 }
 
+export interface ProvingHarnessSummaryInput {
+  proving_mission_definition_valid: boolean;
+  supported_definition_count: number;
+  generic_acceptance_harness_pass_rate: number;
+  blocked_reason_accuracy: number;
+  report_contract_completeness: number;
+  adapter_selection_correctness: number;
+  mission_demo_without_hidden_steps: boolean;
+}
+
 export interface ProgramScorecardInput {
   generated_at: string;
   contract_snapshot: ProgramContractSnapshot;
@@ -74,6 +84,7 @@ export interface ProgramScorecardInput {
   bootstrap_smoke?: BootstrapSmokeSummaryInput;
   captured_bootstrap_proofs?: string[];
   manager_proof?: ManagerProofInput;
+  proving_harness?: ProvingHarnessSummaryInput;
 }
 
 export interface ProgramMetricValue {
@@ -378,6 +389,54 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     true,
     'Unavailable until the control room exists.',
   ));
+  metricValues.push(equalityMetric(
+    'proving_mission_definition_valid',
+    'Proving mission definitions validate',
+    'manager',
+    input.proving_harness?.proving_mission_definition_valid,
+    true,
+    'Phase 3 requires valid proving mission definitions before a proving mission can run.',
+  ));
+  metricValues.push(percentageMetric(
+    'generic_acceptance_harness_pass_rate',
+    'Generic acceptance harness pass rate',
+    'manager',
+    input.proving_harness?.generic_acceptance_harness_pass_rate,
+    90,
+    'Phase 3 harness must pass across success, blocked, stale-input, and retryable failure runs.',
+  ));
+  metricValues.push(percentageMetric(
+    'blocked_reason_accuracy_phase3',
+    'Phase 3 blocked reason accuracy',
+    'manager',
+    input.proving_harness?.blocked_reason_accuracy,
+    95,
+    'Blocked proving missions must fail with the correct explicit reason.',
+  ));
+  metricValues.push(percentageMetric(
+    'report_contract_completeness',
+    'Report contract completeness',
+    'manager',
+    input.proving_harness?.report_contract_completeness,
+    100,
+    'Passing proving-mission runs must emit a complete final report contract.',
+  ));
+  metricValues.push(percentageMetric(
+    'adapter_selection_correctness',
+    'Adapter selection correctness',
+    'runtime',
+    input.proving_harness?.adapter_selection_correctness,
+    95,
+    'Input/data adapters must be selected or blocked through policy rather than hidden manual steps.',
+  ));
+  metricValues.push(equalityMetric(
+    'mission_demo_without_hidden_steps',
+    'Mission demos run without hidden steps',
+    'north_star',
+    input.proving_harness?.mission_demo_without_hidden_steps,
+    true,
+    'Proving missions must not require undocumented human rescue steps.',
+  ));
 
   const phase0ContractsFrozen = input.contract_snapshot.docs_locked
     && input.contract_snapshot.example_libraries_refreshed
@@ -402,6 +461,13 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     && input.manager_proof?.checkpoint_capture === true
     && input.manager_proof?.checkpoint_restore_capture === true
     && input.manager_proof?.checkpoint_restore_breadth === 100;
+  const phase3FrameworkReady = input.proving_harness?.proving_mission_definition_valid === true
+    && (input.proving_harness?.supported_definition_count ?? 0) >= 2
+    && (input.proving_harness?.generic_acceptance_harness_pass_rate ?? 0) >= 90
+    && (input.proving_harness?.blocked_reason_accuracy ?? 0) >= 95
+    && (input.proving_harness?.report_contract_completeness ?? 0) === 100
+    && (input.proving_harness?.adapter_selection_correctness ?? 0) >= 95
+    && input.proving_harness?.mission_demo_without_hidden_steps === true;
 
   const phaseReadiness: ProgramPhaseReadiness[] = [
     {
@@ -426,19 +492,21 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
         : 'Runtime proof is incomplete.',
     },
     {
-      phase: 'Phase3_ThaiEquitiesStockScanner',
-      status: 'fail',
-      note: 'No proving mission vertical slice exists yet.',
+      phase: 'Phase3_ProvingMissionFramework',
+      status: phase3FrameworkReady ? 'pass' : 'fail',
+      note: phase3FrameworkReady
+        ? 'Generic proving mission definitions, acceptance harness runs, adapter selection, and report contracts are all proven without stock-specific manager logic.'
+        : 'Proving mission framework contracts or acceptance harness evidence are still incomplete.',
     },
     {
-      phase: 'Phase4_FullMissionConsole',
+      phase: 'Phase4_FirstProvingMission',
       status: 'fail',
-      note: 'Console contracts exist, but no real control-room implementation exists yet.',
+      note: 'The first proving mission vertical slice has not been implemented yet.',
     },
     {
       phase: 'Phase5_Repeatability',
       status: 'fail',
-      note: 'Repeatable one-mission proof requires the stock-scanner vertical slice first.',
+      note: 'Repeatable one-mission proof requires the first proving mission vertical slice first.',
     },
   ];
 

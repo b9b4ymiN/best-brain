@@ -263,6 +263,10 @@ describe('manager alpha unit flow', () => {
       expect(result.mission_brief.preferred_format).toContain('proof chain');
       expect(result.mission_brief.planning_hints).toContain('Reuse the last verified mission.');
       expect(result.mission_brief.success_criteria.some((item) => item.includes('Do not claim done'))).toBe(true);
+      expect(result.mission_brief.mission_definition_id).toContain('mission_definition_');
+      expect(result.mission_brief.acceptance_profile_id).toContain('acceptance_');
+      expect(result.mission_brief.report_contract_id).toContain('report_contract_');
+      expect(result.mission_brief.input_adapter_decisions.length).toBeGreaterThan(0);
       expect(result.mission_brief.playbook.id).toContain('analysis-reporting-mission');
       expect(result.mission_brief.playbook.verifier_checklist.length).toBeGreaterThan(0);
       expect(result.mission_brief_validation.is_complete).toBe(true);
@@ -270,6 +274,7 @@ describe('manager alpha unit flow', () => {
       expect(result.mission_brief.mission_graph.playbook_id).toBe(result.mission_brief.playbook.id);
       expect(result.mission_graph.nodes.map((node) => node.id)).toEqual([
         'context_review',
+        'data_selection',
         'primary_work',
         'verification_gate',
         'final_report',
@@ -356,11 +361,16 @@ describe('manager alpha unit flow', () => {
       expect(worker.requests[0]?.playbook_id).toBe(result.mission_brief.playbook.id);
       expect(worker.requests[0]?.context_citations).toHaveLength(result.mission_brief.brain_citations.length);
       expect(result.runtime_bundle?.session.status).toBe('completed');
+      expect(result.runtime_bundle?.session.mission_definition_id).toBe(result.mission_brief.mission_definition_id);
+      expect(result.runtime_bundle?.session.report_contract_id).toBe(result.mission_brief.report_contract_id);
+      expect(result.runtime_bundle?.session.final_report_artifact_id).not.toBeNull();
       expect(result.runtime_bundle?.processes).toHaveLength(1);
       expect(result.runtime_bundle?.worker_tasks).toHaveLength(2);
       expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
       expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.kind === 'stdout')).toBe(true);
+      expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.uri.startsWith('report://'))).toBe(true);
       expect(result.runtime_bundle?.events.some((event) => event.event_type === 'worker_dispatched')).toBe(true);
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'final_report_emitted')).toBe(true);
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'codex' && task.status === 'success')).toBe(true);
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')).toBe(true);
       expect(result.mission_graph.nodes.find((node) => node.id === 'primary_work')?.status).toBe('completed');
@@ -400,9 +410,11 @@ describe('manager alpha unit flow', () => {
       expect(brain.calls.completeVerification[0]?.status).toBe('verification_failed');
       expect(brain.calls.saveFailure).toHaveLength(1);
       expect(result.runtime_bundle?.session.status).toBe('failed');
+      expect(result.runtime_bundle?.session.final_report_artifact_id).not.toBeNull();
       expect(result.runtime_bundle?.worker_tasks).toHaveLength(2);
       expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
       expect(result.runtime_bundle?.events.some((event) => event.event_type === 'checkpoint_restored')).toBe(true);
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'final_report_emitted')).toBe(true);
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.status === 'needs_retry')).toBe(true);
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'needs_retry')).toBe(true);
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('failed');

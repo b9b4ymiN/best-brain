@@ -12,19 +12,20 @@ export const PROGRAM_PHASES = [
   'Phase0_ProgramLock',
   'Phase1_ManagerBeta',
   'Phase2_WorkerFabricRuntimeSpine',
-  'Phase3_ThaiEquitiesStockScanner',
-  'Phase4_FullMissionConsole',
+  'Phase3_ProvingMissionFramework',
+  'Phase4_FirstProvingMission',
   'Phase5_Repeatability',
 ] as const;
 
 export type ProgramPhase = (typeof PROGRAM_PHASES)[number];
 
 export const LONG_TERM_PHASES = [
-  'Phase6_TaskQuality',
-  'Phase7_BrowserMailFlows',
-  'Phase8_DualWorkerPatterns',
-  'Phase9_RuntimeMaturity',
-  'Phase10_OperatorMode',
+  'Phase6_FullMissionConsole',
+  'Phase7_TaskQuality',
+  'Phase8_BrowserMailFlows',
+  'Phase9_DualWorkerPatterns',
+  'Phase10_RuntimeMaturity',
+  'Phase11_OperatorMode',
 ] as const;
 
 export type LongTermPhase = (typeof LONG_TERM_PHASES)[number];

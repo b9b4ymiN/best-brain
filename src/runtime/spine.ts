@@ -50,6 +50,10 @@ function mapArtifactKind(type: VerificationArtifact['type']): RuntimeArtifactKin
 
 export interface RuntimeSessionContext {
   missionId: string;
+  missionDefinitionId?: string | null;
+  acceptanceProfileId?: string | null;
+  reportContractId?: string | null;
+  acceptanceRunId?: string | null;
   workspaceRoot: string;
   owner: string;
 }
@@ -63,6 +67,11 @@ export class LocalRuntimeSpine {
     const session: RuntimeSessionSpec = {
       id: createId('session'),
       mission_id: context.missionId,
+      mission_definition_id: context.missionDefinitionId ?? null,
+      acceptance_profile_id: context.acceptanceProfileId ?? null,
+      report_contract_id: context.reportContractId ?? null,
+      acceptance_run_id: context.acceptanceRunId ?? null,
+      final_report_artifact_id: null,
       workspace_root: context.workspaceRoot,
       owner: context.owner,
       status: 'pending',
@@ -337,12 +346,14 @@ export class LocalRuntimeSpine {
     uri: string;
     description: string | null;
     source: string;
+    acceptance_run_id?: string | null;
   }): RuntimeArtifactRecord {
     const bundle = this.ensureSession();
     const artifact: RuntimeArtifactRecord = {
       id: createId('artifact'),
       session_id: bundle.session.id,
       mission_id: bundle.session.mission_id,
+      acceptance_run_id: input.acceptance_run_id ?? bundle.session.acceptance_run_id,
       task_id: input.task_id,
       kind: input.kind,
       uri: input.uri,
@@ -367,6 +378,7 @@ export class LocalRuntimeSpine {
         id: createId('artifact'),
         session_id: bundle.session.id,
         mission_id: bundle.session.mission_id,
+        acceptance_run_id: bundle.session.acceptance_run_id,
         task_id: taskId,
         kind: mapArtifactKind(artifact.type),
         uri: artifact.ref,
@@ -379,6 +391,34 @@ export class LocalRuntimeSpine {
       bundle.session.updated_at = record.created_at;
       return record;
     });
+  }
+
+  recordFinalReportArtifact(input: {
+    task_id: string | null;
+    uri: string;
+    description: string;
+  }): RuntimeArtifactRecord {
+    const artifact = this.recordTextArtifact({
+      task_id: input.task_id,
+      kind: 'report',
+      uri: input.uri,
+      description: input.description,
+      source: 'manager',
+    });
+    const bundle = this.ensureSession();
+    bundle.session.final_report_artifact_id = artifact.id;
+    bundle.session.updated_at = Date.now();
+    this.recordEvent({
+      task_id: input.task_id,
+      event_type: 'final_report_emitted',
+      actor: 'manager',
+      detail: 'Recorded the final mission report artifact.',
+      data: {
+        artifact_id: artifact.id,
+        uri: input.uri,
+      },
+    });
+    return artifact;
   }
 
   completeProcess(processId: string, input: {

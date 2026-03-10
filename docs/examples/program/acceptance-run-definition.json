@@ -1,0 +1,27 @@
+{
+  "id": "acceptance_run_repo_change_success",
+  "mission_definition_id": "mission_definition_repo-change-mission",
+  "goal": "Implement the proving-mission report contract for this repo.",
+  "run_class": "success",
+  "input_fixtures": {
+    "cwd": "C:\\Programing\\PersonalAI\\best-brain"
+  },
+  "expected_path": [
+    "context_review",
+    "data_selection",
+    "primary_work",
+    "verification_gate",
+    "final_report"
+  ],
+  "expected_final_status": "verified_complete",
+  "expected_evidence_types": [
+    "note",
+    "file"
+  ],
+  "expected_check_names": [
+    "Owner-facing note evidence exists",
+    "Code or test artifact exists"
+  ],
+  "expected_blocked_reason": null,
+  "hidden_human_steps_allowed": false
+}

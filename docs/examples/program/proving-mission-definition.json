@@ -1,0 +1,99 @@
+{
+  "id": "mission_definition_repo-change-mission",
+  "slug": "repo-change-mission",
+  "title": "Proving mission definition: Repo change proving mission",
+  "mission_kind": "repo_change_mission",
+  "goal_template": "Take one user goal, compile a mission brief, execute the general engine, and finish only with proof.",
+  "required_inputs": [
+    {
+      "id": "workspace_context",
+      "title": "Workspace context",
+      "family": "local_repo_or_runtime",
+      "required": true,
+      "description": "Local repo or runtime workspace information needed to execute the mission.",
+      "accepted_source_kinds": [
+        "workspace_scan",
+        "runtime_session"
+      ],
+      "max_freshness_ms": null,
+      "minimum_confidence": 0.5
+    }
+  ],
+  "allowed_workers": [
+    "codex"
+  ],
+  "required_evidence": [
+    "note",
+    "file"
+  ],
+  "verifier_checklist": [
+    {
+      "id": "check_note_evidence",
+      "name": "Owner-facing note evidence exists",
+      "required": true,
+      "artifact_kind": "note",
+      "detail": "There must be a grounded owner-facing note."
+    },
+    {
+      "id": "check_code_artifact",
+      "name": "Code or test artifact exists",
+      "required": true,
+      "artifact_kind": "file",
+      "detail": "Repo changes must produce a file or test artifact."
+    }
+  ],
+  "repair_heuristics": [
+    {
+      "id": "repair_collect_more_evidence",
+      "trigger": "verification_failed",
+      "instruction": "Collect missing file evidence and rerun verification.",
+      "max_retries": 2
+    }
+  ],
+  "report_contract": {
+    "id": "report_contract_repo-change-mission",
+    "title": "Owner mission report for Repo change proving mission",
+    "artifact_kind": "report",
+    "requires_verification_evidence": true,
+    "required_sections": [
+      "objective",
+      "result_summary",
+      "evidence_summary",
+      "checks_summary",
+      "blocked_or_rejected_reason",
+      "remaining_risks",
+      "next_action"
+    ]
+  },
+  "acceptance": {
+    "id": "acceptance_repo-change-mission",
+    "acceptance_scenarios": [
+      "success",
+      "blocked_with_correct_reason",
+      "stale_or_invalid_input_blocked",
+      "verification_failed_retryable"
+    ],
+    "success_statuses": [
+      "verified_complete"
+    ],
+    "retryable_statuses": [
+      "verification_failed"
+    ],
+    "blocked_reasons": [
+      "ambiguous_goal",
+      "missing_required_input",
+      "invalid_input",
+      "stale_input",
+      "no_available_input_adapter",
+      "policy_rejection"
+    ],
+    "required_evidence_types": [
+      "note",
+      "file"
+    ],
+    "required_check_names": [
+      "Owner-facing note evidence exists",
+      "Code or test artifact exists"
+    ]
+  }
+}

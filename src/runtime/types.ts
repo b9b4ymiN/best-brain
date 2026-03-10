@@ -36,6 +36,11 @@ export type RuntimeArtifactKind = (typeof RUNTIME_ARTIFACT_KINDS)[number];
 export interface RuntimeSessionSpec {
   id: string;
   mission_id: string;
+  mission_definition_id: string | null;
+  acceptance_profile_id: string | null;
+  report_contract_id: string | null;
+  acceptance_run_id: string | null;
+  final_report_artifact_id: string | null;
   workspace_root: string;
   owner: string;
   status: RuntimeSessionStatus;
@@ -86,6 +91,7 @@ export interface RuntimeArtifactRecord {
   id: string;
   session_id: string;
   mission_id: string;
+  acceptance_run_id: string | null;
   task_id: string | null;
   kind: RuntimeArtifactKind;
   uri: string;

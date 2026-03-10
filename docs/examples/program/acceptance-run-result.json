@@ -1,0 +1,13 @@
+{
+  "id": "acceptance_result_acceptance_run_repo_change_success",
+  "mission_definition_id": "mission_definition_repo-change-mission",
+  "run_id": "acceptance_run_repo_change_success",
+  "passed": true,
+  "actual_final_status": "verified_complete",
+  "blocked_reason": null,
+  "report_contract_completeness": 100,
+  "proof_chain_complete": true,
+  "hidden_human_steps_detected": false,
+  "adapter_selection_correct": true,
+  "notes": []
+}

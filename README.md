@@ -104,6 +104,7 @@ bun run smoke:manager:codex
 bun run smoke:manager:ambiguity
 bun run proof:manager
 bun run examples:program
+bun run proof:proving
 bun run scorecard:program
 ```
 
@@ -209,7 +210,7 @@ The current repo is strongest in the first two:
 The 90-day program is now frozen around:
 
 - success bar: `Repeatable One-Mission`
-- proving mission: `Thai equities daily stock scanner`
+- proving mission framework first, with `Thai equities daily stock scanner` reserved as the first proving mission in the next phase
 - execution style: `general engine + reusable playbooks`
 - data strategy: `live-data-first` through adapter selection, not hard-coded source logic
 - control surface target: `full mission console`

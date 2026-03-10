@@ -3,10 +3,12 @@ import type { MissionBrief } from './types.ts';
 
 export const MISSION_NODE_TYPES = [
   'analysis',
+  'data_selection',
   'implementation',
   'execution',
   'verification',
   'report',
+  'repair',
 ] as const;
 
 export type MissionNodeType = (typeof MISSION_NODE_TYPES)[number];
@@ -90,6 +92,37 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
       ? 'execution'
       : 'analysis';
   const primaryWorker: WorkerId | null = brief.selected_worker;
+  const requiresDataSelection = brief.input_adapter_decisions.some((decision) => decision.decision !== 'not_required');
+  const primaryDependsOn = requiresDataSelection ? ['data_selection'] : ['context_review'];
+  const nodes: MissionTaskNode[] = [
+    {
+      id: 'context_review',
+      title: 'Review consult and context',
+      objective: 'Ground the mission in persona, mission history, and current policy rails.',
+      node_type: 'analysis',
+      assigned_worker: null,
+      depends_on: [],
+      status: 'pending',
+      verification_gate: false,
+      retry_count: 0,
+      artifact_ids: [],
+    },
+  ];
+
+  if (requiresDataSelection) {
+    nodes.push({
+      id: 'data_selection',
+      title: 'Resolve mission inputs and data adapters',
+      objective: `Select input adapters for: ${brief.input_adapter_decisions.map((decision) => decision.input_id).join(' | ')}`,
+      node_type: 'data_selection',
+      assigned_worker: null,
+      depends_on: ['context_review'],
+      status: 'pending',
+      verification_gate: false,
+      retry_count: 0,
+      artifact_ids: [],
+    });
+  }
 
   return recomputeMissionGraph({
     mission_id: brief.mission_id,
@@ -98,25 +131,14 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
     created_at: now,
     updated_at: now,
     nodes: [
-      {
-        id: 'context_review',
-        title: 'Review consult and context',
-        objective: 'Ground the mission in persona, mission history, and current policy rails.',
-        node_type: 'analysis',
-        assigned_worker: null,
-        depends_on: [],
-        status: 'pending',
-        verification_gate: false,
-        retry_count: 0,
-        artifact_ids: [],
-      },
+      ...nodes,
       {
         id: 'primary_work',
         title: 'Execute the primary worker',
         objective: `Run ${primaryWorker ?? 'the selected worker'} against the compiled mission brief.`,
         node_type: primaryNodeType,
         assigned_worker: primaryWorker,
-        depends_on: ['context_review'],
+        depends_on: primaryDependsOn,
         status: 'pending',
         verification_gate: false,
         retry_count: 0,

@@ -7,6 +7,12 @@ import type {
   VerificationCheck,
 } from '../types.ts';
 import type { MissionPlaybook } from '../playbooks/types.ts';
+import type {
+  InputAdapterDecision,
+  MissionBlockedReason,
+  MissionReportContract,
+  ProvingMissionDefinition,
+} from '../proving/types.ts';
 import type { RuntimeSessionBundle } from '../runtime/types.ts';
 import type { MissionTaskGraph } from './graph.ts';
 
@@ -39,6 +45,7 @@ export interface ManagerDecision {
   reason: string;
   verification_required: boolean;
   blocked_reason: string | null;
+  blocked_reason_code: MissionBlockedReason | null;
 }
 
 export interface GoalAmbiguityAssessment {
@@ -51,6 +58,9 @@ export interface GoalAmbiguityAssessment {
 export interface MissionBrief {
   mission_id: string;
   mission_kind: string;
+  mission_definition_id: string;
+  acceptance_profile_id: string;
+  report_contract_id: string;
   goal: string;
   kind: ManagerDecisionKind;
   selected_worker: ManagerWorker | null;
@@ -61,6 +71,9 @@ export interface MissionBrief {
   brain_citations: ConsultCitation[];
   brain_trace_id: string;
   playbook: MissionPlaybook;
+  mission_definition: ProvingMissionDefinition;
+  report_contract: MissionReportContract;
+  input_adapter_decisions: InputAdapterDecision[];
   mission_graph: MissionTaskGraph;
   execution_plan: string[];
 }
@@ -75,6 +88,8 @@ export interface MissionBriefValidation {
 export interface ExecutionRequest {
   mission_id: string;
   mission_kind: string;
+  mission_definition_id: string;
+  report_contract_id: string;
   task_id: string;
   task_title: string;
   selected_worker: ManagerWorker;
@@ -89,6 +104,8 @@ export interface ExecutionRequest {
   context_citations: ConsultCitation[];
   playbook_id: string;
   playbook: MissionPlaybook;
+  report_contract: MissionReportContract;
+  input_adapter_decisions: InputAdapterDecision[];
   mission_graph: MissionTaskGraph;
   verification_required: boolean;
 }

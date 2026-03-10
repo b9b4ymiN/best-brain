@@ -68,6 +68,17 @@ const managerProof = readJson<{
   checkpoint_restore_capture?: boolean;
   checkpoint_restore_breadth?: number;
 }>(path.join(artifactsDir, 'manager-proof.latest.json'));
+const provingHarness = readJson<{
+  summary: {
+    proving_mission_definition_valid: boolean;
+    supported_definition_count: number;
+    generic_acceptance_harness_pass_rate: number;
+    blocked_reason_accuracy: number;
+    report_contract_completeness: number;
+    adapter_selection_correctness: number;
+    mission_demo_without_hidden_steps: boolean;
+  };
+}>(path.join(artifactsDir, 'proving-harness.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 const capturedBootstrapProofs = fs.existsSync(bootstrapProofDir)
   ? fs.readdirSync(bootstrapProofDir)
@@ -110,6 +121,7 @@ const scorecard = buildProgramScorecard({
   bootstrap_smoke: bootstrapSmoke?.startup,
   captured_bootstrap_proofs: capturedBootstrapProofs,
   manager_proof: managerProof ?? undefined,
+  proving_harness: provingHarness?.summary,
 });
 
 fs.mkdirSync(artifactsDir, { recursive: true });

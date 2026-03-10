@@ -37,6 +37,12 @@ Current local source:
 - false-complete count
 - blocked-with-correct-reason rate
 - verification loop correctness
+- proving mission definition valid
+- generic acceptance harness pass rate
+- phase-3 blocked reason accuracy
+- report contract completeness
+- adapter selection correctness
+- mission demo without hidden steps
 
 Interpretation notes:
 
@@ -48,6 +54,7 @@ Interpretation notes:
 Current local source:
 
 - `artifacts/manager-proof.latest.json`
+- `artifacts/proving-harness.latest.json`
 - manager tests and HTTP integration tests
 
 ## Runtime metrics
@@ -80,7 +87,7 @@ Current local source:
 
 ## Acceptance run set
 
-The canonical proving-mission acceptance run set is:
+The canonical first-proving-mission acceptance run set is:
 
 - `thai_equities_daily_controlled_acceptance_runs`
 
@@ -90,6 +97,13 @@ Rules:
 - it must include success, blocked, stale-data, and retry-after-failure cases
 - it must be runnable without hidden manual rescue steps
 - operator approvals and rejects may exist, but every required human touch must be explicit in the run definition and visible in artifacts
+
+Phase 3 also maintains a generic proving-framework harness that must validate:
+
+- success
+- blocked-with-correct-reason
+- stale-or-invalid-input blocked
+- verification-failed then retryable
 
 ## Assumption discipline
 
@@ -109,7 +123,8 @@ That scorecard is the local baseline for current program readiness. It is expect
 
 - `Phase0_ProgramLock`: pass
 - `Phase1_ManagerBeta`: partial
-- `Phase2_WorkerFabricRuntimeSpine`: partial
+- `Phase2_WorkerFabricRuntimeSpine`: pass
+- `Phase3_ProvingMissionFramework`: pass only after the generic proving harness is green
 - later phases: fail until implemented
 
 The scorecard should also track these plan-critical signals even before they are fully instrumented:
@@ -120,3 +135,8 @@ The scorecard should also track these plan-critical signals even before they are
 - `false_complete_count`
 - `blocked_with_correct_reason_rate`
 - `no_hidden_human_loop_assumption`
+- `proving_mission_definition_valid`
+- `generic_acceptance_harness_pass_rate`
+- `report_contract_completeness`
+- `adapter_selection_correctness`
+- `mission_demo_without_hidden_steps`

@@ -55,27 +55,29 @@ Exit:
 - worker invocation metadata is captured across Claude, Codex, and Shell
 - checkpoint restore is proven on more than one worker path
 
-## Day 56-75: Thai Equities Vertical Slice
+## Day 56-75: Proving Mission Framework
 
 Outputs:
 
-- proving mission playbook
-- live market-data adapter selection policy
-- end-to-end scanner mission path
-- verified owner-facing report
-- controlled acceptance run set is executable without hidden manual intervention
+- generic proving mission definitions
+- reusable mission report contract
+- generic input/data adapter selection policy
+- acceptance harness for success, blocked, stale-input, and retryable-failure runs
+- proof-chain rules that do not depend on stock-specific manager branches
 
 Exit:
 
-- mission completes end-to-end under controlled runs
-- stale data cannot create a false success
+- proving mission definitions validate
+- generic acceptance harness passes curated runs
 - blocked missions fail closed with a correct explicit reason instead of drifting into false completion
+- final reports are emitted only after verification path resolves
+- no stock-specific logic exists inside manager, kernel, or runtime paths
 
-## Day 76-90: Mission Console and Repeatability
+## Day 76-90: First Proving Mission and Repeatability
 
 Outputs:
 
-- local mission console
+- first proving mission: `Thai equities daily stock scanner`
 - repeated proving mission runs
 - memory reuse and repair hints visible across runs
 - program scorecard updated with real repeated-run evidence
@@ -84,6 +86,6 @@ Outputs:
 
 Exit:
 
-- mission launch, inspect, retry, approve, reject all work from the console
+- first proving mission completes end-to-end under controlled runs
 - repeated proving mission reaches the success bar
 - acceptance run set evidence is strong enough to distinguish real blocked runs from silent failures

@@ -1,11 +1,13 @@
 {
   "mission_id": "mission_program_example",
-  "goal": "Run the Thai equities daily scanner and produce a verified owner report.",
-  "status": "awaiting_verification",
+  "goal": "Implement the proving-mission report contract for this repo.",
+  "status": "verified_complete",
   "plan_overview": [
-    "task_analysis: Analyze mission and draft plan",
-    "task_implementation: Implement scanner logic",
-    "task_verification: Verify scanner output"
+    "context_review: Review consult and context",
+    "data_selection: Resolve mission inputs and data adapters",
+    "primary_work: Execute the primary worker",
+    "verification_gate: Run verification gate",
+    "final_report: Prepare final owner report"
   ],
   "timeline": [
     {
@@ -16,69 +18,97 @@
       "title": "Mission launched",
       "detail": "Manager compiled the mission brief and task graph.",
       "artifact_ids": [],
-      "created_at": 1773104506965
+      "created_at": 1773106429516
     },
     {
-      "id": "timeline_worker",
+      "id": "timeline_verification",
       "mission_id": "mission_program_example",
-      "source": "worker",
+      "source": "verifier",
       "status": "completed",
-      "title": "Primary worker finished analysis",
-      "detail": "Produced a grounded analysis note and a scanner task breakdown.",
+      "title": "Verification passed",
+      "detail": "Verifier accepted the evidence and checks.",
       "artifact_ids": [
-        "artifact_analysis_note"
+        "artifact_final_report"
       ],
-      "created_at": 1773104526965
+      "created_at": 1773106455516
     }
   ],
   "workers": [
     {
-      "worker": "claude",
+      "worker": "codex",
       "status": "completed",
       "current_task_id": null,
       "current_task_title": null,
-      "last_update_at": 1773104526965
+      "last_update_at": 1773106449516
     },
     {
-      "worker": "codex",
-      "status": "queued",
-      "current_task_id": "task_implementation",
-      "current_task_title": "Implement scanner logic",
-      "last_update_at": 1773104526965
+      "worker": "verifier",
+      "status": "completed",
+      "current_task_id": null,
+      "current_task_title": null,
+      "last_update_at": 1773106454516
     }
   ],
   "artifacts": [
     {
-      "id": "artifact_analysis_note",
+      "id": "artifact_note",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "task_id": "task_analysis",
+      "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+      "task_id": "primary_work",
       "kind": "report",
-      "uri": "example://artifact-analysis-note",
-      "description": "Mission analysis note.",
+      "uri": "proof://repo-change-note",
+      "description": "Owner-facing summary.",
       "checksum": null,
-      "source": "claude",
-      "created_at": 1773104521965
+      "source": "codex",
+      "created_at": 1773106447516
+    },
+    {
+      "id": "artifact_file",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+      "task_id": "primary_work",
+      "kind": "file",
+      "uri": "file://repo-change.ts",
+      "description": "Implementation artifact.",
+      "checksum": null,
+      "source": "codex",
+      "created_at": 1773106448016
     },
     {
       "id": "artifact_stdout",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "task_id": "task_implementation",
+      "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+      "task_id": "primary_work",
       "kind": "stdout",
-      "uri": "example://artifact-stdout",
-      "description": "Scanner stdout output.",
+      "uri": "runtime://proc_repo_change/stdout",
+      "description": "Structured worker stdout.",
       "checksum": null,
-      "source": "shell",
-      "created_at": 1773104546965
+      "source": "codex",
+      "created_at": 1773106449516
+    },
+    {
+      "id": "artifact_final_report",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+      "task_id": "final_report",
+      "kind": "report",
+      "uri": "report://repo-change/final",
+      "description": "Final mission report emitted after verification.",
+      "checksum": null,
+      "source": "manager",
+      "created_at": 1773106455516
     }
   ],
   "verdict": {
     "mission_id": "mission_program_example",
-    "status": "awaiting_verification",
-    "summary": "Implementation is waiting for the verifier result.",
+    "status": "verified_complete",
+    "summary": "The proving mission completed with a final report artifact.",
     "evidence_count": 2,
-    "checks_passed": 0,
+    "checks_passed": 2,
     "checks_total": 2
   },
   "allowed_actions": [

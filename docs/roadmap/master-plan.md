@@ -17,7 +17,7 @@ This document turns the final concept into the current project roadmap.
 
 ## Phase roadmap
 
-### Phase 1 — Foundation
+### Phase 1 - Foundation
 
 Goal:
 
@@ -33,7 +33,7 @@ Status:
 
 - largely complete
 
-### Phase 2 — Persona Brain
+### Phase 2 - Persona Brain
 
 Goal:
 
@@ -50,69 +50,60 @@ Status:
 - strong progress
 - brain-v1 exists and is verified
 
-### Phase 3 — Mission Manager Core
+### Phase 3 - Proving Mission Framework
 
 Goal:
 
-- turn user goals into controlled execution paths
+- make the general engine support proving missions without stock-specific core logic
 
 Key outputs:
 
-- intent router
-- mission compiler
-- planner
-- dispatcher
-- manager kernel
-- review loop
-- finalizer
+- proving mission definition contract
+- generic input/data adapter policy
+- acceptance harness
+- mission report contract
+- proof-chain rules for success, blocked, and retryable verification-failed runs
 
 Status:
 
-- in progress through `Manager alpha`
-- thin but real end-to-end flow exists
+- in progress
+- generic framework rails now exist, but the first proving mission is not implemented yet
 
-### Phase 4 — Worker Fabric
-
-Goal:
-
-- connect specialist workers under one contract
-
-Key outputs:
-
-- worker contract
-- Claude adapter
-- Codex adapter
-- Shell worker
-- Verifier worker
-
-Status:
-
-- partial
-- Claude and Codex exist
-- verifier behavior exists inside manager alpha
-- Shell, Browser, Mail workers are still to be formalized
-
-### Phase 5 — First Mission: Stock Scanner
+### Phase 4 - First Proving Mission: Thai Equities Stock Scanner
 
 Goal:
 
-- prove the architecture against a real multi-step mission
+- prove the framework with one real vertical slice
 
 Key outputs:
 
-- stock brief intake
-- mission planning
-- Claude analysis
-- Codex implementation
-- Shell execution
-- verifier review
-- final report
+- stock-scanner mission definition
+- live data adapter selection
+- end-to-end verified owner report
+- acceptance evidence and rerun behavior
 
 Status:
 
 - not started
 
-### Phase 6 — Lightweight Chat
+### Phase 5 - Repeatability
+
+Goal:
+
+- turn the first proving mission into a repeatable product behavior
+
+Key outputs:
+
+- repeated verified runs
+- memory reuse
+- repair hints from failure memory
+- repeat-run evidence in the scorecard
+
+Status:
+
+- not started
+
+### Phase 6 - Lightweight Chat
 
 Goal:
 
@@ -129,7 +120,7 @@ Status:
 - partially available through manager/brain routing
 - not mature as a dedicated chat surface yet
 
-### Phase 7 — Browser + Mail Task Flow
+### Phase 7 - Browser + Mail Task Flow
 
 Goal:
 
@@ -146,7 +137,7 @@ Status:
 
 - not started
 
-### Phase 8 — Control Room UI
+### Phase 8 - Control Room UI
 
 Goal:
 
@@ -165,7 +156,7 @@ Status:
 
 - not started
 
-### Phase 9 — Procedural Maturity
+### Phase 9 - Procedural Maturity
 
 Goal:
 
@@ -184,7 +175,7 @@ Status:
 - partial foundations exist in memory and failure learning
 - not mature yet
 
-### Phase 10 — Operator Mode
+### Phase 10 - Operator Mode
 
 Goal:
 
@@ -207,9 +198,9 @@ Status:
 To stay aligned with the final concept, the next recommended order is:
 
 1. harden manager alpha into a reliable mission manager beta
-2. formalize worker fabric contracts for shell, verifier, browser, and mail
-3. introduce a dedicated runtime layer for processes, artifacts, checkpoints, and rollback
-4. prove the full architecture on one end-to-end mission such as the stock scanner
+2. finish the proving mission framework with generic contracts, adapters, acceptance harness, and report proof chain
+3. implement the first proving mission on top of that framework
+4. turn the first proving mission into repeatable evidence with memory reuse
 5. add the first control surface beyond CLI
 
 ## Measurement discipline to add now

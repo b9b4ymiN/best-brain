@@ -1,45 +1,49 @@
 {
-  "worker": "claude",
+  "worker": "codex",
   "mission_id": "mission_program_example",
-  "task_id": "task_analysis",
+  "task_id": "primary_work",
   "status": "success",
-  "summary": "Produced a grounded analysis note and a scanner task breakdown.",
+  "summary": "Produced a verified repo-change artifact set.",
   "artifacts": [
     {
       "type": "note",
-      "ref": "example://worker-analysis-note",
-      "description": "Analysis note for the proving mission."
+      "ref": "proof://repo-change-note",
+      "description": "Owner-facing summary for the proving mission."
     },
     {
-      "type": "other",
-      "ref": "example://worker-analysis-json",
-      "description": "Structured task breakdown."
+      "type": "file",
+      "ref": "file://repo-change.ts",
+      "description": "Implementation artifact for the repo change."
     }
   ],
   "checks": [
     {
-      "name": "analysis-grounded",
+      "name": "Owner-facing note evidence exists",
       "passed": true,
-      "detail": "Worker result cites the mission brief and owner format."
+      "detail": "The note artifact is present."
+    },
+    {
+      "name": "Code or test artifact exists",
+      "passed": true,
+      "detail": "The file artifact is present."
     }
   ],
-  "raw_output": "{\"summary\":\"Produced a grounded analysis note and a scanner task breakdown.\"}",
-  "started_at": 1773104506965,
-  "completed_at": 1773104526965,
+  "raw_output": "{\"summary\":\"Produced a verified repo-change artifact set.\"}",
+  "started_at": 1773106429516,
+  "completed_at": 1773106449516,
   "retry_recommendation": null,
   "invocation": {
-    "command": "claude",
+    "command": "codex",
     "args": [
-      "-p",
-      "--output-format",
-      "json",
+      "exec",
+      "--json",
       "[prompt]"
     ],
     "cwd": "C:\\Programing\\PersonalAI\\best-brain",
     "exit_code": 0,
     "timed_out": false,
-    "started_at": 1773104506965,
-    "completed_at": 1773104526965,
+    "started_at": 1773106429516,
+    "completed_at": 1773106449516,
     "transport": "cli"
   }
 }

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T01:01:46.965Z",
+  "generated_at": "2026-03-10T01:33:49.516Z",
   "success_bar": "Repeatable One-Mission",
   "proving_mission": "Thai equities daily stock scanner",
   "acceptance_run_set": "thai_equities_daily_controlled_acceptance_runs",
@@ -246,6 +246,60 @@
       "actual": null,
       "status": "unavailable",
       "note": "Unavailable until the control room exists."
+    },
+    {
+      "id": "proving_mission_definition_valid",
+      "label": "Proving mission definitions validate",
+      "category": "manager",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Phase 3 requires valid proving mission definitions before a proving mission can run."
+    },
+    {
+      "id": "generic_acceptance_harness_pass_rate",
+      "label": "Generic acceptance harness pass rate",
+      "category": "manager",
+      "target": ">= 90",
+      "actual": 100,
+      "status": "pass",
+      "note": "Phase 3 harness must pass across success, blocked, stale-input, and retryable failure runs."
+    },
+    {
+      "id": "blocked_reason_accuracy_phase3",
+      "label": "Phase 3 blocked reason accuracy",
+      "category": "manager",
+      "target": ">= 95",
+      "actual": 100,
+      "status": "pass",
+      "note": "Blocked proving missions must fail with the correct explicit reason."
+    },
+    {
+      "id": "report_contract_completeness",
+      "label": "Report contract completeness",
+      "category": "manager",
+      "target": ">= 100",
+      "actual": 100,
+      "status": "pass",
+      "note": "Passing proving-mission runs must emit a complete final report contract."
+    },
+    {
+      "id": "adapter_selection_correctness",
+      "label": "Adapter selection correctness",
+      "category": "runtime",
+      "target": ">= 95",
+      "actual": 100,
+      "status": "pass",
+      "note": "Input/data adapters must be selected or blocked through policy rather than hidden manual steps."
+    },
+    {
+      "id": "mission_demo_without_hidden_steps",
+      "label": "Mission demos run without hidden steps",
+      "category": "north_star",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Proving missions must not require undocumented human rescue steps."
     }
   ],
   "phase_readiness": [
@@ -265,19 +319,19 @@
       "note": "Worker fabric is formalized across Claude, Codex, Shell, and Verifier, with artifact lineage and multi-path checkpoint recovery proven in local evidence."
     },
     {
-      "phase": "Phase3_ThaiEquitiesStockScanner",
-      "status": "fail",
-      "note": "No proving mission vertical slice exists yet."
+      "phase": "Phase3_ProvingMissionFramework",
+      "status": "pass",
+      "note": "Generic proving mission definitions, acceptance harness runs, adapter selection, and report contracts are all proven without stock-specific manager logic."
     },
     {
-      "phase": "Phase4_FullMissionConsole",
+      "phase": "Phase4_FirstProvingMission",
       "status": "fail",
-      "note": "Console contracts exist, but no real control-room implementation exists yet."
+      "note": "The first proving mission vertical slice has not been implemented yet."
     },
     {
       "phase": "Phase5_Repeatability",
       "status": "fail",
-      "note": "Repeatable one-mission proof requires the stock-scanner vertical slice first."
+      "note": "Repeatable one-mission proof requires the first proving mission vertical slice first."
     }
   ]
 }

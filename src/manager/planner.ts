@@ -59,14 +59,20 @@ export function buildExecutionPlan(brief: MissionBrief): string[] {
     .slice(0, 3)
     .join(' | ');
   const shellCommand = brief.selected_worker === 'shell' ? extractShellCommand(brief.goal)?.raw ?? null : null;
+  const adapterSummary = brief.input_adapter_decisions
+    .map((decision) => `${decision.input_id}:${decision.decision}:${decision.selected_adapter_id ?? decision.blocked_reason ?? 'none'}`)
+    .join(' | ');
 
   const steps = [
     'Review brain consult guidance and mission context before acting.',
+    adapterSummary.length > 0
+      ? `Resolve mission inputs using adapter decisions: ${adapterSummary}.`
+      : 'No external mission inputs are required for this run.',
     shellCommand
-      ? `Execute the primary worker from playbook ${brief.playbook.id}: shell command \`${shellCommand}\`.`
+      ? `Execute the primary worker from playbook ${brief.playbook.id}: shell command \`${shellCommand}\`.` 
       : `Execute the primary worker from playbook ${brief.playbook.id}: ${brief.selected_worker ?? 'none'}.`,
     `Collect evidence and proposed verification checks from the worker result. Required checklist: ${checklistSummary || 'default proof checklist'}.`,
-    `Prepare the owner-facing report using format: ${brief.playbook.report_format}.`,
+    `Prepare the owner-facing report using contract ${brief.report_contract_id}: ${brief.playbook.report_format}.`,
     'Persist outcome, start verification, and only mark complete if proof passes.',
   ];
 
@@ -133,6 +139,8 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
   return {
     mission_id: brief.mission_id,
     mission_kind: brief.mission_kind,
+    mission_definition_id: brief.mission_definition_id,
+    report_contract_id: brief.report_contract_id,
     task_id: primaryTask.id,
     task_title: primaryTask.title,
     selected_worker: brief.selected_worker,
@@ -141,14 +149,18 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
       'You are the primary worker inside best-brain manager alpha.',
       `Mission ID: ${brief.mission_id}`,
       `Mission kind: ${brief.mission_kind}`,
+      `Mission definition: ${brief.mission_definition_id}`,
+      `Acceptance profile: ${brief.acceptance_profile_id}`,
       `Current task: ${primaryTask.id} - ${primaryTask.title}`,
       `Goal: ${brief.goal}`,
       `Shell command: ${shellCommand?.raw ?? 'none'}`,
       `Playbook: ${brief.playbook.id} (${brief.playbook.title})`,
+      `Report contract: ${brief.report_contract_id} (${brief.report_contract.required_sections.join(' | ')})`,
       `Preferred format: ${brief.preferred_format}`,
       `Success criteria: ${brief.success_criteria.join(' | ')}`,
       `Constraints: ${brief.constraints.join(' | ')}`,
       `Planning hints: ${brief.planning_hints.join(' | ')}`,
+      `Input adapters: ${brief.input_adapter_decisions.map((decision) => `${decision.input_id}:${decision.decision}:${decision.selected_adapter_id ?? decision.blocked_reason ?? 'none'}`).join(' | ') || 'none'}`,
       `Verifier checklist: ${checklistSummary}`,
       `Mission graph: ${graphSummary}`,
       `Context citations: ${citationSummary || 'none'}`,
@@ -165,6 +177,8 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
     context_citations: brief.brain_citations,
     playbook_id: brief.playbook.id,
     playbook: brief.playbook,
+    report_contract: brief.report_contract,
+    input_adapter_decisions: brief.input_adapter_decisions,
     mission_graph: brief.mission_graph,
     verification_required: true,
   };

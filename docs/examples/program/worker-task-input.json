@@ -1,9 +1,9 @@
 {
-  "worker": "claude",
+  "worker": "codex",
   "mission_id": "mission_program_example",
-  "task_id": "task_analysis",
-  "objective": "Analyze the Thai equities daily scanner mission and propose a plan.",
-  "instructions": "Read the mission brief, inspect existing memory, and return a grounded plan summary.",
+  "task_id": "primary_work",
+  "objective": "Implement the proving-mission report contract for this repo.",
+  "instructions": "Read the mission brief, use the selected input adapters, and return strict JSON only.",
   "cwd": "C:\\Programing\\PersonalAI\\best-brain",
   "constraints": [
     "Use manager/kernel rails only.",
@@ -11,9 +11,9 @@
   ],
   "expected_artifacts": [
     "note",
-    "other"
+    "file"
   ],
   "context_citations": [],
   "verification_required": true,
-  "playbook_id": "playbook_thai_equities_daily"
+  "playbook_id": "playbook_repo_change_mission"
 }

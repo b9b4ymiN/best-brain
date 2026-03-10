@@ -1,5 +1,6 @@
 import type { FailureInput, StrictMissionOutcomeInput } from '../types.ts';
 import { validateMissionOutcomeStrictInput } from '../validation.ts';
+import { buildMissionReportDocument } from '../proving/report.ts';
 import { LocalRuntimeSpine } from '../runtime/spine.ts';
 import { WorkerFabric } from '../workers/fabric.ts';
 import { createId } from '../utils/id.ts';
@@ -93,7 +94,19 @@ function buildBlockedDecision(decision: ManagerDecision, blockedReason: string):
     should_execute: false,
     verification_required: false,
     blocked_reason: blockedReason,
+    blocked_reason_code: decision.blocked_reason_code,
     reason: blockedReason,
+  };
+}
+
+function buildBlockedDecisionWithCode(
+  decision: ManagerDecision,
+  blockedReason: string,
+  blockedReasonCode: ManagerDecision['blocked_reason_code'],
+): ManagerDecision {
+  return {
+    ...buildBlockedDecision(decision, blockedReason),
+    blocked_reason_code: blockedReasonCode,
   };
 }
 
@@ -144,7 +157,7 @@ export class ManagerRuntime {
     const missionId = existingMissionId ?? createId('mission');
     const ambiguity = detectGoalAmbiguity(input, decision);
     if (ambiguity.is_ambiguous) {
-      decision = buildBlockedDecision(decision, ambiguity.reason);
+      decision = buildBlockedDecisionWithCode(decision, ambiguity.reason, 'ambiguous_goal');
     }
 
     const brief = compileMissionBrief({
@@ -165,6 +178,10 @@ export class ManagerRuntime {
       ? null
       : runtimeSpine.openSession({
           missionId,
+          missionDefinitionId: brief.mission_definition_id,
+          acceptanceProfileId: brief.acceptance_profile_id,
+          reportContractId: brief.report_contract_id,
+          acceptanceRunId: `${brief.acceptance_profile_id}:${missionId}`,
           workspaceRoot: input.cwd,
           owner: 'manager-alpha',
         });
@@ -181,6 +198,34 @@ export class ManagerRuntime {
           trace_id: brief.brain_trace_id,
         },
       });
+      if (brief.mission_graph.nodes.some((node) => node.id === 'data_selection')) {
+        const adapterArtifacts = brief.input_adapter_decisions
+          .filter((decision) => decision.decision === 'selected')
+          .map((decision) => ({
+            type: 'other' as const,
+            ref: `input-adapter://${decision.selected_adapter_id}`,
+            description: decision.reason,
+          }));
+        if (adapterArtifacts.length > 0) {
+          runtimeSpine.recordVerificationArtifacts('data_selection', 'manager', adapterArtifacts);
+        }
+        missionGraph = updateTaskStatus(
+          missionGraph,
+          'data_selection',
+          brief.input_adapter_decisions.some((adapterDecision) => adapterDecision.decision === 'blocked') ? 'failed' : 'completed',
+          adapterArtifacts.map((artifact) => artifact.ref),
+        );
+        brief.mission_graph = missionGraph;
+        runtimeSpine.recordEvent({
+          task_id: 'data_selection',
+          event_type: 'input_adapters_resolved',
+          actor: 'manager',
+          detail: 'Resolved input adapters for the proving mission framework.',
+          data: {
+            input_adapter_decisions: brief.input_adapter_decisions,
+          },
+        });
+      }
       runtimeSpine.recordVerificationArtifacts(
         'context_review',
         'brain',
@@ -190,9 +235,19 @@ export class ManagerRuntime {
     }
 
     if (!briefValidation.is_complete && decision.kind !== 'chat') {
-      decision = buildBlockedDecision(
+      decision = buildBlockedDecisionWithCode(
         decision,
         `Mission brief is incomplete: ${briefValidation.missing_fields.join(', ')}.`,
+        'policy_rejection',
+      );
+    }
+
+    const blockedInputDecision = brief.input_adapter_decisions.find((adapterDecision) => adapterDecision.decision === 'blocked' && adapterDecision.blocked_reason != null);
+    if (blockedInputDecision && decision.kind !== 'chat') {
+      decision = buildBlockedDecisionWithCode(
+        decision,
+        blockedInputDecision.reason,
+        blockedInputDecision.blocked_reason,
       );
     }
 
@@ -427,6 +482,26 @@ export class ManagerRuntime {
           restoredCheckpointId = restorableCheckpoint.id;
         }
       }
+      const finalReport = buildMissionReportDocument({
+        brief,
+        workerResult,
+        verificationResult,
+        blockedReason: decision.blocked_reason,
+        evidence: verificationRequest.evidence,
+        verificationChecks: verificationRequest.verification_checks,
+      });
+      runtimeSpine.recordFinalReportArtifact({
+        task_id: 'final_report',
+        uri: finalReport.artifact_ref,
+        description: finalReport.sections.result_summary,
+      });
+      missionGraph = updateTaskStatus(
+        missionGraph,
+        'final_report',
+        'completed',
+        [finalReport.artifact_ref],
+      );
+      brief.mission_graph = missionGraph;
       runtimeSpine.finalize(
         verificationResult.status === 'verified_complete' ? 'completed' : 'failed',
         `Runtime session finalized after verification status ${verificationResult.status}.`,
@@ -435,6 +510,8 @@ export class ManagerRuntime {
           evidence_count: verificationResult.evidence_count,
           checks_total: verificationResult.checks_total,
           restored_checkpoint_id: restoredCheckpointId,
+          report_contract_id: brief.report_contract_id,
+          final_report_artifact_ref: finalReport.artifact_ref,
         },
       );
       runtimeBundle = runtimeSpine.snapshot();

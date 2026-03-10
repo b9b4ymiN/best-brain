@@ -1,51 +1,89 @@
 {
   "mission_id": "mission_program_example",
-  "mission_kind": "thai_equities_daily_scanner",
-  "playbook_id": "playbook_thai_equities_daily",
-  "created_at": 1773104506965,
-  "updated_at": 1773104506965,
+  "mission_kind": "repo_change_mission",
+  "playbook_id": "playbook_repo_change_mission",
+  "created_at": 1773106429516,
+  "updated_at": 1773106429516,
   "nodes": [
     {
-      "id": "task_analysis",
-      "title": "Analyze mission and draft plan",
-      "objective": "Turn the goal into a mission graph and report format.",
+      "id": "context_review",
+      "title": "Review consult and context",
+      "objective": "Ground the mission in persona and current context.",
       "node_type": "analysis",
-      "assigned_worker": "claude",
+      "assigned_worker": null,
       "depends_on": [],
       "status": "completed",
       "verification_gate": false,
       "retry_count": 0,
       "artifact_ids": [
-        "artifact_analysis_note"
+        "memory_context_review"
       ]
     },
     {
-      "id": "task_implementation",
-      "title": "Implement scanner logic",
-      "objective": "Build the scanner execution step for the proving mission.",
+      "id": "data_selection",
+      "title": "Resolve mission inputs and data adapters",
+      "objective": "Select the local workspace input adapter.",
+      "node_type": "data_selection",
+      "assigned_worker": null,
+      "depends_on": [
+        "context_review"
+      ],
+      "status": "completed",
+      "verification_gate": false,
+      "retry_count": 0,
+      "artifact_ids": [
+        "adapter_workspace_scan"
+      ]
+    },
+    {
+      "id": "primary_work",
+      "title": "Execute the primary worker",
+      "objective": "Run codex against the proving mission brief.",
       "node_type": "implementation",
       "assigned_worker": "codex",
       "depends_on": [
-        "task_analysis"
+        "data_selection"
       ],
-      "status": "ready",
+      "status": "completed",
       "verification_gate": false,
       "retry_count": 0,
-      "artifact_ids": []
+      "artifact_ids": [
+        "proof://repo-change-note",
+        "file://repo-change.ts"
+      ]
     },
     {
-      "id": "task_verification",
-      "title": "Verify scanner output",
-      "objective": "Check report completeness, freshness, and artifact evidence.",
+      "id": "verification_gate",
+      "title": "Run verification gate",
+      "objective": "Verify the result against the checklist.",
       "node_type": "verification",
       "assigned_worker": "verifier",
       "depends_on": [
-        "task_implementation"
+        "primary_work"
       ],
-      "status": "pending",
+      "status": "completed",
       "verification_gate": true,
       "retry_count": 0,
-      "artifact_ids": []
+      "artifact_ids": [
+        "proof://repo-change-note",
+        "file://repo-change.ts"
+      ]
+    },
+    {
+      "id": "final_report",
+      "title": "Prepare final owner report",
+      "objective": "Emit the final proving-mission report artifact.",
+      "node_type": "report",
+      "assigned_worker": null,
+      "depends_on": [
+        "verification_gate"
+      ],
+      "status": "completed",
+      "verification_gate": false,
+      "retry_count": 0,
+      "artifact_ids": [
+        "report://repo-change/final"
+      ]
     }
   ]
 }

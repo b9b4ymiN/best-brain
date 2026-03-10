@@ -62,5 +62,6 @@ export function routeIntent(input: ManagerInput): ManagerDecision {
     reason,
     verification_required: kind !== 'chat',
     blocked_reason: null,
+    blocked_reason_code: null,
   };
 }

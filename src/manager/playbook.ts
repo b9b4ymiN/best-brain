@@ -5,7 +5,6 @@ import { tokenize } from '../utils/text.ts';
 import type { WorkerId } from '../workers/types.ts';
 import type { ManagerDecision, ManagerInput } from './types.ts';
 
-const STOCK_HINTS = ['stock', 'stocks', 'equities', 'scanner', 'scan', 'set', 'thai'];
 const CODE_HINTS = ['repo', 'code', 'typescript', 'bun', 'test', 'file', 'script', 'server', 'patch', 'implement'];
 const REPORT_HINTS = ['report', 'summary', 'summarize', 'analysis', 'review', 'plan'];
 const REPO_CHANGE_HINTS = ['repo', 'code', 'file', 'script', 'server', 'typescript', 'patch', 'implement', 'fix'];
@@ -20,9 +19,6 @@ function toPlaybookSlug(value: string): string {
 }
 
 function inferMissionKind(goal: string, decision: ManagerDecision): string {
-  if (includesAny(goal, STOCK_HINTS)) {
-    return 'thai_equities_daily_scanner';
-  }
   if (decision.kind === 'chat') {
     return 'owner_guidance';
   }
@@ -72,25 +68,6 @@ function buildVerifierChecklist(missionKind: string, decision: ManagerDecision):
     ),
   ];
 
-  if (missionKind === 'thai_equities_daily_scanner') {
-    checklist.push(
-      checklistItem(
-        'check_market_data_artifact',
-        'Market data evidence exists',
-        true,
-        'other',
-        'Scanner missions must include a market-data artifact or equivalent machine-readable evidence.',
-      ),
-      checklistItem(
-        'check_owner_report',
-        'Owner report exists',
-        true,
-        'note',
-        'Scanner missions must end with an owner-facing report.',
-      ),
-    );
-  }
-
   if (missionKind === 'repo_change_mission') {
     checklist.push(
       checklistItem(
@@ -116,7 +93,7 @@ export function resolveMissionPlaybook(
   const preferredWorkers: WorkerId[] = Array.from(new Set([
     missionKind === 'analysis_reporting_mission' || missionKind === 'owner_guidance' ? 'claude' : null,
     missionKind === 'repo_change_mission' ? 'codex' : null,
-    missionKind === 'thai_equities_daily_scanner' || missionKind.startsWith('command_execution') ? 'shell' : null,
+    missionKind.startsWith('command_execution') ? 'shell' : null,
     decision.selected_worker,
     decision.kind === 'chat' ? null : 'verifier',
   ].filter((value): value is WorkerId => value != null)));

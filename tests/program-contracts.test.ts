@@ -2,6 +2,12 @@ import { describe, expect, test } from 'bun:test';
 import { selectMarketDataAdapter } from '../src/market/types.ts';
 import { getReadyTaskNodes, recomputeMissionGraph, updateTaskStatus } from '../src/manager/graph.ts';
 import {
+  validateAcceptanceRunDefinition,
+  validateInputAdapterDefinition,
+  validateMissionReportContract,
+  validateProvingMissionDefinition,
+} from '../src/proving/types.ts';
+import {
   PROGRAM_ACCEPTANCE_RUN_SET,
   PROGRAM_CORE_CONTRACTS,
   PROGRAM_MANAGER_BETA_RAILS,
@@ -28,8 +34,8 @@ describe('program contract freeze', () => {
       'Phase0_ProgramLock',
       'Phase1_ManagerBeta',
       'Phase2_WorkerFabricRuntimeSpine',
-      'Phase3_ThaiEquitiesStockScanner',
-      'Phase4_FullMissionConsole',
+      'Phase3_ProvingMissionFramework',
+      'Phase4_FirstProvingMission',
       'Phase5_Repeatability',
     ]);
     expect(PROGRAM_SUCCESS_BAR).toBe('Repeatable One-Mission');
@@ -50,6 +56,85 @@ describe('program contract freeze', () => {
       'console',
       'market_data',
     ]);
+  });
+
+  test('validates proving mission, input adapter, acceptance run, and report contracts', () => {
+    const definition = validateProvingMissionDefinition({
+      id: 'mission_definition_repo_change',
+      slug: 'repo-change-mission',
+      title: 'Repo change mission',
+      mission_kind: 'repo_change_mission',
+      goal_template: 'Implement a repo change and finish with proof.',
+      required_inputs: [{
+        id: 'workspace_context',
+        title: 'Workspace context',
+        family: 'local_repo_or_runtime',
+        required: true,
+        description: 'Local workspace info.',
+        accepted_source_kinds: ['workspace_scan'],
+        max_freshness_ms: null,
+        minimum_confidence: 0.5,
+      }],
+      allowed_workers: ['codex', 'shell'],
+      required_evidence: ['note', 'file'],
+      verifier_checklist: [],
+      repair_heuristics: [],
+      report_contract: {
+        id: 'report_contract_repo_change',
+        title: 'Repo change report',
+        required_sections: [
+          'objective',
+          'result_summary',
+          'evidence_summary',
+          'checks_summary',
+          'blocked_or_rejected_reason',
+          'remaining_risks',
+          'next_action',
+        ],
+        artifact_kind: 'report',
+        requires_verification_evidence: true,
+      },
+      acceptance: {
+        id: 'acceptance_repo_change',
+        acceptance_scenarios: ['success', 'verification_failed_retryable'],
+        success_statuses: ['verified_complete'],
+        retryable_statuses: ['verification_failed'],
+        blocked_reasons: ['missing_required_input', 'invalid_input'],
+        required_evidence_types: ['note', 'file'],
+        required_check_names: ['proof-ready'],
+      },
+    });
+    const adapter = validateInputAdapterDefinition({
+      id: 'adapter_workspace_scan',
+      title: 'Workspace scan',
+      family: 'local_repo_or_runtime',
+      source_kind: 'workspace_scan',
+      available: true,
+      freshness_ms: null,
+      confidence: 0.9,
+      blocking_reason: null,
+      provides_inputs: ['workspace_context'],
+      notes: [],
+    });
+    const acceptanceRun = validateAcceptanceRunDefinition({
+      id: 'run_repo_change_success',
+      mission_definition_id: definition.id,
+      goal: 'Implement a repo change and finish with proof.',
+      run_class: 'success',
+      input_fixtures: { cwd: process.cwd() },
+      expected_path: ['context_review', 'data_selection', 'primary_work', 'verification_gate', 'final_report'],
+      expected_final_status: 'verified_complete',
+      expected_evidence_types: ['note', 'file'],
+      expected_check_names: ['proof-ready'],
+      expected_blocked_reason: null,
+      hidden_human_steps_allowed: false,
+    });
+    const reportContract = validateMissionReportContract(definition.report_contract);
+
+    expect(definition.id).toBe('mission_definition_repo_change');
+    expect(adapter.id).toBe('adapter_workspace_scan');
+    expect(acceptanceRun.run_class).toBe('success');
+    expect(reportContract.artifact_kind).toBe('report');
   });
 
   test('freezes worker, runtime, and control-room enums', () => {

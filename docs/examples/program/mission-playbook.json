@@ -1,41 +1,39 @@
 {
-  "id": "playbook_thai_equities_daily",
-  "slug": "thai-equities-daily-scanner",
-  "title": "Thai equities daily proving mission",
-  "scope": "domain",
-  "mission_kind": "thai_equities_daily_scanner",
+  "id": "playbook_repo_change_mission",
+  "slug": "repo-change-mission",
+  "title": "Repo change proving mission",
+  "scope": "mission",
+  "mission_kind": "repo_change_mission",
   "preferred_workers": [
-    "claude",
     "codex",
-    "shell",
     "verifier"
   ],
   "planning_hints": [
-    "Confirm market freshness before scanning.",
-    "Do not finalize without report evidence."
+    "Use generic mission rails only.",
+    "Do not mark complete without evidence."
   ],
-  "report_format": "Short status, rationale, evidence, risks, next action.",
+  "report_format": "Objective, result, evidence, checks, risks, next action.",
   "verifier_checklist": [
     {
-      "id": "check_fresh_data",
-      "name": "Fresh market data available",
-      "required": true,
-      "artifact_kind": "other",
-      "detail": "Scanner must use the latest trading-day data or block explicitly."
-    },
-    {
-      "id": "check_report_complete",
-      "name": "Report contains rationale and risks",
+      "id": "check_note_evidence",
+      "name": "Owner-facing note evidence exists",
       "required": true,
       "artifact_kind": "note",
-      "detail": "Owner-facing report must contain results, rationale, risk, and next action."
+      "detail": "There must be a grounded owner-facing note."
+    },
+    {
+      "id": "check_code_artifact",
+      "name": "Code or test artifact exists",
+      "required": true,
+      "artifact_kind": "file",
+      "detail": "Repo changes must produce a file or test artifact."
     }
   ],
   "repair_heuristics": [
     {
-      "id": "repair_retry_data_adapter",
-      "trigger": "live_data_blocked",
-      "instruction": "Switch to the next available market-data adapter and rerun freshness checks.",
+      "id": "repair_collect_more_evidence",
+      "trigger": "verification_failed",
+      "instruction": "Collect missing file evidence and rerun verification.",
       "max_retries": 2
     }
   ]

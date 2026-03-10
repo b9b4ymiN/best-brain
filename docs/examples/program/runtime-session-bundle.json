@@ -2,6 +2,11 @@
   "session": {
     "id": "session_program_example",
     "mission_id": "mission_program_example",
+    "mission_definition_id": "mission_definition_repo-change-mission",
+    "acceptance_profile_id": "acceptance_repo-change-mission",
+    "report_contract_id": "report_contract_repo-change-mission",
+    "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+    "final_report_artifact_id": "artifact_final_report",
     "workspace_root": "C:\\Programing\\PersonalAI\\best-brain",
     "owner": "example-owner",
     "status": "completed",
@@ -9,110 +14,145 @@
       "checkpoint_after_primary_work",
       "checkpoint_after_verification"
     ],
-    "created_at": 1773104506965,
-    "updated_at": 1773104506965
+    "created_at": 1773106429516,
+    "updated_at": 1773106429516
   },
   "processes": [
     {
-      "id": "proc_scanner",
+      "id": "proc_repo_change",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "actor": "shell",
-      "command": "bun",
+      "actor": "codex",
+      "command": "codex",
       "args": [
-        "run",
-        "scanner"
+        "exec",
+        "--json",
+        "[prompt]"
       ],
       "cwd": "C:\\Programing\\PersonalAI\\best-brain",
       "status": "succeeded",
       "exit_code": 0,
       "stdout_artifact_id": "artifact_stdout",
       "stderr_artifact_id": null,
-      "started_at": 1773104536965,
-      "completed_at": 1773104546965
+      "started_at": 1773106434516,
+      "completed_at": 1773106449516
     }
   ],
   "worker_tasks": [
     {
-      "id": "worker_task_analysis",
+      "id": "worker_task_primary",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "task_id": "task_analysis",
-      "worker": "claude",
+      "task_id": "primary_work",
+      "worker": "codex",
       "execution_mode": "cli",
-      "objective": "Turn the goal into a mission graph and report format.",
-      "playbook_id": "playbook_thai_equities_daily",
+      "objective": "Implement the proving-mission report contract for this repo.",
+      "playbook_id": "playbook_repo_change_mission",
       "status": "success",
-      "summary": "Produced a grounded analysis note and a scanner task breakdown.",
+      "summary": "Produced a verified repo-change artifact set.",
       "artifact_refs": [
-        "example://worker-analysis-note",
-        "example://worker-analysis-json"
+        "proof://repo-change-note",
+        "file://repo-change.ts"
       ],
       "check_names": [
-        "analysis-grounded"
+        "Owner-facing note evidence exists",
+        "Code or test artifact exists"
       ],
       "retry_recommendation": null,
-      "invocation_command": "claude",
+      "invocation_command": "codex",
       "invocation_args": [
-        "-p",
-        "--output-format",
-        "json",
+        "exec",
+        "--json",
         "[prompt]"
       ],
       "verifier_owned": false,
-      "created_at": 1773104506965,
-      "updated_at": 1773104526965,
-      "completed_at": 1773104526965
+      "created_at": 1773106429516,
+      "updated_at": 1773106449516,
+      "completed_at": 1773106449516
     },
     {
       "id": "worker_task_verifier",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "task_id": "task_verification",
+      "task_id": "verification_gate",
       "worker": "verifier",
       "execution_mode": "manager_owned",
-      "objective": "Check report completeness, freshness, and artifact evidence.",
-      "playbook_id": "playbook_thai_equities_daily",
-      "status": "running",
-      "summary": null,
-      "artifact_refs": [],
-      "check_names": [],
+      "objective": "Verify the proving mission result.",
+      "playbook_id": "playbook_repo_change_mission",
+      "status": "success",
+      "summary": "Verification passed with the expected evidence.",
+      "artifact_refs": [
+        "proof://repo-change-note",
+        "file://repo-change.ts"
+      ],
+      "check_names": [
+        "Owner-facing note evidence exists",
+        "Code or test artifact exists"
+      ],
       "retry_recommendation": null,
       "invocation_command": "verifier",
       "invocation_args": [
-        "playbook_thai_equities_daily",
-        "task_verification"
+        "playbook_repo_change_mission",
+        "verification_gate"
       ],
       "verifier_owned": true,
-      "created_at": 1773104551965,
-      "updated_at": 1773104551965,
-      "completed_at": null
+      "created_at": 1773106450516,
+      "updated_at": 1773106454516,
+      "completed_at": 1773106454516
     }
   ],
   "artifacts": [
     {
-      "id": "artifact_analysis_note",
+      "id": "artifact_note",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "task_id": "task_analysis",
+      "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+      "task_id": "primary_work",
       "kind": "report",
-      "uri": "example://artifact-analysis-note",
-      "description": "Mission analysis note.",
+      "uri": "proof://repo-change-note",
+      "description": "Owner-facing summary.",
       "checksum": null,
-      "source": "claude",
-      "created_at": 1773104521965
+      "source": "codex",
+      "created_at": 1773106447516
+    },
+    {
+      "id": "artifact_file",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+      "task_id": "primary_work",
+      "kind": "file",
+      "uri": "file://repo-change.ts",
+      "description": "Implementation artifact.",
+      "checksum": null,
+      "source": "codex",
+      "created_at": 1773106448016
     },
     {
       "id": "artifact_stdout",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "task_id": "task_implementation",
+      "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+      "task_id": "primary_work",
       "kind": "stdout",
-      "uri": "example://artifact-stdout",
-      "description": "Scanner stdout output.",
+      "uri": "runtime://proc_repo_change/stdout",
+      "description": "Structured worker stdout.",
       "checksum": null,
-      "source": "shell",
-      "created_at": 1773104546965
+      "source": "codex",
+      "created_at": 1773106449516
+    },
+    {
+      "id": "artifact_final_report",
+      "session_id": "session_program_example",
+      "mission_id": "mission_program_example",
+      "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+      "task_id": "final_report",
+      "kind": "report",
+      "uri": "report://repo-change/final",
+      "description": "Final mission report emitted after verification.",
+      "checksum": null,
+      "source": "manager",
+      "created_at": 1773106455516
     }
   ],
   "checkpoints": [
@@ -120,27 +160,28 @@
       "id": "checkpoint_after_primary_work",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "label": "After primary work",
+      "label": "after_primary_work",
       "artifact_ids": [
-        "artifact_analysis_note",
-        "artifact_stdout"
+        "artifact_note",
+        "artifact_file"
       ],
       "restore_supported": true,
-      "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-checkpoint_after_primary_work.json",
-      "created_at": 1773104541965
+      "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-after_primary_work.json",
+      "created_at": 1773106449516
     },
     {
       "id": "checkpoint_after_verification",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "label": "After verification",
+      "label": "after_verification",
       "artifact_ids": [
-        "artifact_analysis_note",
-        "artifact_stdout"
+        "artifact_note",
+        "artifact_file",
+        "artifact_final_report"
       ],
       "restore_supported": false,
-      "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-checkpoint_after_verification.json",
-      "created_at": 1773104551965
+      "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-after_verification.json",
+      "created_at": 1773106455516
     }
   ],
   "events": [
@@ -153,22 +194,21 @@
       "actor": "manager",
       "detail": "Mission launched from a single user goal.",
       "data": {},
-      "created_at": 1773104506965
+      "created_at": 1773106429516
     },
     {
-      "id": "event_runtime_finalized",
+      "id": "event_final_report_emitted",
       "session_id": "session_program_example",
       "mission_id": "mission_program_example",
-      "task_id": null,
-      "event_type": "runtime_session_finalized",
-      "actor": "runtime",
-      "detail": "Runtime session finalized after verification status verified_complete.",
+      "task_id": "final_report",
+      "event_type": "final_report_emitted",
+      "actor": "manager",
+      "detail": "Recorded the final mission report artifact.",
       "data": {
-        "verification_status": "verified_complete",
-        "evidence_count": 2,
-        "checks_total": 2
+        "artifact_id": "artifact_final_report",
+        "uri": "report://repo-change/final"
       },
-      "created_at": 1773104556965
+      "created_at": 1773106455516
     }
   ]
 }

@@ -1,0 +1,19 @@
+{
+  "input_id": "workspace_context",
+  "family": "local_repo_or_runtime",
+  "decision": "selected",
+  "selected_adapter_id": "adapter_workspace_scan",
+  "reason": "Selected adapter_workspace_scan for required input workspace_context.",
+  "blocked_reason": null,
+  "considered": [
+    {
+      "id": "adapter_workspace_scan",
+      "family": "local_repo_or_runtime",
+      "source_kind": "workspace_scan",
+      "available": true,
+      "freshness_ms": null,
+      "confidence": 0.95,
+      "blocking_reason": null
+    }
+  ]
+}

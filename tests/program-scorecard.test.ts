@@ -61,6 +61,15 @@ describe('program scorecard', () => {
         checkpoint_restore_capture: true,
         checkpoint_restore_breadth: 100,
       },
+      proving_harness: {
+        proving_mission_definition_valid: true,
+        supported_definition_count: 2,
+        generic_acceptance_harness_pass_rate: 100,
+        blocked_reason_accuracy: 100,
+        report_contract_completeness: 100,
+        adapter_selection_correctness: 100,
+        mission_demo_without_hidden_steps: true,
+      },
     });
 
     expect(scorecard.success_bar).toBe('Repeatable One-Mission');
@@ -73,9 +82,11 @@ describe('program scorecard', () => {
     expect(scorecard.metric_values.some((metric) => metric.id === 'artifact_lineage_completeness' && metric.status === 'pass')).toBe(true);
     expect(scorecard.metric_values.some((metric) => metric.id === 'verifier_worker_path' && metric.status === 'pass')).toBe(true);
     expect(scorecard.metric_values.some((metric) => metric.id === 'runtime_session_capture' && metric.status === 'pass')).toBe(true);
+    expect(scorecard.metric_values.some((metric) => metric.id === 'generic_acceptance_harness_pass_rate' && metric.status === 'pass')).toBe(true);
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase0_ProgramLock')?.status).toBe('pass');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase1_ManagerBeta')?.status).toBe('partial');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase2_WorkerFabricRuntimeSpine')?.status).toBe('pass');
-    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase3_ThaiEquitiesStockScanner')?.status).toBe('fail');
+    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase3_ProvingMissionFramework')?.status).toBe('pass');
+    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase4_FirstProvingMission')?.status).toBe('fail');
   });
 });
