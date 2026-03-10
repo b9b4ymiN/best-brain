@@ -151,12 +151,93 @@ export function renderChatPage(): string {
       const thread = document.getElementById('thread');
       const messageEl = document.getElementById('message');
       const sendButton = document.getElementById('send');
+      const FENCE = String.fromCharCode(96).repeat(3);
 
       function escapeHtml(value) {
         return value
           .replaceAll('&', '&amp;')
           .replaceAll('<', '&lt;')
           .replaceAll('>', '&gt;');
+      }
+
+      function stripFence(value) {
+        const trimmed = value.trim();
+        if (!trimmed.startsWith(FENCE)) {
+          return trimmed;
+        }
+
+        const lines = trimmed.split(/\r?\n/);
+        if (lines.length === 1) {
+          return trimmed.split(FENCE).join('').trim();
+        }
+
+        const first = lines[0] ?? '';
+        const last = lines[lines.length - 1] ?? '';
+        const body = lines.slice(1, last.trim() === FENCE ? -1 : undefined).join('\n').trim();
+        return body || first.split(FENCE).join('').trim();
+      }
+
+      function extractAnswerFromJsonLines(value) {
+        const lines = value
+          .split(/\\r?\\n/)
+          .map((line) => line.trim())
+          .filter(Boolean);
+        let latestText = null;
+
+        for (const line of lines) {
+          try {
+            const payload = JSON.parse(line);
+            if (payload.type === 'result' && typeof payload.result === 'string' && payload.result.trim()) {
+              latestText = payload.result.trim();
+            }
+
+            if (Array.isArray(payload.message?.content)) {
+              const text = payload.message.content
+                .filter((entry) => entry.type === 'text' && typeof entry.text === 'string')
+                .map((entry) => entry.text)
+                .join('')
+                .trim();
+              if (text) {
+                latestText = text;
+              }
+            }
+
+            if (payload.msg?.type === 'agent_message' && typeof payload.msg.message === 'string' && payload.msg.message.trim()) {
+              latestText = payload.msg.message.trim();
+            }
+          } catch {
+            // Ignore non-JSON lines.
+          }
+        }
+
+        return latestText;
+      }
+
+      function looksLikeInternalEventLog(value) {
+        const trimmed = value.trim();
+        return trimmed.startsWith('{"type":"system"')
+          || trimmed.includes('"subtype":"init"')
+          || trimmed.includes('"type":"assistant"')
+          || trimmed.includes('"type":"result"')
+          || trimmed.includes('"msg":{"type":"agent_message"');
+      }
+
+      function sanitizeAssistantAnswer(value) {
+        const answer = typeof value === 'string' ? value.trim() : '';
+        if (!answer) {
+          return 'ขออภัย ตอนนี้ยังไม่ได้คำตอบที่แสดงผลได้ ลองส่งใหม่อีกครั้ง';
+        }
+
+        const extracted = extractAnswerFromJsonLines(answer);
+        if (extracted) {
+          return stripFence(extracted);
+        }
+
+        if (looksLikeInternalEventLog(answer)) {
+          return 'ขออภัย ตอนนี้ยังไม่ได้คำตอบที่แสดงผลได้ ลองส่งใหม่อีกครั้ง';
+        }
+
+        return stripFence(answer);
       }
 
       function addUserBubble(message) {
@@ -188,6 +269,7 @@ export function renderChatPage(): string {
         const links = payload.control_room_path
           ? '<div class="links"><a href="' + payload.control_room_path + '">Inspect in control room</a></div>'
           : '';
+        const safeAnswer = sanitizeAssistantAnswer(payload.answer);
         const meta = showMissionMeta
           ? ('<div class="chips">' + chips + '</div>'
             + (payload.blocked_reason ? '<div class="small">Blocked reason: ' + escapeHtml(payload.blocked_reason) + '</div>' : ''))
@@ -196,7 +278,7 @@ export function renderChatPage(): string {
         card.innerHTML = ''
           + '<div class="label">best-brain</div>'
           + meta
-          + '<div class="message">' + escapeHtml(payload.answer) + '</div>'
+          + '<div class="message">' + escapeHtml(safeAnswer) + '</div>'
           + links;
         card.scrollIntoView({ block: 'end', behavior: 'smooth' });
       }

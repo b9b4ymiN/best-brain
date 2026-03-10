@@ -81,15 +81,21 @@ export interface AppServices {
   controlRoom?: ControlRoomService | null;
 }
 
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+  Pragma: 'no-cache',
+  Expires: '0',
+};
+
 export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   const app = new Hono();
 
   if (services.chat) {
-    app.get('/', (c) => c.html(renderChatPage()));
-    app.get('/chat', (c) => c.html(renderChatPage()));
+    app.get('/', (c) => c.html(renderChatPage(), 200, NO_STORE_HEADERS));
+    app.get('/chat', (c) => c.html(renderChatPage(), 200, NO_STORE_HEADERS));
     app.post('/chat/api/message', async (c) => {
       const body = validateChatMessageRequest(await readJsonBody(c));
-      return c.json(await services.chat!.sendMessage(body));
+      return c.json(await services.chat!.sendMessage(body), 200, NO_STORE_HEADERS);
     });
   }
 

@@ -81,6 +81,7 @@ describe('chat HTTP', () => {
 
       const pageResponse = await fetch(`${baseUrl}/`);
       expect(pageResponse.status).toBe(200);
+      expect(pageResponse.headers.get('cache-control')).toContain('no-store');
       expect(await pageResponse.text()).toContain('best-brain chat');
 
       const response = await fetch(`${baseUrl}/chat/api/message`, {
@@ -91,6 +92,7 @@ describe('chat HTTP', () => {
         }),
       });
       expect(response.status).toBe(200);
+      expect(response.headers.get('cache-control')).toContain('no-store');
       const payload = await response.json() as {
         decision_kind: string;
         answer: string;
