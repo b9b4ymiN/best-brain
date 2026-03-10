@@ -559,6 +559,14 @@ const programScorecard = buildProgramScorecard({
     adapter_selection_correctness: 100,
     mission_demo_without_hidden_steps: true,
   },
+  phase4_proof: {
+    success_run_pass: true,
+    blocked_with_correct_reason: true,
+    retryable_verification_failed: true,
+    final_report_artifact_present: true,
+    market_data_evidence_present: true,
+    latest_verified_mission_reused: true,
+  },
 });
 
 fs.mkdirSync(outputDir, { recursive: true });

@@ -1,5 +1,6 @@
 import type { ConsultResponse, MissionContextBundle, VerificationArtifact } from '../types.ts';
 import type { MissionPlaybook, VerifierChecklistItem } from '../playbooks/types.ts';
+import { resolveRegisteredMissionPlaybook } from '../proving/packs.ts';
 import { slugify } from '../utils/text.ts';
 import { tokenize } from '../utils/text.ts';
 import type { WorkerId } from '../workers/types.ts';
@@ -89,6 +90,11 @@ export function resolveMissionPlaybook(
   context: MissionContextBundle,
   decision: ManagerDecision,
 ): MissionPlaybook {
+  const registeredPlaybook = resolveRegisteredMissionPlaybook(input, context, decision);
+  if (registeredPlaybook) {
+    return registeredPlaybook;
+  }
+
   const missionKind = inferMissionKind(input.goal, decision);
   const preferredWorkers: WorkerId[] = Array.from(new Set([
     missionKind === 'analysis_reporting_mission' || missionKind === 'owner_guidance' ? 'claude' : null,

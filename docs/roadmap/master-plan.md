@@ -66,14 +66,14 @@ Key outputs:
 
 Status:
 
-- in progress
-- generic framework rails now exist, but the first proving mission is not implemented yet
+- complete
+- generic proving-mission definitions, adapter policy, acceptance harness, and report proof-chain rails are proven
 
 ### Phase 4 - First Proving Mission: Thai Equities Stock Scanner
 
 Goal:
 
-- prove the framework with one real vertical slice
+- prove the framework with the first demo / acceptance mission
 
 Key outputs:
 
@@ -84,7 +84,8 @@ Key outputs:
 
 Status:
 
-- not started
+- implemented and locally proven
+- success, blocked, retryable, final-report, market-evidence, and memory-reuse paths are all captured in local proof
 
 ### Phase 5 - Repeatability
 
@@ -198,10 +199,10 @@ Status:
 To stay aligned with the final concept, the next recommended order is:
 
 1. harden manager alpha into a reliable mission manager beta
-2. finish the proving mission framework with generic contracts, adapters, acceptance harness, and report proof chain
-3. implement the first proving mission on top of that framework
-4. turn the first proving mission into repeatable evidence with memory reuse
-5. add the first control surface beyond CLI
+2. turn the first proving mission into repeatable evidence with memory reuse
+3. add the first control surface beyond CLI
+4. broaden task-mode quality for normal daily use
+5. keep later proving missions on the same general engine instead of adding mission-specific glue
 
 ## Measurement discipline to add now
 

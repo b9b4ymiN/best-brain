@@ -241,6 +241,152 @@ describe('manager alpha via brain HTTP', () => {
     }
   });
 
+  test('runs the first proving mission stock-scanner demo to verified completion', async () => {
+    const { brain, cleanup } = await createTestBrain();
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Run the Thai equities daily stock scanner demo and produce a verified owner report.',
+        mission_id: 'mission_stock_demo_success',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.selected_worker).toBe('shell');
+      expect(result.mission_brief.mission_kind).toBe('thai_equities_daily_scanner');
+      expect(result.mission_brief.input_adapter_decisions.some((decision) => decision.family === 'market_data' && decision.decision === 'selected')).toBe(true);
+      expect(result.worker_result?.status).toBe('success');
+      expect(result.worker_result?.artifacts.some((artifact) => artifact.type === 'other')).toBe(true);
+      expect(result.verification_result?.status).toBe('verified_complete');
+      expect(result.runtime_bundle?.session.final_report_artifact_id).not.toBeNull();
+      expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.uri.startsWith('report://'))).toBe(true);
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
+
+  test('blocks the stock-scanner proving mission when market data is unavailable', async () => {
+    const { brain, cleanup } = await createTestBrain();
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Run the Thai equities daily stock scanner demo with unavailable market data and produce a verified owner report.',
+        mission_id: 'mission_stock_demo_blocked',
+        output_mode: 'json',
+      });
+
+      expect(result.mission_brief.mission_kind).toBe('thai_equities_daily_scanner');
+      expect(result.decision.should_execute).toBe(false);
+      expect(result.decision.blocked_reason_code).toBe('no_available_input_adapter');
+      expect(result.worker_result).toBeNull();
+      expect(result.runtime_bundle?.session.status).toBe('aborted');
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
+
+  test('keeps the stock-scanner proving mission retryable when proof is incomplete', async () => {
+    const { brain, cleanup } = await createTestBrain();
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Run the Thai equities daily stock scanner demo with incomplete proof and produce a verified owner report.',
+        mission_id: 'mission_stock_demo_retryable',
+        output_mode: 'json',
+      });
+
+      expect(result.worker_result?.status).toBe('needs_retry');
+      expect(result.verification_result?.status).toBe('verification_failed');
+      expect(result.retryable).toBe(true);
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'checkpoint_restored')).toBe(true);
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
+
+  test('reuses the latest verified stock-scanner mission in a follow-up brief', async () => {
+    const { brain, cleanup } = await createTestBrain();
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+    });
+
+    try {
+      await runtime.run({
+        goal: 'Run the Thai equities daily stock scanner demo and produce a verified owner report.',
+        mission_id: 'mission_stock_demo_reuse_source',
+        output_mode: 'json',
+      });
+
+      const followUp = await runtime.run({
+        goal: 'Plan the next Thai equities daily stock scanner demo using the latest verified mission proof.',
+        worker_preference: 'claude',
+        no_execute: true,
+        output_mode: 'json',
+      });
+
+      expect(followUp.mission_brief.brain_citations.some((citation) => citation.title.includes('Thai equities daily stock scanner demo'))).toBe(true);
+      expect(followUp.mission_brief.mission_kind).toBe('thai_equities_daily_scanner');
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
+
   test('auto-starts the brain server when /health is unavailable', async () => {
     const port = await freePort();
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'best-brain-manager-autostart-'));

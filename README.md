@@ -18,6 +18,7 @@ The repo does not implement the whole target system yet. The current state is:
 
 - `Brain v1`: implemented and verified
 - `Manager alpha`: implemented as a CLI-first, HTTP-backed manager with one primary worker at a time
+- `First demo / acceptance mission`: implemented and locally proven with the Thai equities stock-scanner mission
 - `Worker swarm`, `runtime OS`, and `control room UI`: only partially present or still planned
 
 ## Final concept
@@ -103,6 +104,7 @@ bun run smoke:manager:claude
 bun run smoke:manager:codex
 bun run smoke:manager:ambiguity
 bun run proof:manager
+bun run proof:phase4
 bun run examples:program
 bun run proof:proving
 bun run scorecard:program
@@ -210,7 +212,7 @@ The current repo is strongest in the first two:
 The 90-day program is now frozen around:
 
 - success bar: `Repeatable One-Mission`
-- proving mission framework first, with `Thai equities daily stock scanner` reserved as the first proving mission in the next phase
+- first demo / acceptance mission: `Thai equities daily stock scanner`
 - execution style: `general engine + reusable playbooks`
 - data strategy: `live-data-first` through adapter selection, not hard-coded source logic
 - control surface target: `full mission console`

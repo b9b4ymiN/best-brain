@@ -79,6 +79,14 @@ const provingHarness = readJson<{
     mission_demo_without_hidden_steps: boolean;
   };
 }>(path.join(artifactsDir, 'proving-harness.latest.json'));
+const phase4Proof = readJson<{
+  success_run_pass: boolean;
+  blocked_with_correct_reason: boolean;
+  retryable_verification_failed: boolean;
+  final_report_artifact_present: boolean;
+  market_data_evidence_present: boolean;
+  latest_verified_mission_reused: boolean;
+}>(path.join(artifactsDir, 'phase4-proof.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 const capturedBootstrapProofs = fs.existsSync(bootstrapProofDir)
   ? fs.readdirSync(bootstrapProofDir)
@@ -122,6 +130,7 @@ const scorecard = buildProgramScorecard({
   captured_bootstrap_proofs: capturedBootstrapProofs,
   manager_proof: managerProof ?? undefined,
   proving_harness: provingHarness?.summary,
+  phase4_proof: phase4Proof ?? undefined,
 });
 
 fs.mkdirSync(artifactsDir, { recursive: true });

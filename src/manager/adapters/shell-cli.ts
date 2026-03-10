@@ -1,6 +1,7 @@
 import type { VerificationArtifact, VerificationCheck } from '../../types.ts';
 import { LocalProcessManager } from '../../runtime/process-manager.ts';
 import type { WorkerAdapter } from './types.ts';
+import { extractJsonText } from './shared.ts';
 import type { ExecutionRequest, WorkerExecutionResult } from '../types.ts';
 import { toEnvRecord } from './shared.ts';
 
@@ -23,6 +24,63 @@ function buildChecks(exitCode: number | null, timedOut: boolean): VerificationCh
         : `Shell command exited with code ${String(exitCode)}.`,
     },
   ];
+}
+
+function normalizeArtifacts(value: unknown): VerificationArtifact[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is { type?: string; ref?: string; description?: string } => typeof item === 'object' && item !== null)
+    .filter((item) => typeof item.type === 'string' && typeof item.ref === 'string')
+    .map((item) => ({
+      type: item.type as VerificationArtifact['type'],
+      ref: item.ref as string,
+      description: typeof item.description === 'string' ? item.description : undefined,
+    }));
+}
+
+function normalizeChecks(value: unknown): VerificationCheck[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .filter((item): item is { name?: string; passed?: boolean; detail?: string } => typeof item === 'object' && item !== null)
+    .filter((item) => typeof item.name === 'string' && typeof item.passed === 'boolean')
+    .map((item) => ({
+      name: item.name as string,
+      passed: item.passed as boolean,
+      detail: typeof item.detail === 'string' ? item.detail : undefined,
+    }));
+}
+
+function parseStructuredOutput(output: string): {
+  summary: string;
+  status: WorkerExecutionResult['status'];
+  artifacts: VerificationArtifact[];
+  proposed_checks: VerificationCheck[];
+} | null {
+  try {
+    const payload = JSON.parse(extractJsonText(output)) as {
+      summary?: string;
+      status?: WorkerExecutionResult['status'];
+      artifacts?: unknown;
+      proposed_checks?: unknown;
+    };
+    const status = payload.status === 'success' || payload.status === 'needs_retry' || payload.status === 'failed'
+      ? payload.status
+      : 'failed';
+    return {
+      summary: payload.summary?.trim() || 'Shell worker completed without a structured summary.',
+      status,
+      artifacts: normalizeArtifacts(payload.artifacts),
+      proposed_checks: normalizeChecks(payload.proposed_checks),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export class ShellCliAdapter implements WorkerAdapter {
@@ -59,6 +117,7 @@ export class ShellCliAdapter implements WorkerAdapter {
     });
 
     const commandRef = buildCommandRef(request.shell_command.command, request.shell_command.args);
+    const structured = parseStructuredOutput(result.stdout);
     const summary = result.exit_code === 0 && !result.timed_out
       ? `Shell command succeeded: ${request.shell_command.raw}`
       : `Shell command failed: ${request.shell_command.raw}`;
@@ -75,10 +134,16 @@ export class ShellCliAdapter implements WorkerAdapter {
     };
 
     return {
-      summary,
-      status: result.exit_code === 0 && !result.timed_out ? 'success' : 'failed',
-      artifacts: [noteArtifact, machineArtifact],
-      proposed_checks: buildChecks(result.exit_code, result.timed_out),
+      summary: structured?.summary ?? summary,
+      status: result.exit_code === 0 && !result.timed_out
+        ? (structured?.status ?? 'success')
+        : 'failed',
+      artifacts: structured?.artifacts.length
+        ? structured.artifacts
+        : [noteArtifact, machineArtifact],
+      proposed_checks: structured?.proposed_checks.length
+        ? structured.proposed_checks
+        : buildChecks(result.exit_code, result.timed_out),
       raw_output: [result.stdout, result.stderr].filter(Boolean).join('\n'),
       invocation: {
         command: request.shell_command.command,

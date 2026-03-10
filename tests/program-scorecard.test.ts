@@ -70,6 +70,14 @@ describe('program scorecard', () => {
         adapter_selection_correctness: 100,
         mission_demo_without_hidden_steps: true,
       },
+      phase4_proof: {
+        success_run_pass: true,
+        blocked_with_correct_reason: true,
+        retryable_verification_failed: true,
+        final_report_artifact_present: true,
+        market_data_evidence_present: true,
+        latest_verified_mission_reused: true,
+      },
     });
 
     expect(scorecard.success_bar).toBe('Repeatable One-Mission');
@@ -87,6 +95,6 @@ describe('program scorecard', () => {
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase1_ManagerBeta')?.status).toBe('partial');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase2_WorkerFabricRuntimeSpine')?.status).toBe('pass');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase3_ProvingMissionFramework')?.status).toBe('pass');
-    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase4_FirstProvingMission')?.status).toBe('fail');
+    expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase4_FirstProvingMission')?.status).toBe('pass');
   });
 });

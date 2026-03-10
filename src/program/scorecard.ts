@@ -76,6 +76,15 @@ export interface ProvingHarnessSummaryInput {
   mission_demo_without_hidden_steps: boolean;
 }
 
+export interface Phase4ProofInput {
+  success_run_pass: boolean;
+  blocked_with_correct_reason: boolean;
+  retryable_verification_failed: boolean;
+  final_report_artifact_present: boolean;
+  market_data_evidence_present: boolean;
+  latest_verified_mission_reused: boolean;
+}
+
 export interface ProgramScorecardInput {
   generated_at: string;
   contract_snapshot: ProgramContractSnapshot;
@@ -85,6 +94,7 @@ export interface ProgramScorecardInput {
   captured_bootstrap_proofs?: string[];
   manager_proof?: ManagerProofInput;
   proving_harness?: ProvingHarnessSummaryInput;
+  phase4_proof?: Phase4ProofInput;
 }
 
 export interface ProgramMetricValue {
@@ -437,6 +447,54 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     true,
     'Proving missions must not require undocumented human rescue steps.',
   ));
+  metricValues.push(equalityMetric(
+    'phase4_demo_success',
+    'First proving mission success run pass',
+    'north_star',
+    input.phase4_proof?.success_run_pass,
+    true,
+    'The first proving mission must complete to verified_complete on the default demo path.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase4_demo_blocked_reason',
+    'First proving mission blocked path is correct',
+    'manager',
+    input.phase4_proof?.blocked_with_correct_reason,
+    true,
+    'Unavailable or stale data must block with the correct explicit reason.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase4_demo_retryable',
+    'First proving mission retryable failure path works',
+    'manager',
+    input.phase4_proof?.retryable_verification_failed,
+    true,
+    'Incomplete proof should fail verification and remain retryable.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase4_final_report_artifact',
+    'First proving mission final report artifact exists',
+    'runtime',
+    input.phase4_proof?.final_report_artifact_present,
+    true,
+    'The first proving mission must emit a final report artifact after verification resolves.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase4_market_data_evidence',
+    'First proving mission market-data evidence exists',
+    'runtime',
+    input.phase4_proof?.market_data_evidence_present,
+    true,
+    'The first proving mission must carry machine-readable market-data evidence.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase4_memory_reuse',
+    'First proving mission reuse appears in follow-up context',
+    'brain',
+    input.phase4_proof?.latest_verified_mission_reused,
+    true,
+    'The follow-up proving mission brief should reuse the latest verified stock-scanner mission.',
+  ));
 
   const phase0ContractsFrozen = input.contract_snapshot.docs_locked
     && input.contract_snapshot.example_libraries_refreshed
@@ -468,6 +526,12 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     && (input.proving_harness?.report_contract_completeness ?? 0) === 100
     && (input.proving_harness?.adapter_selection_correctness ?? 0) >= 95
     && input.proving_harness?.mission_demo_without_hidden_steps === true;
+  const phase4Ready = input.phase4_proof?.success_run_pass === true
+    && input.phase4_proof?.blocked_with_correct_reason === true
+    && input.phase4_proof?.retryable_verification_failed === true
+    && input.phase4_proof?.final_report_artifact_present === true
+    && input.phase4_proof?.market_data_evidence_present === true
+    && input.phase4_proof?.latest_verified_mission_reused === true;
 
   const phaseReadiness: ProgramPhaseReadiness[] = [
     {
@@ -500,8 +564,10 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     },
     {
       phase: 'Phase4_FirstProvingMission',
-      status: 'fail',
-      note: 'The first proving mission vertical slice has not been implemented yet.',
+      status: phase4Ready ? 'pass' : 'fail',
+      note: phase4Ready
+        ? 'The Thai equities daily stock-scanner proving mission runs end-to-end with success, blocked, retryable, and memory-reuse proof.'
+        : 'The first proving mission vertical slice has not been implemented or proven yet.',
     },
     {
       phase: 'Phase5_Repeatability',

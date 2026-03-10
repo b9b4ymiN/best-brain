@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T01:33:49.516Z",
+  "generated_at": "2026-03-10T01:52:12.611Z",
   "success_bar": "Repeatable One-Mission",
   "proving_mission": "Thai equities daily stock scanner",
   "acceptance_run_set": "thai_equities_daily_controlled_acceptance_runs",
@@ -300,6 +300,60 @@
       "actual": true,
       "status": "pass",
       "note": "Proving missions must not require undocumented human rescue steps."
+    },
+    {
+      "id": "phase4_demo_success",
+      "label": "First proving mission success run pass",
+      "category": "north_star",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "The first proving mission must complete to verified_complete on the default demo path."
+    },
+    {
+      "id": "phase4_demo_blocked_reason",
+      "label": "First proving mission blocked path is correct",
+      "category": "manager",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Unavailable or stale data must block with the correct explicit reason."
+    },
+    {
+      "id": "phase4_demo_retryable",
+      "label": "First proving mission retryable failure path works",
+      "category": "manager",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Incomplete proof should fail verification and remain retryable."
+    },
+    {
+      "id": "phase4_final_report_artifact",
+      "label": "First proving mission final report artifact exists",
+      "category": "runtime",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "The first proving mission must emit a final report artifact after verification resolves."
+    },
+    {
+      "id": "phase4_market_data_evidence",
+      "label": "First proving mission market-data evidence exists",
+      "category": "runtime",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "The first proving mission must carry machine-readable market-data evidence."
+    },
+    {
+      "id": "phase4_memory_reuse",
+      "label": "First proving mission reuse appears in follow-up context",
+      "category": "brain",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "The follow-up proving mission brief should reuse the latest verified stock-scanner mission."
     }
   ],
   "phase_readiness": [
@@ -325,8 +379,8 @@
     },
     {
       "phase": "Phase4_FirstProvingMission",
-      "status": "fail",
-      "note": "The first proving mission vertical slice has not been implemented yet."
+      "status": "pass",
+      "note": "The Thai equities daily stock-scanner proving mission runs end-to-end with success, blocked, retryable, and memory-reuse proof."
     },
     {
       "phase": "Phase5_Repeatability",

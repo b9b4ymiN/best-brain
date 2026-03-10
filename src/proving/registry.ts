@@ -1,6 +1,7 @@
 import type { MissionPlaybook } from '../playbooks/types.ts';
 import type { ManagerInput, ManagerWorker } from '../manager/types.ts';
 import type { MissionContextBundle } from '../types.ts';
+import { listThaiEquitiesDemoCandidates, resolveThaiEquitiesDemoScenario } from '../market/demo.ts';
 import type {
   InputAdapterDecision,
   InputAdapterDefinition,
@@ -147,19 +148,30 @@ export function buildInputAdapterRegistry(input: ManagerInput, context: MissionC
       provides_inputs: ['workspace_context'],
       notes: ['Derived from existing mission context and history.'],
     },
-    {
-      id: 'adapter_market_primary',
-      title: 'Generic live market source placeholder',
-      family: 'market_data',
-      source_kind: 'live_market_feed',
-      available: false,
-      freshness_ms: null,
-      confidence: 0.4,
-      blocking_reason: 'no_available_input_adapter',
-      provides_inputs: ['live_market_snapshot'],
-      notes: ['Phase 3 placeholder: live market adapter contracts exist, but the vertical slice is deferred to Phase 4.'],
-    },
   ];
+
+  const normalizedGoal = input.goal.toLowerCase();
+  const isThaiEquitiesGoal = normalizedGoal.includes('thai')
+    && (normalizedGoal.includes('equities') || normalizedGoal.includes('stock') || normalizedGoal.includes('stocks') || normalizedGoal.includes('set'))
+    && (normalizedGoal.includes('scanner') || normalizedGoal.includes('scan'));
+
+  if (isThaiEquitiesGoal) {
+    const scenario = resolveThaiEquitiesDemoScenario(input.goal);
+    adapters.push(
+      ...listThaiEquitiesDemoCandidates(scenario).map((candidate) => ({
+        id: candidate.id,
+        title: candidate.id.replace(/_/g, ' '),
+        family: 'market_data' as const,
+        source_kind: candidate.source_kind === 'public_web_feed' ? 'live_market_feed' : 'official_market_source',
+        available: candidate.available,
+        freshness_ms: candidate.freshness_ms,
+        confidence: candidate.confidence,
+        blocking_reason: candidate.available ? null : ('no_available_input_adapter' as const),
+        provides_inputs: ['live_market_snapshot'],
+        notes: candidate.notes,
+      })),
+    );
+  }
 
   return adapters;
 }

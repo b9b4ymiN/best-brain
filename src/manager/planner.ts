@@ -1,5 +1,6 @@
 import type { MissionTaskNode } from './graph.ts';
 import { getReadyTaskNodes } from './graph.ts';
+import { buildMissionShellCommand } from '../proving/packs.ts';
 import type { ExecutionRequest, MissionBrief } from './types.ts';
 
 function splitCommandLine(value: string): string[] {
@@ -48,6 +49,15 @@ function extractShellCommand(goal: string): ExecutionRequest['shell_command'] {
   return null;
 }
 
+function resolveShellCommand(brief: MissionBrief): ExecutionRequest['shell_command'] {
+  const explicit = extractShellCommand(brief.goal);
+  if (explicit) {
+    return explicit;
+  }
+
+  return buildMissionShellCommand(brief);
+}
+
 function requiresCodeArtifacts(goal: string): boolean {
   const normalized = goal.toLowerCase();
   return ['code', 'repo', 'typescript', 'bun', 'test', 'file', 'script', 'server'].some((hint) => normalized.includes(hint));
@@ -58,7 +68,7 @@ export function buildExecutionPlan(brief: MissionBrief): string[] {
     .map((item) => item.name)
     .slice(0, 3)
     .join(' | ');
-  const shellCommand = brief.selected_worker === 'shell' ? extractShellCommand(brief.goal)?.raw ?? null : null;
+  const shellCommand = brief.selected_worker === 'shell' ? resolveShellCommand(brief)?.raw ?? null : null;
   const adapterSummary = brief.input_adapter_decisions
     .map((decision) => `${decision.input_id}:${decision.decision}:${decision.selected_adapter_id ?? decision.blocked_reason ?? 'none'}`)
     .join(' | ');
@@ -134,7 +144,7 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
     .map((citation) => `${citation.memory_type}:${citation.title}`)
     .slice(0, 5)
     .join(' | ');
-  const shellCommand = brief.selected_worker === 'shell' ? extractShellCommand(brief.goal) : null;
+  const shellCommand = brief.selected_worker === 'shell' ? resolveShellCommand(brief) : null;
 
   return {
     mission_id: brief.mission_id,

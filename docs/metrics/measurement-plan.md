@@ -125,7 +125,8 @@ That scorecard is the local baseline for current program readiness. It is expect
 - `Phase1_ManagerBeta`: partial
 - `Phase2_WorkerFabricRuntimeSpine`: pass
 - `Phase3_ProvingMissionFramework`: pass only after the generic proving harness is green
-- later phases: fail until implemented
+- `Phase4_FirstProvingMission`: pass only after the demo mission proof is green
+- `Phase5_Repeatability`: fail until repeated proving-mission runs exist
 
 The scorecard should also track these plan-critical signals even before they are fully instrumented:
 

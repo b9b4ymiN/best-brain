@@ -1,0 +1,22 @@
+{
+  "adapter_id": "thai_demo_primary_live",
+  "generated_at": "2026-03-10T09:35:00+07:00",
+  "market_date": "2026-03-10",
+  "symbols": [
+    {
+      "ticker": "ADVANC",
+      "score": 91,
+      "rationale": "Momentum and defensive quality remain strong."
+    },
+    {
+      "ticker": "AOT",
+      "score": 88,
+      "rationale": "Travel recovery and liquidity keep the setup attractive."
+    },
+    {
+      "ticker": "CPALL",
+      "score": 84,
+      "rationale": "Stable retail demand supports a high-confidence pick."
+    }
+  ]
+}

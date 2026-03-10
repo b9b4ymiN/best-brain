@@ -73,11 +73,12 @@ Exit:
 - final reports are emitted only after verification path resolves
 - no stock-specific logic exists inside manager, kernel, or runtime paths
 
-## Day 76-90: First Proving Mission and Repeatability
+## Day 76-90: First Demo / Acceptance Mission and Repeatability
 
 Outputs:
 
 - first proving mission: `Thai equities daily stock scanner`
+- demo / acceptance proof for success, blocked, retryable, and memory-reuse paths
 - repeated proving mission runs
 - memory reuse and repair hints visible across runs
 - program scorecard updated with real repeated-run evidence

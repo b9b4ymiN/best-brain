@@ -51,7 +51,7 @@ describe('program example library', () => {
     const scorecard = JSON.parse(fs.readFileSync(path.join(examplesDir, 'program-scorecard.json'), 'utf8')) as {
       success_bar: string;
       acceptance_run_set: string;
-      phase_readiness: Array<{ phase: string }>;
+      phase_readiness: Array<{ phase: string; status: string }>;
     };
 
     expect(workerTaskInput.worker).toBe('codex');
@@ -80,5 +80,6 @@ describe('program example library', () => {
     expect(scorecard.success_bar).toBe('Repeatable One-Mission');
     expect(scorecard.acceptance_run_set).toBe('thai_equities_daily_controlled_acceptance_runs');
     expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase0_ProgramLock')).toBe(true);
+    expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase4_FirstProvingMission' && phase.status === 'pass')).toBe(true);
   });
 });

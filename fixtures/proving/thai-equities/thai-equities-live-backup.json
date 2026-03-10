@@ -1,0 +1,22 @@
+{
+  "adapter_id": "thai_demo_backup_live",
+  "generated_at": "2026-03-10T08:55:00+07:00",
+  "market_date": "2026-03-10",
+  "symbols": [
+    {
+      "ticker": "PTT",
+      "score": 82,
+      "rationale": "Energy beta and liquidity support the backup feed result."
+    },
+    {
+      "ticker": "BDMS",
+      "score": 80,
+      "rationale": "Healthcare defensiveness keeps it in the top set."
+    },
+    {
+      "ticker": "SCB",
+      "score": 78,
+      "rationale": "Banking strength remains acceptable in the backup scenario."
+    }
+  ]
+}

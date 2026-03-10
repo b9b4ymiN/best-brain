@@ -1,0 +1,17 @@
+{
+  "adapter_id": "thai_demo_primary_stale",
+  "generated_at": "2026-03-08T08:30:00+07:00",
+  "market_date": "2026-03-08",
+  "symbols": [
+    {
+      "ticker": "KBANK",
+      "score": 77,
+      "rationale": "This fixture is intentionally stale for blocked acceptance tests."
+    },
+    {
+      "ticker": "DELTA",
+      "score": 75,
+      "rationale": "Included only to validate stale-input blocking."
+    }
+  ]
+}
