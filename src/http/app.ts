@@ -97,6 +97,25 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
       const body = validateChatMessageRequest(await readJsonBody(c));
       return c.json(await services.chat!.sendMessage(body), 200, NO_STORE_HEADERS);
     });
+    app.post('/chat/api/message/stream', async (c) => {
+      const body = validateChatMessageRequest(await readJsonBody(c));
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream<Uint8Array>({
+        start(controller) {
+          void services.chat!.streamMessage(body, async (event) => {
+            controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+          }).finally(() => controller.close());
+        },
+      });
+
+      return new Response(stream, {
+        status: 200,
+        headers: {
+          ...NO_STORE_HEADERS,
+          'Content-Type': 'application/x-ndjson; charset=utf-8',
+        },
+      });
+    });
   }
 
   app.get('/health', (c) => c.json(brain.health()));

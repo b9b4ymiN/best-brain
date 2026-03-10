@@ -254,6 +254,65 @@ describe('chat HTTP', () => {
     }
   });
 
+  test('streams live progress events before returning the final chat answer', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'chat-owner' });
+    let server: ReturnType<typeof Bun.serve>;
+    const managerFactory = () => new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+      chatResponder: new StaticChatResponder('Hello from the streamed responder.'),
+    });
+    const controlRoom = new ControlRoomService({
+      dataDir: brain.config.dataDir,
+      managerFactory,
+    });
+    const chat = new ChatService({
+      managerFactory,
+      controlRoom,
+    });
+    const app = createApp(brain, { chat, controlRoom });
+    server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    try {
+      const baseUrl = `http://127.0.0.1:${server.port}`;
+      const response = await fetch(`${baseUrl}/chat/api/message/stream`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          message: 'hello there',
+        }),
+      });
+      expect(response.status).toBe(200);
+      expect(response.headers.get('content-type')).toContain('application/x-ndjson');
+
+      const text = await response.text();
+      const events = text
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => JSON.parse(line) as {
+          type: string;
+          event?: { title?: string };
+          payload?: { answer?: string; activity_log?: Array<unknown> };
+        });
+
+      expect(events.some((entry) => entry.type === 'status')).toBe(true);
+      expect(events.some((entry) => entry.type === 'result')).toBe(true);
+      expect(events.find((entry) => entry.type === 'status')?.event?.title).toBe('Received your message');
+      expect(events.find((entry) => entry.type === 'result')?.payload?.answer).toBe('Hello from the streamed responder.');
+      expect((events.find((entry) => entry.type === 'result')?.payload?.activity_log ?? []).length).toBeGreaterThan(0);
+    } finally {
+      server.stop(true);
+      cleanup();
+    }
+  });
+
   test('escalates a stock-scanner goal from chat into a persisted mission automatically', async () => {
     const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'chat-owner' });
     await runOnboarding(brain, {

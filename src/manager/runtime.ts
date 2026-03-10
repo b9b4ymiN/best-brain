@@ -30,6 +30,8 @@ import type {
   BrainWriteRecord,
   ManagerInput,
   ManagerOutputMode,
+  ManagerProgressEvent,
+  ManagerRunObserver,
   ManagerRunResult,
   ManagerDecision,
   ManagerWorker,
@@ -191,14 +193,62 @@ export class ManagerRuntime {
     return !input.dry_run && !input.no_execute;
   }
 
-  async run(rawInput: Pick<ManagerInput, 'goal'> & Partial<Omit<ManagerInput, 'goal'>>): Promise<ManagerRunResult> {
+  async run(
+    rawInput: Pick<ManagerInput, 'goal'> & Partial<Omit<ManagerInput, 'goal'>>,
+    observer: ManagerRunObserver = {},
+  ): Promise<ManagerRunResult> {
     const input = normalizeInput(rawInput);
     const runtimeSpine = new LocalRuntimeSpine();
+    const existingMissionId = input.mission_id;
+    const missionId = existingMissionId ?? createId('mission');
+    const emitProgress = async (
+      event: Omit<ManagerProgressEvent, 'timestamp' | 'mission_id' | 'task_id' | 'decision_kind' | 'requested_worker' | 'executed_worker' | 'blocked_reason_code'>
+      & Partial<Pick<ManagerProgressEvent, 'mission_id' | 'task_id' | 'decision_kind' | 'requested_worker' | 'executed_worker' | 'blocked_reason_code'>>,
+    ): Promise<void> => {
+      if (!observer.onProgress) {
+        return;
+      }
+
+      await observer.onProgress({
+        timestamp: this.now().getTime(),
+        mission_id: event.mission_id ?? missionId,
+        task_id: event.task_id ?? null,
+        decision_kind: event.decision_kind ?? null,
+        requested_worker: event.requested_worker ?? null,
+        executed_worker: event.executed_worker ?? null,
+        blocked_reason_code: event.blocked_reason_code ?? null,
+        ...event,
+      });
+    };
+
+    await emitProgress({
+      stage: 'manager_receive',
+      status: 'started',
+      actor: 'manager',
+      title: 'Manager received the request',
+      detail: 'Preparing brain access and classifying the message.',
+    });
     await this.brain.ensureAvailable();
+    await emitProgress({
+      stage: 'brain_ready',
+      status: 'completed',
+      actor: 'brain',
+      title: 'Brain connection is ready',
+      detail: this.brain.wasStartedByAdapter()
+        ? 'The local brain server was started automatically.'
+        : 'The local brain server was already available.',
+    });
     const startedBrainServer = this.brain.wasStartedByAdapter();
     let decision = routeIntent(input);
     let aiTriage: ManagerTriageResult | null = null;
-    const existingMissionId = input.mission_id;
+    await emitProgress({
+      stage: 'brain_consult',
+      status: 'started',
+      actor: 'brain',
+      title: 'Consulting memory',
+      detail: 'Collecting owner context, patterns, and relevant facts.',
+      decision_kind: decision.kind,
+    });
     let consult = await this.brain.consult({
       query: input.goal,
       mission_id: existingMissionId,
@@ -207,7 +257,23 @@ export class ManagerRuntime {
       consumer: 'manager',
       bundle_profile: 'manager_plan',
     });
+    await emitProgress({
+      stage: 'brain_consult',
+      status: 'completed',
+      actor: 'brain',
+      title: 'Memory context loaded',
+      detail: `Retrieved ${consult.citations.length} supporting memory citations.`,
+      decision_kind: decision.kind,
+    });
     if (isThaiEquitiesActualManagerGoal(input.goal)) {
+      await emitProgress({
+        stage: 'brain_consult_persona',
+        status: 'started',
+        actor: 'brain',
+        title: 'Deepening owner context',
+        detail: 'Expanding persona and screening context for the stock mission.',
+        decision_kind: decision.kind,
+      });
       const personaConsult = await this.brain.consult({
         query: `If you were the owner, what investment persona and screening criteria should guide this Thai equities stock scanner mission? Goal: ${input.goal}`,
         mission_id: null,
@@ -217,15 +283,47 @@ export class ManagerRuntime {
         bundle_profile: 'manager_plan',
       });
       consult = mergeConsultResponses(consult, personaConsult);
+      await emitProgress({
+        stage: 'brain_consult_persona',
+        status: 'completed',
+        actor: 'brain',
+        title: 'Owner investment context expanded',
+        detail: `The manager merged ${personaConsult.citations.length} additional persona-oriented citations.`,
+        decision_kind: decision.kind,
+      });
     }
+    await emitProgress({
+      stage: 'brain_context',
+      status: 'started',
+      actor: 'brain',
+      title: 'Loading mission context',
+      detail: 'Checking recent mission history, verification state, and working context.',
+      decision_kind: decision.kind,
+    });
     const context = await this.brain.context({
       mission_id: existingMissionId,
       domain: 'best-brain',
       query: input.goal,
     });
+    await emitProgress({
+      stage: 'brain_context',
+      status: 'completed',
+      actor: 'brain',
+      title: 'Mission context loaded',
+      detail: `Loaded ${context.history.length} mission history entries.`,
+      decision_kind: decision.kind,
+    });
     const initialAmbiguity = detectGoalAmbiguity(input, decision);
     const reasoner = this.reasoner;
     if (reasoner && this.shouldInvokeReasoner(input, decision, initialAmbiguity)) {
+      await emitProgress({
+        stage: 'triage',
+        status: 'started',
+        actor: 'manager',
+        title: 'Deciding how to handle the request',
+        detail: 'Evaluating whether this should stay chat, become a task, or turn into a mission.',
+        decision_kind: decision.kind,
+      });
       aiTriage = await reasoner.triage({
         goal: input.goal,
         cwd: input.cwd,
@@ -244,11 +342,30 @@ export class ManagerRuntime {
           blocked_reason_code: null,
         };
       }
+      await emitProgress({
+        stage: 'triage',
+        status: 'completed',
+        actor: 'manager',
+        title: 'Routing decision ready',
+        detail: aiTriage
+          ? `The AI manager chose ${aiTriage.kind}.`
+          : `Heuristic routing kept the request as ${decision.kind}.`,
+        decision_kind: aiTriage?.kind ?? decision.kind,
+        requested_worker: decision.selected_worker,
+      });
     }
-    const missionId = existingMissionId ?? createId('mission');
     const ambiguity = detectGoalAmbiguity(input, decision);
     if (ambiguity.is_ambiguous && decision.kind !== 'chat') {
       decision = buildBlockedDecisionWithCode(decision, ambiguity.reason, 'ambiguous_goal');
+      await emitProgress({
+        stage: 'ambiguity',
+        status: 'blocked',
+        actor: 'manager',
+        title: 'Mission blocked for clarification',
+        detail: ambiguity.reason,
+        decision_kind: decision.kind,
+        blocked_reason_code: 'ambiguous_goal',
+      });
     }
 
     const brief = compileMissionBrief({
@@ -257,6 +374,15 @@ export class ManagerRuntime {
       context,
       decision,
     }, missionId);
+    await emitProgress({
+      stage: 'mission_brief',
+      status: 'completed',
+      actor: 'manager',
+      title: 'Mission brief compiled',
+      detail: `Built mission brief for ${brief.mission_kind} with ${brief.execution_plan.length} planned step${brief.execution_plan.length === 1 ? '' : 's'}.`,
+      decision_kind: decision.kind,
+      requested_worker: brief.selected_worker,
+    });
     const briefValidation = validateMissionBrief(brief);
     let missionGraph = updateTaskStatus(
       brief.mission_graph,
@@ -331,6 +457,15 @@ export class ManagerRuntime {
         `Mission brief is incomplete: ${briefValidation.missing_fields.join(', ')}.`,
         'policy_rejection',
       );
+      await emitProgress({
+        stage: 'mission_brief',
+        status: 'blocked',
+        actor: 'manager',
+        title: 'Mission brief failed policy checks',
+        detail: `Missing required fields: ${briefValidation.missing_fields.join(', ')}.`,
+        decision_kind: decision.kind,
+        blocked_reason_code: 'policy_rejection',
+      });
     }
     if (brief.missing_exact_keys.length > 0 && decision.kind !== 'chat') {
       decision = buildBlockedDecisionWithCode(
@@ -338,6 +473,15 @@ export class ManagerRuntime {
         `Required exact facts are missing: ${brief.missing_exact_keys.join(', ')}.`,
         'missing_exact_fact',
       );
+      await emitProgress({
+        stage: 'exact_facts',
+        status: 'blocked',
+        actor: 'manager',
+        title: 'Required exact facts are missing',
+        detail: brief.missing_exact_keys.join(', '),
+        decision_kind: decision.kind,
+        blocked_reason_code: 'missing_exact_fact',
+      });
     }
     if (brief.conflicting_exact_keys.length > 0 && decision.kind !== 'chat') {
       decision = buildBlockedDecisionWithCode(
@@ -345,6 +489,15 @@ export class ManagerRuntime {
         `Required exact facts conflict: ${brief.conflicting_exact_keys.join(', ')}.`,
         'conflicting_exact_fact',
       );
+      await emitProgress({
+        stage: 'exact_facts',
+        status: 'blocked',
+        actor: 'manager',
+        title: 'Required exact facts conflict',
+        detail: brief.conflicting_exact_keys.join(', '),
+        decision_kind: decision.kind,
+        blocked_reason_code: 'conflicting_exact_fact',
+      });
     }
 
     const blockedInputDecision = brief.input_adapter_decisions.find((adapterDecision) => adapterDecision.decision === 'blocked' && adapterDecision.blocked_reason != null);
@@ -354,10 +507,31 @@ export class ManagerRuntime {
         blockedInputDecision.reason,
         blockedInputDecision.blocked_reason,
       );
+      await emitProgress({
+        stage: 'input_selection',
+        status: 'blocked',
+        actor: 'manager',
+        title: 'Input adapter resolution blocked the mission',
+        detail: blockedInputDecision.reason,
+        decision_kind: decision.kind,
+        blocked_reason_code: blockedInputDecision.blocked_reason,
+      });
     }
 
     if (!decision.should_execute) {
       const forceBrainAwareChat = decision.kind === 'chat' && shouldUseBrainAwareChat(input.goal);
+      if (decision.kind === 'chat') {
+        await emitProgress({
+          stage: 'chat_response',
+          status: 'started',
+          actor: 'manager',
+          title: 'Preparing a direct answer',
+          detail: forceBrainAwareChat
+            ? 'Using brain-aware chat so the response can read or write memory when needed.'
+            : 'Answering directly without escalating to a mission.',
+          decision_kind: decision.kind,
+        });
+      }
       const directChatResponse = decision.kind === 'chat' && (forceBrainAwareChat || aiTriage?.direct_answer == null) && this.chatResponder
         ? await this.chatResponder.answer({
             goal: input.goal,
@@ -371,6 +545,17 @@ export class ManagerRuntime {
         : decision.blocked_reason
           ? decision.blocked_reason
           : `Planned ${brief.kind} path. Next: ${brief.execution_plan[0] ?? 'Review the mission brief.'}`;
+      await emitProgress({
+        stage: decision.kind === 'chat' ? 'chat_response' : 'planning_only',
+        status: decision.kind === 'chat' ? 'completed' : decision.blocked_reason ? 'blocked' : 'completed',
+        actor: 'manager',
+        title: decision.kind === 'chat' ? 'Direct answer ready' : decision.blocked_reason ? 'Mission stopped before execution' : 'Planning run completed',
+        detail: decision.kind === 'chat'
+          ? 'The manager is returning the response directly.'
+          : decision.blocked_reason ?? 'Planning completed without execution.',
+        decision_kind: decision.kind,
+        blocked_reason_code: decision.blocked_reason_code,
+      });
       if (runtimeBundle) {
         runtimeSpine.finalize(
           decision.blocked_reason ? 'aborted' : 'completed',
@@ -402,6 +587,14 @@ export class ManagerRuntime {
 
     const executionRequest = buildExecutionRequest(brief, input.cwd);
     if (!executionRequest) {
+      await emitProgress({
+        stage: 'execution_plan',
+        status: 'failed',
+        actor: 'manager',
+        title: 'No executable task was available',
+        detail: 'The mission graph did not expose a runnable primary task.',
+        decision_kind: decision.kind,
+      });
       if (runtimeBundle) {
         runtimeSpine.finalize('aborted', 'No executable task was ready in the mission graph.', {});
         runtimeBundle = runtimeSpine.snapshot();
@@ -440,6 +633,16 @@ export class ManagerRuntime {
       });
       runtimeBundle = runtimeSpine.snapshot();
     }
+    await emitProgress({
+      stage: 'worker_dispatch',
+      status: 'started',
+      actor: 'manager',
+      title: `Dispatching ${executionRequest.selected_worker}`,
+      detail: executionRequest.task_title,
+      decision_kind: decision.kind,
+      requested_worker: executionRequest.selected_worker,
+      task_id: executionRequest.task_id,
+    });
 
     const brainWrites: BrainWriteRecord[] = [];
     const primaryDispatch = await this.fabric.dispatchPrimary(executionRequest);
@@ -531,6 +734,19 @@ export class ManagerRuntime {
       });
       runtimeBundle = runtimeSpine.snapshot();
     }
+    await emitProgress({
+      stage: primaryDispatch.executed_worker !== primaryDispatch.requested_worker ? 'worker_fallback' : 'worker_dispatch',
+      status: 'completed',
+      actor: primaryDispatch.executed_worker,
+      title: primaryDispatch.executed_worker !== primaryDispatch.requested_worker
+        ? `Fell back to ${primaryDispatch.executed_worker}`
+        : `${primaryDispatch.executed_worker} completed the primary task`,
+      detail: workerResult.summary,
+      decision_kind: decision.kind,
+      requested_worker: primaryDispatch.requested_worker,
+      executed_worker: primaryDispatch.executed_worker,
+      task_id: executionRequest.task_id,
+    });
 
     const verifierWorkerTask = runtimeBundle
       ? runtimeSpine.startWorkerTask({
@@ -542,6 +758,16 @@ export class ManagerRuntime {
           verifier_owned: true,
         })
       : null;
+    await emitProgress({
+      stage: 'verification',
+      status: 'started',
+      actor: 'verifier',
+      title: 'Running verification',
+      detail: 'Checking evidence, verification gates, and final proof requirements.',
+      decision_kind: decision.kind,
+      executed_worker: primaryDispatch.executed_worker,
+      task_id: 'verification_gate',
+    });
     const verifierDispatch = await this.fabric.dispatchVerifier(executionRequest, workerResult);
     const verificationRequest = verifierDispatch.verification_request;
     assertCompletionPolicy(verificationRequest);
@@ -558,6 +784,16 @@ export class ManagerRuntime {
       });
       runtimeBundle = runtimeSpine.snapshot();
     }
+    await emitProgress({
+      stage: 'verification',
+      status: verificationRequest.status === 'verified_complete' ? 'completed' : verificationRequest.status === 'rejected' ? 'blocked' : 'failed',
+      actor: 'verifier',
+      title: `Verification ${verificationRequest.status}`,
+      detail: verificationRequest.summary,
+      decision_kind: decision.kind,
+      executed_worker: primaryDispatch.executed_worker,
+      task_id: 'verification_gate',
+    });
 
     const strictOutcome = validateMissionOutcomeStrictInput({
       mission_id: missionId,
@@ -607,6 +843,15 @@ export class ManagerRuntime {
       `Verification finished with status ${verificationResult.status}.`,
       verificationResult,
     ));
+    await emitProgress({
+      stage: 'brain_write',
+      status: 'completed',
+      actor: 'brain',
+      title: 'Mission outcome and verification were saved',
+      detail: `Verification finished with status ${verificationResult.status}.`,
+      decision_kind: decision.kind,
+      executed_worker: primaryDispatch.executed_worker,
+    });
     missionGraph = updateTaskStatus(
       missionGraph,
       'verification_gate',
@@ -698,7 +943,28 @@ export class ManagerRuntime {
         `Failure lesson stored after ${verificationResult.status}.`,
         failureResult,
       ));
+      await emitProgress({
+        stage: 'failure_capture',
+        status: 'completed',
+        actor: 'brain',
+        title: 'Failure lesson recorded',
+        detail: `Stored a failure lesson after ${verificationResult.status}.`,
+        decision_kind: decision.kind,
+      });
     }
+
+    await emitProgress({
+      stage: 'finalize',
+      status: verificationResult.status === 'verified_complete' ? 'completed' : verificationResult.status === 'rejected' ? 'blocked' : 'failed',
+      actor: 'manager',
+      title: verificationResult.status === 'verified_complete' ? 'Mission finished' : 'Mission finished with issues',
+      detail: verificationResult.status === 'verified_complete'
+        ? 'The manager finished the mission with verified proof.'
+        : `The manager finished with ${verificationResult.status}.`,
+      decision_kind: decision.kind,
+      executed_worker: primaryDispatch.executed_worker,
+      blocked_reason_code: verificationResult.status === 'rejected' ? decision.blocked_reason_code : null,
+    });
 
     return finalizeRun(
       input,

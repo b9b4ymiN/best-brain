@@ -38,6 +38,35 @@ export interface ManagerInput {
   output_mode: ManagerOutputMode;
 }
 
+export const MANAGER_PROGRESS_STATUSES = [
+  'started',
+  'completed',
+  'info',
+  'blocked',
+  'failed',
+] as const;
+
+export type ManagerProgressStatus = (typeof MANAGER_PROGRESS_STATUSES)[number];
+
+export interface ManagerProgressEvent {
+  stage: string;
+  status: ManagerProgressStatus;
+  actor: 'manager' | 'brain' | 'claude' | 'codex' | 'shell' | 'verifier' | 'runtime' | 'control_room';
+  title: string;
+  detail: string;
+  timestamp: number;
+  mission_id: string | null;
+  task_id: string | null;
+  decision_kind: ManagerDecisionKind | null;
+  requested_worker: ManagerWorker | null;
+  executed_worker: ManagerWorker | null;
+  blocked_reason_code: MissionBlockedReason | null;
+}
+
+export interface ManagerRunObserver {
+  onProgress?: (event: ManagerProgressEvent) => void | Promise<void>;
+}
+
 export interface ManagerDecision {
   kind: ManagerDecisionKind;
   should_execute: boolean;
