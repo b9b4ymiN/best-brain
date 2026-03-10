@@ -114,9 +114,30 @@ function buildStockScannerDefinition(playbook: MissionPlaybook): ProvingMissionD
   };
 }
 
+function buildActualManagerLedStockScannerDefinition(playbook: MissionPlaybook): ProvingMissionDefinition {
+  return {
+    ...buildGenericMissionDefinition(playbook),
+    id: 'mission_definition_thai_equities_manager_led_scanner',
+    slug: 'thai-equities-manager-led-scanner',
+    title: 'Actual manager-led mission definition: Thai equities stock scanner',
+    goal_template: 'Start from one owner goal, derive VI criteria from memory, and return a verified owner-facing scanner system plan.',
+    required_inputs: [buildMarketInput(true), buildWorkspaceInput(false)],
+    report_contract: buildReportContract('report_contract_thai_equities_manager_led_scanner', 'Owner report for the actual manager-led Thai equities stock scanner mission'),
+    acceptance: {
+      ...buildGenericMissionDefinition(playbook).acceptance,
+      id: 'acceptance_thai_equities_manager_led_scanner',
+      required_evidence_types: Array.from(new Set(['note'])),
+      required_check_names: playbook.verifier_checklist.map((item) => item.name),
+    },
+  };
+}
+
 export function resolveProvingMissionDefinition(playbook: MissionPlaybook): ProvingMissionDefinition {
   if (playbook.mission_kind === 'thai_equities_daily_scanner') {
     return buildStockScannerDefinition(playbook);
+  }
+  if (playbook.mission_kind === 'thai_equities_manager_led_scanner') {
+    return buildActualManagerLedStockScannerDefinition(playbook);
   }
 
   return buildGenericMissionDefinition(playbook);

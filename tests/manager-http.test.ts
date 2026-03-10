@@ -8,6 +8,7 @@ import type { WorkerAdapter } from '../src/manager/adapters/types.ts';
 import { ManagerRuntime } from '../src/manager/runtime.ts';
 import type { ExecutionRequest, WorkerExecutionResult } from '../src/manager/types.ts';
 import { createApp } from '../src/http/app.ts';
+import { runOnboarding } from '../src/services/onboarding.ts';
 import { createTestBrain } from './helpers.ts';
 
 class StaticWorkerAdapter implements WorkerAdapter {
@@ -425,6 +426,78 @@ describe('manager alpha via brain HTTP', () => {
       } catch {
         // Windows can keep SQLite WAL files open briefly.
       }
+    }
+  });
+
+  test('runs an actual manager-led stock-scanner mission from one goal using persona memory', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'vi-owner' });
+    await runOnboarding(brain, {
+      ownerPersona: 'The owner is a Thai-equities VI investor who prefers moat, earnings consistency, free cash flow, high ROE, low debt, and margin of safety.',
+      preferredReportFormat: 'Objective, owner profile, screening criteria, system plan, evidence, risks, next action.',
+      communicationStyle: 'Direct and factual.',
+      qualityBar: 'Only complete the mission when the final owner-facing plan is grounded in memory and verification passes.',
+      planningPlaybook: 'Recall the owner persona first, derive the screening criteria, choose the data source, prepare the scanner system plan, then verify.',
+    });
+    await brain.learn({
+      mode: 'procedure',
+      title: 'Thai equities VI screening playbook',
+      content: 'For the owner, rank Thai equities by durable moat, earnings consistency, free cash flow quality, high ROE, low debt, and margin of safety.',
+      source: 'manager-http-test',
+      owner: 'vi-owner',
+      domain: 'thai-equities',
+      reusable: true,
+      tags: ['stocks', 'vi', 'scanner'],
+      confirmed_by_user: true,
+      verified_by: 'user',
+      evidence_ref: [{ type: 'note', ref: 'test://vi-playbook' }],
+    });
+
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+      workers: {
+        claude: new StaticWorkerAdapter('claude', {
+          summary: 'Produced an owner-facing Thai stock scanner system plan aligned to the VI memory.',
+          status: 'success',
+          artifacts: [
+            { type: 'note', ref: 'worker://manager-http/actual-stock-plan', description: 'VI-aligned stock-scanner system plan.' },
+          ],
+          proposed_checks: [],
+          raw_output: 'Owner-facing Thai stock scanner plan.',
+        }),
+      },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'I want a Thai stock scanner system that matches how I invest.',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('mission');
+      expect(result.decision.selected_worker).toBe('claude');
+      expect(result.mission_brief.mission_kind).toBe('thai_equities_manager_led_scanner');
+      expect(result.mission_brief.manager_derivation?.owner_archetype).toBe('value_investor');
+      expect(result.mission_brief.manager_derivation?.screening_criteria.length).toBeGreaterThanOrEqual(3);
+      expect(result.mission_brief.execution_plan.some((step) => step.includes('Infer owner-specific criteria from memory'))).toBe(true);
+      expect(result.verification_result?.status).toBe('verified_complete');
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.uri.startsWith('input-adapter://'))).toBe(true);
+      expect(result.runtime_bundle?.session.final_report_artifact_id).not.toBeNull();
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
     }
   });
 });

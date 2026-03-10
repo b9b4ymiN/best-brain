@@ -39,15 +39,45 @@ function ensureChecks(workerResult: WorkerExecutionResult): VerificationCheck[] 
   }];
 }
 
+function buildInputAdapterEvidence(request: ExecutionRequest): VerificationArtifact[] {
+  return request.input_adapter_decisions
+    .filter((decision) => decision.decision === 'selected' && decision.selected_adapter_id != null)
+    .map((decision) => ({
+      type: 'other' as const,
+      ref: `input-adapter://${decision.selected_adapter_id}`,
+      description: decision.reason,
+    }));
+}
+
 function buildPlaybookChecks(
   request: ExecutionRequest,
   evidence: VerificationArtifact[],
   workerResult: WorkerExecutionResult,
 ): VerificationCheck[] {
   return request.playbook.verifier_checklist.map((item) => {
-    const artifactMatch = item.artifact_kind == null
-      ? workerResult.proposed_checks.length > 0
-      : evidence.some((artifact) => artifact.type === item.artifact_kind);
+    const validationSource = item.validation_source ?? (item.artifact_kind == null ? 'any' : 'artifact');
+    const normalizedName = item.name.trim().toLowerCase();
+    const artifactMatch = (() => {
+      switch (validationSource) {
+        case 'input_adapter':
+          return request.input_adapter_decisions.some((decision) => decision.family === 'market_data' && decision.decision === 'selected');
+        case 'worker_check':
+          return workerResult.proposed_checks.some((check) => check.passed && check.name.trim().toLowerCase() === normalizedName);
+        case 'any':
+          return (
+            (item.artifact_kind == null
+              ? workerResult.proposed_checks.length > 0
+              : evidence.some((artifact) => artifact.type === item.artifact_kind))
+            || workerResult.proposed_checks.some((check) => check.passed && check.name.trim().toLowerCase() === normalizedName)
+            || request.input_adapter_decisions.some((decision) => decision.family === 'market_data' && decision.decision === 'selected')
+          );
+        case 'artifact':
+        default:
+          return item.artifact_kind == null
+            ? evidence.length > 0
+            : evidence.some((artifact) => artifact.type === item.artifact_kind);
+      }
+    })();
 
     return {
       name: item.name,
@@ -60,7 +90,10 @@ function buildPlaybookChecks(
 }
 
 export function buildVerificationRequest(request: ExecutionRequest, workerResult: WorkerExecutionResult): VerificationRequest {
-  const evidence = ensureNoteEvidence(workerResult, request.mission_id);
+  const evidence = uniqueArtifacts([
+    ...ensureNoteEvidence(workerResult, request.mission_id),
+    ...buildInputAdapterEvidence(request),
+  ]);
   const verificationChecks = [
     ...ensureChecks(workerResult),
     ...buildPlaybookChecks(request, evidence, workerResult),

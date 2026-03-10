@@ -55,6 +55,14 @@ export interface GoalAmbiguityAssessment {
   confidence: 'low' | 'medium' | 'high';
 }
 
+export interface ManagerDerivation {
+  owner_archetype: 'value_investor' | 'unknown';
+  persona_signals: string[];
+  screening_criteria: string[];
+  planned_outputs: string[];
+  derived_from_memory_ids: string[];
+}
+
 export interface MissionBrief {
   mission_id: string;
   mission_kind: string;
@@ -74,6 +82,7 @@ export interface MissionBrief {
   mission_definition: ProvingMissionDefinition;
   report_contract: MissionReportContract;
   input_adapter_decisions: InputAdapterDecision[];
+  manager_derivation: ManagerDerivation | null;
   mission_graph: MissionTaskGraph;
   execution_plan: string[];
 }

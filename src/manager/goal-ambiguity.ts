@@ -75,7 +75,7 @@ export function detectGoalAmbiguity(input: ManagerInput, decision: ManagerDecisi
   const isVeryShortGoal = tokens.length < 4;
   const looksLikeExecutableWork = decision.kind !== 'chat';
 
-  if (!hasMissionAnchor && hasDanglingReference) {
+  if (!hasMissionAnchor && hasDanglingReference && !hasConcreteTarget) {
     missingClarifications.push('target_scope');
   }
 

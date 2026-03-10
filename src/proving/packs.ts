@@ -15,6 +15,17 @@ export function isThaiEquitiesStockScannerGoal(goal: string): boolean {
   return hasScanner && hasThai && hasEquities;
 }
 
+const DEMO_HINTS = ['demo', 'unavailable', 'incomplete proof', 'controlled'];
+
+export function isThaiEquitiesDemoGoal(goal: string): boolean {
+  const normalized = goal.toLowerCase();
+  return isThaiEquitiesStockScannerGoal(goal) && DEMO_HINTS.some((hint) => normalized.includes(hint));
+}
+
+export function isThaiEquitiesActualManagerGoal(goal: string): boolean {
+  return isThaiEquitiesStockScannerGoal(goal) && !isThaiEquitiesDemoGoal(goal);
+}
+
 export function buildThaiEquitiesStockScannerPlaybook(
   context: MissionContextBundle,
   decision: ManagerDecision,
@@ -39,25 +50,28 @@ export function buildThaiEquitiesStockScannerPlaybook(
     verifier_checklist: [
       {
         id: 'check_note_evidence',
-        name: 'Owner-facing note evidence exists',
-        required: true,
-        artifact_kind: 'note',
-        detail: 'Stock scanner demo must produce an owner-facing note summary.',
-      },
-      {
-        id: 'check_market_data_artifact',
-        name: 'Market data evidence exists',
-        required: true,
-        artifact_kind: 'other',
-        detail: 'Stock scanner demo must include machine-readable market-data evidence.',
-      },
-      {
-        id: 'check_worker_checks',
-        name: 'Worker and manager checks are recorded',
-        required: true,
-        artifact_kind: null,
-        detail: 'The run must emit explicit freshness and completeness checks.',
-      },
+          name: 'Owner-facing note evidence exists',
+          required: true,
+          artifact_kind: 'note',
+          validation_source: 'artifact',
+          detail: 'Stock scanner demo must produce an owner-facing note summary.',
+        },
+        {
+          id: 'check_market_data_artifact',
+          name: 'Market data evidence exists',
+          required: true,
+          artifact_kind: 'other',
+          validation_source: 'artifact',
+          detail: 'Stock scanner demo must include machine-readable market-data evidence.',
+        },
+        {
+          id: 'check_worker_checks',
+          name: 'Worker and manager checks are recorded',
+          required: true,
+          artifact_kind: null,
+          validation_source: 'any',
+          detail: 'The run must emit explicit freshness and completeness checks.',
+        },
     ],
     repair_heuristics: [
       {
@@ -76,13 +90,72 @@ export function buildThaiEquitiesStockScannerPlaybook(
   };
 }
 
+export function buildThaiEquitiesActualManagerPlaybook(
+  context: MissionContextBundle,
+  decision: ManagerDecision,
+): MissionPlaybook {
+  const selectedWorker = decision.selected_worker === 'codex' ? 'codex' : 'claude';
+  return {
+    id: 'playbook_thai_equities_manager_led_scanner',
+    slug: 'thai-equities-manager-led-scanner',
+    title: 'Thai equities manager-led scanner mission',
+    scope: 'domain',
+    mission_kind: 'thai_equities_manager_led_scanner',
+    preferred_workers: [selectedWorker, 'verifier'],
+    planning_hints: Array.from(new Set([
+      ...context.planning_hints,
+      'Recall the owner investment persona before deciding screening criteria.',
+      'Derive screening criteria and report shape from brain memory, not from hidden scripts.',
+      'Use the selected market-data adapter as explicit evidence in the proof chain.',
+      'Return an owner-facing scanner system plan that can guide later implementation work.',
+    ])).slice(0, 6),
+    report_format: 'Objective, owner profile, screening criteria, system plan, evidence, risks, next action.',
+    verifier_checklist: [
+      {
+        id: 'check_note_evidence',
+        name: 'Owner-facing note evidence exists',
+        required: true,
+        artifact_kind: 'note',
+        validation_source: 'artifact',
+        detail: 'The actual manager-led mission must produce an owner-facing note or report.',
+      },
+      {
+        id: 'check_market_data_input_recorded',
+        name: 'Selected market-data input is recorded',
+        required: true,
+        artifact_kind: null,
+        validation_source: 'input_adapter',
+        detail: 'The proof chain must record which market-data adapter was selected.',
+      },
+    ],
+    repair_heuristics: [
+      {
+        id: 'repair_thai_equities_actual_recall_persona',
+        trigger: 'blocked_or_ambiguous',
+        instruction: 'Recall owner persona and clarify the expected stock-scanner outcome before continuing.',
+        max_retries: 1,
+      },
+      {
+        id: 'repair_thai_equities_actual_collect_plan_evidence',
+        trigger: 'verification_failed',
+        instruction: 'Collect a clearer owner-facing plan note and rerun verification.',
+        max_retries: 2,
+      },
+    ],
+  };
+}
+
 export function resolveRegisteredMissionPlaybook(
   input: ManagerInput,
   context: MissionContextBundle,
   decision: ManagerDecision,
 ): MissionPlaybook | null {
-  if (isThaiEquitiesStockScannerGoal(input.goal)) {
+  if (isThaiEquitiesDemoGoal(input.goal)) {
     return buildThaiEquitiesStockScannerPlaybook(context, decision);
+  }
+
+  if (isThaiEquitiesActualManagerGoal(input.goal)) {
+    return buildThaiEquitiesActualManagerPlaybook(context, decision);
   }
 
   return null;

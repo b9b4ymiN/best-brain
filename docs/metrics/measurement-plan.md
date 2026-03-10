@@ -60,6 +60,8 @@ Current local source:
 
 - `artifacts/manager-proof.latest.json`
 - `artifacts/proving-harness.latest.json`
+- `artifacts/phase4-proof.latest.json`
+- `artifacts/phase5-actual.latest.json`
 - manager tests and HTTP integration tests
 
 ## Runtime metrics
@@ -131,7 +133,7 @@ That scorecard is the local baseline for current program readiness. It is expect
 - `Phase2_WorkerFabricRuntimeSpine`: pass
 - `Phase3_ProvingMissionFramework`: pass only after the generic proving harness is green
 - `Phase4_DemoAcceptanceMission`: pass only after the demo mission proof is green
-- `Phase5_ActualManagerLedMission`: fail until one-goal manager-led execution is real
+- `Phase5_ActualManagerLedMission`: pass once one-goal manager-led execution is real and locally proven
 - `Phase6_Repeatability`: fail until repeated actual mission runs exist
 
 The scorecard should also track these plan-critical signals even before they are fully instrumented:

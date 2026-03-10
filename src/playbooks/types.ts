@@ -15,6 +15,7 @@ export interface VerifierChecklistItem {
   name: string;
   required: boolean;
   artifact_kind: VerificationArtifact['type'] | null;
+  validation_source?: 'artifact' | 'worker_check' | 'input_adapter' | 'any';
   detail: string;
 }
 

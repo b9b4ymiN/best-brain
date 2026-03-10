@@ -18,7 +18,7 @@
       "title": "Mission launched",
       "detail": "Manager compiled the mission brief and task graph.",
       "artifact_ids": [],
-      "created_at": 1773109792024
+      "created_at": 1773111051815
     },
     {
       "id": "timeline_verification",
@@ -30,7 +30,7 @@
       "artifact_ids": [
         "artifact_final_report"
       ],
-      "created_at": 1773109818024
+      "created_at": 1773111077815
     }
   ],
   "workers": [
@@ -39,14 +39,14 @@
       "status": "completed",
       "current_task_id": null,
       "current_task_title": null,
-      "last_update_at": 1773109812024
+      "last_update_at": 1773111071815
     },
     {
       "worker": "verifier",
       "status": "completed",
       "current_task_id": null,
       "current_task_title": null,
-      "last_update_at": 1773109817024
+      "last_update_at": 1773111076815
     }
   ],
   "artifacts": [
@@ -61,7 +61,7 @@
       "description": "Owner-facing summary.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773109810024
+      "created_at": 1773111069815
     },
     {
       "id": "artifact_file",
@@ -74,7 +74,7 @@
       "description": "Implementation artifact.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773109810524
+      "created_at": 1773111070315
     },
     {
       "id": "artifact_stdout",
@@ -87,7 +87,7 @@
       "description": "Structured worker stdout.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773109812024
+      "created_at": 1773111071815
     },
     {
       "id": "artifact_final_report",
@@ -100,7 +100,7 @@
       "description": "Final mission report emitted after verification.",
       "checksum": null,
       "source": "manager",
-      "created_at": 1773109818024
+      "created_at": 1773111077815
     }
   ],
   "verdict": {

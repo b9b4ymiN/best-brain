@@ -104,7 +104,8 @@ Key outputs:
 
 Status:
 
-- not started
+- implemented and locally proven
+- one owner goal can trigger persona recall, manager-derived VI criteria, worker control, verification, and final proof without a demo shortcut
 
 ### Phase 6 - Repeatability
 
@@ -217,11 +218,11 @@ Status:
 
 To stay aligned with the final concept, the next recommended order is:
 
-1. harden manager alpha into a reliable mission manager beta
-2. replace the stock demo shortcut with an actual manager-led mission from one user goal
-3. turn the actual manager-led mission into repeatable evidence with memory reuse
-4. add the first control surface beyond CLI
-5. broaden task-mode quality for normal daily use
+1. turn the actual manager-led mission into repeatable evidence with memory reuse
+2. harden manager alpha toward manager beta across more than one mission pattern
+3. add the first control surface beyond CLI
+4. broaden task-mode quality for normal daily use
+5. expand beyond the first mission into browser, mail, and richer worker flows
 
 ## Measurement discipline to add now
 

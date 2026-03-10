@@ -1,5 +1,6 @@
 import type { ManagerDecision, ManagerInput, ManagerWorker, ManagerWorkerPreference } from './types.ts';
 import { tokenize } from '../utils/text.ts';
+import { isThaiEquitiesActualManagerGoal } from '../proving/packs.ts';
 
 const CHAT_HINTS = ['what', 'why', 'explain', 'compare', 'brainstorm', 'think', 'help', 'question'];
 const EXECUTION_HINTS = ['implement', 'edit', 'fix', 'write', 'run', 'ship', 'build', 'execute', 'verify', 'save'];
@@ -19,8 +20,13 @@ export function selectWorker(goal: string, preference: ManagerWorkerPreference):
   }
 
   const tokens = tokenize(goal);
+  const isActualThaiEquitiesMission = isThaiEquitiesActualManagerGoal(goal);
   const hasExplicitCommand = goal.includes('`');
   const hasImplementationIntent = includesAny(tokens, IMPLEMENT_HINTS);
+
+  if (isActualThaiEquitiesMission) {
+    return hasImplementationIntent ? 'codex' : 'claude';
+  }
 
   if (hasExplicitCommand || (includesAny(tokens, SHELL_HINTS) && !hasImplementationIntent)) {
     return 'shell';
@@ -39,6 +45,7 @@ export function selectWorker(goal: string, preference: ManagerWorkerPreference):
 
 export function routeIntent(input: ManagerInput): ManagerDecision {
   const tokens = tokenize(input.goal);
+  const isActualThaiEquitiesMission = isThaiEquitiesActualManagerGoal(input.goal);
   const hasExecution = includesAny(tokens, EXECUTION_HINTS);
   const hasMission = input.mission_id != null || includesAny(tokens, MISSION_HINTS);
   const hasAnalysis = includesAny(tokens, ANALYSIS_HINTS);
@@ -47,7 +54,10 @@ export function routeIntent(input: ManagerInput): ManagerDecision {
   let kind: ManagerDecision['kind'] = 'task';
   let reason = 'defaulted to task because the goal implies real work with a bounded scope.';
 
-  if ((hasQuestion || hasAnalysis) && !hasExecution && !hasMission) {
+  if (isActualThaiEquitiesMission) {
+    kind = 'mission';
+    reason = 'classified as mission because a stock-scanner system goal requires manager-led planning, worker control, and proof.';
+  } else if ((hasQuestion || hasAnalysis) && !hasExecution && !hasMission) {
     kind = 'chat';
     reason = 'classified as chat because the goal asks for guidance or analysis without execution verbs.';
   } else if (hasMission || (hasExecution && includesAny(tokens, CODE_HINTS))) {

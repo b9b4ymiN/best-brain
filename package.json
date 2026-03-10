@@ -20,6 +20,7 @@
     "examples:program": "bun scripts/generate-program-examples.ts",
     "proof:manager": "bun scripts/capture-manager-proof.ts",
     "proof:phase4": "bun scripts/capture-phase4-proof.ts",
+    "proof:phase5": "bun scripts/capture-phase5-proof.ts",
     "proof:proving": "bun scripts/run-proving-harness.ts",
     "scorecard:program": "bun scripts/generate-program-scorecard.ts",
     "smoke:bootstrap": "bun scripts/run-bootstrap-smoke.ts",

@@ -36,6 +36,16 @@ export function validateMissionBrief(brief: MissionBrief): MissionBriefValidatio
     },
     { field: 'mission_graph', passed: brief.mission_graph.nodes.length >= 2 && brief.mission_graph.playbook_id === brief.playbook.id },
     { field: 'execution_plan', passed: brief.execution_plan.length >= (brief.kind === 'chat' ? 1 : 3) },
+    {
+      field: 'manager_derivation',
+      passed: brief.mission_kind !== 'thai_equities_manager_led_scanner'
+        || (
+          brief.manager_derivation != null
+          && brief.manager_derivation.owner_archetype !== 'unknown'
+          && brief.manager_derivation.screening_criteria.length >= 3
+          && brief.manager_derivation.derived_from_memory_ids.length >= 1
+        ),
+    },
   ];
 
   const missingFields = checks.filter((check) => !check.passed).map((check) => check.field);
@@ -48,6 +58,9 @@ export function validateMissionBrief(brief: MissionBrief): MissionBriefValidatio
   }
   if (brief.input_adapter_decisions.some((decision) => decision.decision === 'blocked')) {
     warnings.push('brief has blocked input adapters and may need clarification or a different source.');
+  }
+  if (brief.mission_kind === 'thai_equities_manager_led_scanner' && brief.manager_derivation?.owner_archetype === 'unknown') {
+    warnings.push('actual stock-scanner mission did not derive a clear owner archetype from memory');
   }
 
   const completenessScore = Math.round((checks.filter((check) => check.passed).length / checks.length) * 100);

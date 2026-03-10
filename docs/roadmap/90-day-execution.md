@@ -88,14 +88,18 @@ Exit:
 - first demo / acceptance mission completes end-to-end under controlled runs
 - acceptance run set evidence is strong enough to distinguish real blocked runs from silent failures
 
-## Next bar after the demo proof
+Current local status:
 
-The next concept-critical phase is not "more demo".
+- demo / acceptance proof is complete
+- the actual manager-led mission from one user goal is also proven locally
+
+## Next bar after the actual mission proof
+
+The next concept-critical phase is not "more demo" and not "just one successful actual run".
 
 It is:
 
-- one user goal starts the mission
-- the brain recalls persona and mission memory
-- the manager derives what to check and how to proceed
-- the manager builds the plan and controls workers itself
-- the system verifies and answers back without a demo shortcut
+- rerun the actual manager-led mission across the named acceptance set
+- prove memory reuse helps the next related run
+- prove blocked and retryable cases stay correct under repeated use
+- keep false-complete count at zero while the system becomes repeatable

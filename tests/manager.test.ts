@@ -204,6 +204,7 @@ describe('manager alpha unit flow', () => {
     expect(routeIntent(makeInput('Analyze the current mission plan.')).selected_worker).toBe('claude');
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.')).selected_worker).toBe('codex');
     expect(routeIntent(makeInput('Run `bun --version` locally and summarize the result.')).selected_worker).toBe('shell');
+    expect(routeIntent(makeInput('I want a Thai stock scanner system that matches how I invest.')).selected_worker).toBe('claude');
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.', { worker_preference: 'claude' })).selected_worker).toBe('claude');
   });
 
@@ -279,6 +280,90 @@ describe('manager alpha unit flow', () => {
         'verification_gate',
         'final_report',
       ]);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('actual manager-led stock mission derives VI criteria from memory and completes without a demo shortcut', async () => {
+    const brain = new FakeBrainAdapter({
+      consultResponse: makeConsultResponse({
+        citations: [
+          {
+            memory_id: 'mem_owner_vi',
+            title: 'Owner persona',
+            memory_type: 'Persona',
+            summary: 'The owner is a Thai-equities VI investor who prefers durable moat, free cash flow, high ROE, low debt, and margin of safety.',
+            source: 'onboarding',
+            verified_by: 'user',
+            evidence_ref: [{ type: 'note', ref: 'onboarding://persona' }],
+          },
+          {
+            memory_id: 'mem_vi_procedure',
+            title: 'Thai equities VI screening playbook',
+            memory_type: 'Procedures',
+            summary: 'For a Thai-equities scanner, prioritize durable moat, earnings consistency, free cash flow quality, ROE, low debt, and valuation discount.',
+            source: 'phase5-proof',
+            verified_by: 'user',
+            evidence_ref: [{ type: 'note', ref: 'phase5://vi-screening-playbook' }],
+          },
+        ],
+        followup_actions: [
+          'Carry the VI criteria into the stock-scanner plan.',
+          'Keep the final answer owner-facing and proof-backed.',
+        ],
+        trace_id: 'trace_actual_stock_manager',
+      }),
+      contextResponse: makeContextBundle({
+        preferred_format: 'Objective, owner profile, screening criteria, system plan, evidence, risks, next action.',
+        planning_hints: [
+          'Recall the owner investment persona before deciding screening criteria.',
+          'Return an owner-facing stock-scanner system plan, not a demo script.',
+        ],
+      }),
+    });
+    const worker = new FakeWorkerAdapter('claude', {
+      summary: 'Produced an owner-facing Thai stock scanner system plan aligned to the VI persona.',
+      status: 'success',
+      artifacts: [{
+        type: 'note',
+        ref: 'worker://claude/stock-scanner-plan',
+        description: 'Owner-facing stock-scanner system plan with VI criteria.',
+      }],
+      proposed_checks: [],
+      raw_output: 'Owner-facing VI stock scanner system plan.',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      workers: { claude: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'I want a Thai stock scanner system that matches how I invest.',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('mission');
+      expect(result.decision.selected_worker).toBe('claude');
+      expect(result.mission_brief.mission_kind).toBe('thai_equities_manager_led_scanner');
+      expect(result.mission_brief.manager_derivation?.owner_archetype).toBe('value_investor');
+      expect(result.mission_brief.manager_derivation?.screening_criteria).toEqual(expect.arrayContaining([
+        'durable moat',
+        'free cash flow quality',
+        'high return on equity',
+        'low debt discipline',
+        'margin of safety',
+      ]));
+      expect(result.mission_brief.success_criteria.some((item) => item.includes('Reflect owner-derived criterion'))).toBe(true);
+      expect(result.mission_brief.execution_plan.some((step) => step.includes('Infer owner-specific criteria from memory'))).toBe(true);
+      expect(worker.requests[0]?.prompt).toContain('Manager derivation: archetype=value_investor');
+      expect(worker.requests[0]?.shell_command).toBeNull();
+      expect(result.verification_result?.status).toBe('verified_complete');
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.uri.startsWith('input-adapter://'))).toBe(true);
+      expect(brain.calls.consult).toHaveLength(2);
     } finally {
       await runtime.dispose();
     }

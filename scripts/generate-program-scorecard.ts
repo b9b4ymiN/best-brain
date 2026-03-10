@@ -87,6 +87,13 @@ const phase4Proof = readJson<{
   market_data_evidence_present: boolean;
   latest_verified_mission_reused: boolean;
 }>(path.join(artifactsDir, 'phase4-proof.latest.json'));
+const phase5ActualProof = readJson<{
+  single_goal_manager_led_pass: boolean;
+  persona_memory_applied: boolean;
+  manager_generated_plan: boolean;
+  worker_control_end_to_end: boolean;
+  no_demo_shortcut_path: boolean;
+}>(path.join(artifactsDir, 'phase5-actual.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 const capturedBootstrapProofs = fs.existsSync(bootstrapProofDir)
   ? fs.readdirSync(bootstrapProofDir)
@@ -131,6 +138,7 @@ const scorecard = buildProgramScorecard({
   manager_proof: managerProof ?? undefined,
   proving_harness: provingHarness?.summary,
   phase4_proof: phase4Proof ?? undefined,
+  actual_mission_proof: phase5ActualProof ?? undefined,
 });
 
 fs.mkdirSync(artifactsDir, { recursive: true });

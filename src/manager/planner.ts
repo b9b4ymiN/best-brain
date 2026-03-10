@@ -75,6 +75,9 @@ export function buildExecutionPlan(brief: MissionBrief): string[] {
 
   const steps = [
     'Review brain consult guidance and mission context before acting.',
+    ...(brief.manager_derivation?.screening_criteria.length
+      ? [`Infer owner-specific criteria from memory: ${brief.manager_derivation.screening_criteria.join(' | ')}.`]
+      : []),
     adapterSummary.length > 0
       ? `Resolve mission inputs using adapter decisions: ${adapterSummary}.`
       : 'No external mission inputs are required for this run.',
@@ -170,10 +173,12 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
       `Success criteria: ${brief.success_criteria.join(' | ')}`,
       `Constraints: ${brief.constraints.join(' | ')}`,
       `Planning hints: ${brief.planning_hints.join(' | ')}`,
+      `Manager derivation: archetype=${brief.manager_derivation?.owner_archetype ?? 'unknown'}; criteria=${brief.manager_derivation?.screening_criteria.join(' | ') || 'none'}; outputs=${brief.manager_derivation?.planned_outputs.join(' | ') || 'none'}`,
       `Input adapters: ${brief.input_adapter_decisions.map((decision) => `${decision.input_id}:${decision.decision}:${decision.selected_adapter_id ?? decision.blocked_reason ?? 'none'}`).join(' | ') || 'none'}`,
       `Verifier checklist: ${checklistSummary}`,
       `Mission graph: ${graphSummary}`,
       `Context citations: ${citationSummary || 'none'}`,
+      'If the manager derivation names owner-specific criteria, reflect them explicitly in your result.',
       'Return strict JSON only with keys: summary, status, artifacts, proposed_checks.',
       'status must be one of success, needs_retry, failed.',
       'artifacts must be an array of objects with type, ref, optional description.',

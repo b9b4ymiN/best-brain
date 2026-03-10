@@ -8,6 +8,7 @@ import { validateMissionBrief } from './brief-validator.ts';
 import { detectGoalAmbiguity } from './goal-ambiguity.ts';
 import { updateTaskStatus } from './graph.ts';
 import { routeIntent } from './intent-router.ts';
+import { isThaiEquitiesActualManagerGoal } from '../proving/packs.ts';
 import {
   assertCompletionPolicy,
   buildFailureWrite,
@@ -118,6 +119,31 @@ function mapWorkerStatusToRuntimeStatus(status: WorkerExecutionResult['status'])
   return status === 'success' ? 'succeeded' : 'failed';
 }
 
+function mergeConsultResponses(primary: Awaited<ReturnType<BrainAdapter['consult']>>, secondary: Awaited<ReturnType<BrainAdapter['consult']>>) {
+  const citationMap = new Map(primary.citations.map((citation) => [citation.memory_id, citation]));
+  for (const citation of secondary.citations) {
+    if (!citationMap.has(citation.memory_id)) {
+      citationMap.set(citation.memory_id, citation);
+    }
+  }
+
+  const selectedMemoryMap = new Map(primary.selected_memories.map((memory) => [memory.id, memory]));
+  for (const memory of secondary.selected_memories) {
+    if (!selectedMemoryMap.has(memory.id)) {
+      selectedMemoryMap.set(memory.id, memory);
+    }
+  }
+
+  return {
+    ...primary,
+    answer: [primary.answer, secondary.answer].filter(Boolean).join('\n'),
+    memory_ids: Array.from(new Set([...primary.memory_ids, ...secondary.memory_ids])),
+    citations: Array.from(citationMap.values()),
+    followup_actions: Array.from(new Set([...primary.followup_actions, ...secondary.followup_actions])),
+    selected_memories: Array.from(selectedMemoryMap.values()),
+  };
+}
+
 export class ManagerRuntime {
   readonly brain: BrainAdapter;
   readonly workers: Partial<Record<ManagerWorker, WorkerAdapter>>;
@@ -143,12 +169,21 @@ export class ManagerRuntime {
     const startedBrainServer = this.brain.wasStartedByAdapter();
     let decision = routeIntent(input);
     const existingMissionId = input.mission_id;
-    const consult = await this.brain.consult({
+    let consult = await this.brain.consult({
       query: input.goal,
       mission_id: existingMissionId,
       domain: 'best-brain',
       limit: 5,
     });
+    if (isThaiEquitiesActualManagerGoal(input.goal)) {
+      const personaConsult = await this.brain.consult({
+        query: `If you were the owner, what investment persona and screening criteria should guide this Thai equities stock scanner mission? Goal: ${input.goal}`,
+        mission_id: existingMissionId,
+        domain: 'best-brain',
+        limit: 5,
+      });
+      consult = mergeConsultResponses(consult, personaConsult);
+    }
     const context = await this.brain.context({
       mission_id: existingMissionId,
       domain: 'best-brain',

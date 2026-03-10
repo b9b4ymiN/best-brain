@@ -567,6 +567,13 @@ const programScorecard = buildProgramScorecard({
     market_data_evidence_present: true,
     latest_verified_mission_reused: true,
   },
+  actual_mission_proof: {
+    single_goal_manager_led_pass: true,
+    persona_memory_applied: true,
+    manager_generated_plan: true,
+    worker_control_end_to_end: true,
+    no_demo_shortcut_path: true,
+  },
 });
 
 fs.mkdirSync(outputDir, { recursive: true });

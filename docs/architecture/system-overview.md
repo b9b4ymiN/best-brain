@@ -33,7 +33,9 @@ Current status:
 - CLI-first
 - HTTP-backed against the brain
 - one primary worker at a time
-- the current stock-scanner proof path is still a demo / acceptance mission, not the final manager-led mission behavior
+- the stock-scanner system now has two proof paths:
+  - a controlled demo / acceptance mission harness
+  - an actual manager-led mission path that starts from one owner goal, recalls persona memory, derives a plan, controls a real worker, and closes with proof
 
 ### 3. Worker Swarm
 
@@ -50,9 +52,9 @@ Initial worker set:
 
 Current status:
 
-- `Claude` and `Codex` primary worker adapters exist
-- verifier behavior exists inside manager alpha
-- browser, shell, mail, and richer verifier workers are still roadmap items
+- `Claude`, `Codex`, and `Shell` primary worker adapters exist
+- verifier behavior exists as a first-class manager-owned worker path
+- browser and mail workers are still roadmap items
 
 ### 4. Runtime OS
 
@@ -175,6 +177,6 @@ Expected behavior:
 The repo should be read as:
 
 - `final concept`: full local AI work operating system
-- `current implementation`: brain-v1 plus manager alpha, with a proven demo / acceptance mission
-- `next concept-critical milestone`: actual manager-led mission flow from one user goal, persona memory, self-generated plan, worker control, and proof-driven final answer
+- `current implementation`: brain-v1 plus manager alpha, with both a proven demo / acceptance mission and a proven actual manager-led mission path
+- `next concept-critical milestone`: repeat the actual manager-led mission over the acceptance set with stable memory reuse and no false completes
 - `next growth path`: expand workers, runtime OS, and control surface without replacing the brain/manager core

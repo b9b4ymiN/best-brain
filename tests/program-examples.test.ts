@@ -81,6 +81,6 @@ describe('program example library', () => {
     expect(scorecard.acceptance_run_set).toBe('thai_equities_daily_controlled_acceptance_runs');
     expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase0_ProgramLock')).toBe(true);
     expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase4_DemoAcceptanceMission' && phase.status === 'pass')).toBe(true);
-    expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase5_ActualManagerLedMission' && phase.status === 'fail')).toBe(true);
+    expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase5_ActualManagerLedMission' && phase.status === 'pass')).toBe(true);
   });
 });

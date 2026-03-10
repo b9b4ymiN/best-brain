@@ -19,7 +19,7 @@ The repo does not implement the whole target system yet. The current state is:
 - `Brain v1`: implemented and verified
 - `Manager alpha`: implemented as a CLI-first, HTTP-backed manager with one primary worker at a time
 - `First demo / acceptance mission`: implemented and locally proven with the Thai equities stock-scanner mission
-- `Actual manager-led stock mission`: not implemented yet; this is the next concept-critical step
+- `Actual manager-led stock mission`: implemented and locally proven from one user goal through persona-memory recall, manager-derived planning, worker control, and proof-driven closeout
 - `Worker swarm`, `runtime OS`, and `control room UI`: only partially present or still planned
 
 ## Final concept
@@ -50,7 +50,7 @@ What exists now:
 - persona, preference, mission, failure, and verification memory
 - manager alpha with `chat`, `task`, and `mission` routing
 - manager beta rails for `MissionBrief` validation, goal ambiguity detection, mission graph compilation, and playbook-guided verification
-- one-primary-worker execution with `claude` or `codex`
+- one-primary-worker execution with `claude`, `codex`, or `shell`
 - proof-chain persistence: outcome, verification start, verification complete, failure lesson
 
 What does not exist yet:
@@ -106,6 +106,7 @@ bun run smoke:manager:codex
 bun run smoke:manager:ambiguity
 bun run proof:manager
 bun run proof:phase4
+bun run proof:phase5
 bun run examples:program
 bun run proof:proving
 bun run scorecard:program
@@ -180,6 +181,12 @@ bun run manager -- "Plan the next mission using the latest mission proof." --dry
 bun run manager -- "Review the preferred report format." --no-execute
 ```
 
+Actual manager-led stock mission proof:
+
+```bash
+bun run manager -- "I want a Thai stock scanner system that matches how I invest. Figure out the criteria from my memory and return a verified owner-facing system plan." --json
+```
+
 Manager alpha always uses the brain HTTP API as its canonical adapter. It will auto-start the local brain server if `/health` is not available.
 
 For note-only missions, manager alpha can normalize usable freeform worker output into a note artifact plus a verification check. That keeps analysis-style `claude` and `codex` runs verifiable without pretending a file or test artifact exists.
@@ -214,15 +221,16 @@ The 90-day program is now frozen around:
 
 - success bar: `Repeatable One-Mission`
 - first demo / acceptance mission: `Thai equities daily stock scanner`
-- next concept-critical phase: `actual manager-led mission from one user goal`
+- actual manager-led mission: `implemented and locally proven from one user goal`
+- next concept-critical phase: `repeatability over the acceptance run set`
 - execution style: `general engine + reusable playbooks`
 - data strategy: `live-data-first` through adapter selection, not hard-coded source logic
 - control surface target: `full mission console`
 
 Current caveat:
 
-- the stock-scanner path that is proven today is a demo / acceptance mission, not the final mission behavior
-- the target behavior is: the user states one goal, the brain recalls persona and memory, the manager derives what to check, builds the plan, controls workers, verifies, and returns the final answer without a demo shortcut
+- the controlled stock-scanner demo path is still separate from the actual manager-led path and remains useful as an acceptance harness
+- the current concept-critical bar is now: repeat the actual one-goal mission across the acceptance set with stable memory reuse and no false completes
 
 ## Manager examples
 
