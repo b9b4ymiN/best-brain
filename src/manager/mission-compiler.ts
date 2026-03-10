@@ -5,6 +5,23 @@ import { buildExecutionPlan } from './planner.ts';
 import { buildManagerDerivation } from './mission-derivation.ts';
 import { buildInputAdapterRegistry, resolveProvingMissionDefinition, selectInputAdapters } from '../proving/registry.ts';
 
+function resolveExactKeys(requiredExactKeys: string[], context: RoutedManagerContext): {
+  resolved: string[];
+  missing: string[];
+  conflicting: string[];
+} {
+  if (requiredExactKeys.length === 0) {
+    return { resolved: [], missing: [], conflicting: [] };
+  }
+
+  const exactHits = context.consult.retrieval_bundle?.exact_hits ?? [];
+  const suppressed = context.consult.retrieval_bundle?.suppressed_candidates ?? [];
+  const resolved = requiredExactKeys.filter((key) => exactHits.some((citation) => citation.entity_keys.includes(key)));
+  const conflicting = requiredExactKeys.filter((key) => suppressed.some((candidate) => candidate.reason.includes('exact_conflict') && candidate.reason.includes(key)));
+  const missing = requiredExactKeys.filter((key) => !resolved.includes(key) && !conflicting.includes(key));
+  return { resolved, missing, conflicting };
+}
+
 export function compileMissionBrief(context: RoutedManagerContext, missionId: string): MissionBrief {
   const { input, consult, context: missionContext, decision } = context;
   const playbook = resolveMissionPlaybook(input, consult, missionContext, decision);
@@ -31,6 +48,11 @@ export function compileMissionBrief(context: RoutedManagerContext, missionId: st
       ? [`Apply owner profile: ${managerDerivation?.owner_archetype}.`]
       : []),
   ];
+  const requiredExactKeys = Array.from(new Set([
+    ...playbook.required_exact_keys,
+    ...missionDefinition.required_exact_keys,
+  ]));
+  const exactKeys = resolveExactKeys(requiredExactKeys, context);
 
   const brief: MissionBrief = {
     mission_id: missionId,
@@ -38,6 +60,10 @@ export function compileMissionBrief(context: RoutedManagerContext, missionId: st
     mission_definition_id: missionDefinition.id,
     acceptance_profile_id: missionDefinition.acceptance.id,
     report_contract_id: missionDefinition.report_contract.id,
+    required_exact_keys: requiredExactKeys,
+    resolved_exact_keys: exactKeys.resolved,
+    missing_exact_keys: exactKeys.missing,
+    conflicting_exact_keys: exactKeys.conflicting,
     goal: input.goal,
     kind: decision.kind,
     selected_worker: decision.selected_worker,

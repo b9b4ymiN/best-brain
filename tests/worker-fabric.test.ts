@@ -53,6 +53,7 @@ function makeExecutionRequest(overrides: Partial<ExecutionRequest> = {}): Execut
       title: 'General task playbook',
       scope: 'mission',
       mission_kind: 'general_task',
+      required_exact_keys: [],
       preferred_workers: ['codex', 'verifier'],
       planning_hints: ['Clarify, execute, verify, report.'],
       report_format: 'Short status, proof, next action.',

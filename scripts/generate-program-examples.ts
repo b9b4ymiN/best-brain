@@ -20,6 +20,7 @@ const playbook: MissionPlaybook = {
   title: 'Repo change proving mission',
   scope: 'mission',
   mission_kind: 'repo_change_mission',
+  required_exact_keys: [],
   preferred_workers: ['codex', 'verifier'],
   planning_hints: [
     'Use generic mission rails only.',

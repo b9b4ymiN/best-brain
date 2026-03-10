@@ -3,12 +3,14 @@ import type {
   CandidateTrace,
   CompletionProofState,
   ConsultCitation,
+  ExactFactResolution,
   ConsultRequest,
   ConsultResponse,
   CuratedMemoryInput,
   FailureInput,
   LearnRequest,
   LearnResult,
+  ManagerRetrievalBundle,
   MemoryRecord,
   MissionContextBundle,
   MissionOutcomeInput,
@@ -26,6 +28,20 @@ import { createRuntimeConfig } from '../config.ts';
 import { ONBOARDING_MEMORY_TITLES } from '../contracts.ts';
 import { BrainStore } from '../db/client.ts';
 import { getLearningRule, validateLearnRequest } from '../policies/learning.ts';
+import {
+  bundleMaxK,
+  classifyQueryProfile,
+  computeStalenessScore,
+  defaultMemoryLayer,
+  defaultMemoryScope,
+  deriveConflictKind,
+  deriveEntityAliases,
+  deriveEntityKeys,
+  isStaleCandidate,
+  normalizeMemorySubtype,
+  retrievalWeights,
+  targetLayerBudgets,
+} from '../policies/memory-v2.ts';
 import { deriveLifecycle, getRetentionProfile } from '../policies/retention.ts';
 import { classifyIntent, policyPathForIntent, preferredTypesForIntent } from '../policies/retrieval.ts';
 import { ensureDefaultSeedData } from '../seed/seed.ts';
@@ -38,6 +54,9 @@ interface RetrievalResult {
   traceId: string;
   policyPath: string;
   candidates: CandidateTrace[];
+  queryProfile: ConsultResponse['query_profile'];
+  retrievalMode: ConsultResponse['retrieval_mode'];
+  retrievalBundle: ManagerRetrievalBundle | null;
 }
 
 function uniqueArtifacts(items: VerificationArtifact[]): VerificationArtifact[] {
@@ -91,11 +110,77 @@ function buildCitations(selected: MemoryRecord[]): ConsultCitation[] {
     memory_id: memory.id,
     title: memory.title,
     memory_type: memory.memory_type,
+    memory_scope: memory.memory_scope,
+    memory_layer: memory.memory_layer,
+    memory_subtype: memory.memory_subtype,
     summary: memory.summary,
     source: memory.source,
     verified_by: memory.verified_by,
     evidence_ref: memory.evidence_ref,
+    entity_keys: memory.entity_keys,
+    entity_aliases: memory.entity_aliases,
   }));
+}
+
+function normalizedExactValue(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+function matchesExactFact(query: string, memory: Pick<MemoryRecord, 'title' | 'entity_keys' | 'entity_aliases' | 'memory_subtype'>): boolean {
+  const normalizedQuery = normalizedExactValue(query);
+  const queryTokens = tokenize(normalizedQuery);
+  const exactKeys = Array.from(new Set([
+    ...memory.entity_keys.flatMap((key) => [key, key.replace(/_/g, ' ')]),
+    ...memory.entity_aliases,
+  ]))
+    .map(normalizedExactValue)
+    .filter((candidate) => candidate.length >= 3);
+
+  return exactKeys.some((candidate) => {
+    const candidateTokens = tokenize(candidate);
+    if (candidateTokens.length <= 1 && !candidate.includes(' ')) {
+      return queryTokens.length <= 3 && queryTokens.includes(candidate);
+    }
+
+    return normalizedQuery === candidate
+      || normalizedQuery.includes(candidate)
+      || candidate.includes(normalizedQuery);
+  });
+}
+
+function citationForMemory(memory: MemoryRecord): ConsultCitation {
+  return buildCitations([memory])[0];
+}
+
+function buildExactFactResolutions(requiredExactKeys: string[], exactHits: MemoryRecord[], conflicts: Array<{ key: string; memory_id: string }>): ExactFactResolution[] {
+  return requiredExactKeys.map((key) => {
+    const exactHit = exactHits.find((memory) => memory.entity_keys.includes(key));
+    if (exactHit) {
+      return {
+        key,
+        status: 'resolved',
+        memory_id: exactHit.id,
+        reason: `resolved via ${exactHit.title}`,
+      };
+    }
+
+    const conflict = conflicts.find((item) => item.key === key);
+    if (conflict) {
+      return {
+        key,
+        status: 'conflict',
+        memory_id: conflict.memory_id,
+        reason: 'exact fact has conflicting active memories',
+      };
+    }
+
+    return {
+      key,
+      status: 'missing',
+      memory_id: null,
+      reason: 'no exact memory matched the required key',
+    };
+  });
 }
 
 export class BestBrain {
@@ -142,8 +227,36 @@ export class BestBrain {
     supersedes?: string | null;
     evidence_ref?: VerificationArtifact[];
     memory_type: MemoryRecord['memory_type'];
+    memory_scope?: MemoryRecord['memory_scope'];
+    memory_layer?: MemoryRecord['memory_layer'];
+    memory_subtype?: string;
+    entity_keys?: string[];
+    entity_aliases?: string[];
+    written_by?: MemoryRecord['written_by'];
+    owner_scope?: MemoryRecord['owner_scope'];
+    retrieval_weight?: number;
+    last_validated_at?: number | null;
+    valid_until?: number | null;
   }, timestamp: number, status: MemoryRecord['status'], verifiedBy: MemoryRecord['verified_by']): MemoryRecord {
     const lifecycle = deriveLifecycle(input.memory_type, timestamp);
+    const tags = Array.from(new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean)));
+    const memorySubtype = normalizeMemorySubtype(input.memory_subtype, input.memory_type, input.title, tags);
+    const entityKeys = input.entity_keys && input.entity_keys.length > 0
+      ? Array.from(new Set(input.entity_keys.map((item) => item.trim()).filter(Boolean)))
+      : deriveEntityKeys({
+          title: input.title,
+          content: input.content,
+          tags,
+          memorySubtype,
+        });
+    const entityAliases = input.entity_aliases && input.entity_aliases.length > 0
+      ? Array.from(new Set(input.entity_aliases.map((item) => item.trim()).filter(Boolean)))
+      : deriveEntityAliases({
+          title: input.title,
+          content: input.content,
+          tags,
+          memorySubtype,
+        });
 
     return {
       id: createId('mem'),
@@ -151,15 +264,27 @@ export class BestBrain {
       content: input.content.trim(),
       summary: summarizeText(input.content),
       memory_type: input.memory_type,
+      memory_scope: input.memory_scope ?? defaultMemoryScope(input.memory_type, input.mission_id ?? null),
+      memory_layer: input.memory_layer ?? defaultMemoryLayer(input.memory_type),
+      memory_subtype: memorySubtype,
       source: input.source.trim(),
       confidence: input.confidence ?? 0.7,
       owner: input.owner?.trim() || this.config.owner,
+      owner_scope: input.owner_scope ?? 'private',
       domain: input.domain?.trim() || null,
       reusable: input.reusable ?? true,
       supersedes: input.supersedes ?? null,
       superseded_by: null,
       mission_id: input.mission_id ?? null,
-      tags: Array.from(new Set((input.tags ?? []).map((tag) => tag.trim()).filter(Boolean))),
+      tags,
+      entity_keys: entityKeys,
+      entity_aliases: entityAliases,
+      written_by: input.written_by ?? 'system',
+      retrieval_weight: input.retrieval_weight ?? 1,
+      promotion_state: 'none',
+      times_reused: 0,
+      last_reused_at: null,
+      success_rate_hint: null,
       status,
       verified_by: verifiedBy,
       evidence_ref: uniqueArtifacts(input.evidence_ref ?? []),
@@ -169,6 +294,11 @@ export class BestBrain {
       archive_after_at: lifecycle.archive_after_at,
       expires_at: lifecycle.expires_at,
       archived_at: null,
+      last_validated_at: input.last_validated_at ?? (verifiedBy && verifiedBy !== 'system_inference' ? timestamp : null),
+      valid_until: input.valid_until ?? null,
+      embedding_status: 'disabled',
+      embedding_updated_at: null,
+      embedding_model_version: null,
       created_at: timestamp,
       updated_at: timestamp,
     };
@@ -189,7 +319,77 @@ export class BestBrain {
       supersedes: request.supersedes,
       evidence_ref: request.evidence_ref,
       memory_type: rule.memoryType,
+      memory_scope: request.memory_scope,
+      memory_layer: request.memory_layer,
+      memory_subtype: request.memory_subtype,
+      entity_keys: request.entity_keys,
+      entity_aliases: request.entity_aliases,
+      written_by: request.written_by ?? 'system',
+      owner_scope: request.owner_scope,
+      retrieval_weight: request.retrieval_weight,
+      last_validated_at: request.last_validated_at,
+      valid_until: request.valid_until,
     }, timestamp, status, verifiedBy);
+  }
+
+  private findConflictingActiveMemories(memory: MemoryRecord): MemoryRecord[] {
+    return this.store.listActiveMemories().filter((candidate) => {
+      if (candidate.id === memory.id) {
+        return false;
+      }
+      if (candidate.memory_subtype !== memory.memory_subtype) {
+        return false;
+      }
+      if (candidate.owner_scope !== memory.owner_scope) {
+        return false;
+      }
+      const sameTitle = slugify(candidate.title) === slugify(memory.title);
+      const structuredOverlap = candidate.entity_keys.some((key) => key.includes('_') && memory.entity_keys.includes(key));
+      if (!sameTitle && !structuredOverlap) {
+        return false;
+      }
+      return candidate.content.trim().toLowerCase() !== memory.content.trim().toLowerCase();
+    });
+  }
+
+  private resolveContradictionsForMemory(memory: MemoryRecord, confirmedByUser: boolean, timestamp: number): {
+    status: 'resolved' | 'conflict';
+    conflictingMemoryIds: string[];
+  } {
+    const conflicts = this.findConflictingActiveMemories(memory);
+    if (conflicts.length === 0) {
+      return { status: 'resolved', conflictingMemoryIds: [] };
+    }
+
+    if (confirmedByUser && (memory.memory_type === 'Persona' || memory.memory_type === 'Preferences')) {
+      for (const conflict of conflicts) {
+        this.store.insertMemoryContradiction({
+          leftMemoryId: conflict.id,
+          rightMemoryId: memory.id,
+          conflictKind: deriveConflictKind(conflict, memory),
+          resolutionState: 'resolved',
+          chosenMemoryId: memory.id,
+          resolutionReason: 'auto_supersede',
+          resolvedBy: 'user',
+          resolvedAt: timestamp,
+          createdAt: timestamp,
+        });
+        this.store.supersedeMemory(conflict.id, memory.id, timestamp);
+      }
+      return { status: 'resolved', conflictingMemoryIds: conflicts.map((memoryItem) => memoryItem.id) };
+    }
+
+    for (const conflict of conflicts) {
+      this.store.insertMemoryContradiction({
+        leftMemoryId: conflict.id,
+        rightMemoryId: memory.id,
+        conflictKind: deriveConflictKind(conflict, memory),
+        resolutionState: 'user_confirm',
+        createdAt: timestamp,
+      });
+    }
+
+    return { status: 'conflict', conflictingMemoryIds: conflicts.map((memoryItem) => memoryItem.id) };
   }
 
   async learn(request: LearnRequest): Promise<LearnResult> {
@@ -278,6 +478,8 @@ export class BestBrain {
 
     this.store.insertMemory(next, `Created from ${request.mode}`);
 
+    const contradictionResult = this.resolveContradictionsForMemory(next, confirmed, timestamp);
+
     if (next.supersedes) {
       this.store.insertEdge(next.id, next.supersedes, 'derived_from', 1, { mode: request.mode }, timestamp);
     }
@@ -292,7 +494,9 @@ export class BestBrain {
       missionId: next.mission_id,
       action: request.supersedes || mergeCandidate ? 'updated' : 'created',
       accepted: true,
-      reason: request.supersedes || mergeCandidate ? 'created successor memory' : 'created new memory',
+      reason: contradictionResult.status === 'conflict'
+        ? 'created new memory with unresolved contradiction'
+        : (request.supersedes || mergeCandidate ? 'created successor memory' : 'created new memory'),
       payload: request,
       createdAt: timestamp,
     });
@@ -408,6 +612,16 @@ export class BestBrain {
       supersedes: input.supersedes,
       evidence_ref: input.evidence_ref,
       memory_type: input.memory_type,
+      memory_scope: input.memory_scope,
+      memory_layer: input.memory_layer,
+      memory_subtype: input.memory_subtype,
+      entity_keys: input.entity_keys,
+      entity_aliases: input.entity_aliases,
+      written_by: input.written_by ?? 'system',
+      owner_scope: input.owner_scope,
+      retrieval_weight: input.retrieval_weight,
+      last_validated_at: input.last_validated_at,
+      valid_until: input.valid_until,
     }, timestamp, status, verifiedBy);
 
     if (input.supersedes) {
@@ -418,6 +632,7 @@ export class BestBrain {
     }
 
     this.store.insertMemory(next, `Created curated ${input.memory_type} memory`);
+    const contradictionResult = this.resolveContradictionsForMemory(next, confirmed, timestamp);
 
     if (next.supersedes) {
       this.store.insertEdge(next.id, next.supersedes, 'derived_from', 1, { mode: `curated_${input.memory_type}` }, timestamp);
@@ -444,7 +659,9 @@ export class BestBrain {
       missionId: next.mission_id,
       action: next.supersedes ? 'updated' : 'created',
       accepted: true,
-      reason: next.supersedes ? 'created successor curated memory' : 'created new curated memory',
+      reason: contradictionResult.status === 'conflict'
+        ? 'created curated memory with unresolved contradiction'
+        : (next.supersedes ? 'created successor curated memory' : 'created new curated memory'),
       payload: input,
       createdAt: timestamp,
     });
@@ -467,10 +684,25 @@ export class BestBrain {
     const preferredTypes = preferredTypesForIntent(intent);
     const policyPath = policyPathForIntent(intent);
     const queryTokens = tokenize(request.query);
+    const queryProfile = classifyQueryProfile(request.query, intent);
+    const weights = retrievalWeights(queryProfile);
+    const lexicalScores = new Map(this.store.searchMemoriesLexical(request.query, 40).map((entry) => [entry.memory_id, entry.score]));
+    const allMemories = this.store.listMemories();
+    const exactConflictKeys = new Map<string, string>();
+    const blockedExactCandidates = allMemories.filter((memory) => matchesExactFact(request.query, memory));
+    for (const memory of blockedExactCandidates) {
+      const hasConflict = this.store.listActiveContradictionsForMemory(memory.id)
+        .some((conflict) => conflict.resolution_state !== 'resolved');
+      if (hasConflict) {
+        for (const key of memory.entity_keys) {
+          exactConflictKeys.set(key, memory.id);
+        }
+      }
+    }
+
     const traces: CandidateTrace[] = [];
     const duplicateKeys = new Map<string, string>();
-
-    for (const memory of this.store.listMemories()) {
+    for (const memory of allMemories) {
       const linkedMission = memory.mission_id ? this.store.getMission(memory.mission_id) : null;
       const whyIncluded: string[] = [];
       const whyExcluded: string[] = [];
@@ -491,18 +723,30 @@ export class BestBrain {
 
       const searchable = `${memory.title} ${memory.summary} ${memory.content} ${memory.tags.join(' ')} ${memory.domain ?? ''}`;
       const keywordHits = countKeywordHits(queryTokens, searchable);
+      const exactMatch = matchesExactFact(request.query, memory);
+      let lexicalScore = lexicalScores.get(memory.id) ?? 0;
       if (keywordHits > 0) {
-        rankingContribution.push({ rule: 'keyword_hits', delta: keywordHits * 12 });
+        lexicalScore = Math.max(lexicalScore, Math.min(1, keywordHits / Math.max(queryTokens.length, 1)));
+        rankingContribution.push({ rule: 'keyword_hits', delta: lexicalScore * 24 });
         whyIncluded.push(`matched ${keywordHits} query tokens`);
+      }
+      if (exactMatch) {
+        lexicalScore = Math.max(lexicalScore, 1);
+        rankingContribution.push({ rule: 'exact_match', delta: 30 });
+        whyIncluded.push('matched exact entity or alias');
       }
 
       const typeIndex = preferredTypes.indexOf(memory.memory_type);
+      let policyScore = 0;
       if (typeIndex !== -1) {
-        rankingContribution.push({ rule: 'intent_memory_type', delta: 28 - typeIndex * 4 });
+        const typeScore = Math.max(0.25, 0.9 - typeIndex * 0.15);
+        policyScore += typeScore;
+        rankingContribution.push({ rule: 'intent_memory_type', delta: typeScore * 18 });
         whyIncluded.push(`preferred ${memory.memory_type} for ${intent}`);
       }
 
       if (request.domain && memory.domain === request.domain) {
+        policyScore += 0.2;
         rankingContribution.push({ rule: 'domain_match', delta: 14 });
         whyIncluded.push('matched requested domain');
       } else if (request.domain && memory.domain && memory.domain !== request.domain) {
@@ -511,6 +755,7 @@ export class BestBrain {
       }
 
       if (request.mission_id && memory.mission_id === request.mission_id) {
+        policyScore += 0.2;
         rankingContribution.push({ rule: 'mission_match', delta: 18 });
         whyIncluded.push('matched requested mission');
       } else if (request.mission_id && memory.mission_id && memory.mission_id !== request.mission_id) {
@@ -555,7 +800,25 @@ export class BestBrain {
         whyExcluded.push('stale-check due');
       }
 
-      const score = rankingContribution.reduce((sum, item) => sum + item.delta, 0);
+      const staleScore = computeStalenessScore(memory, timestamp);
+      if (isStaleCandidate(memory, timestamp)) {
+        rankingContribution.push({ rule: 'stale_candidate', delta: -18 });
+        whyExcluded.push('stale_candidate');
+      }
+
+      if (queryProfile === 'blocked_exact' && !exactMatch) {
+        whyExcluded.push('not_exact_match');
+      }
+      const conflictingExactKey = memory.entity_keys.find((key) => exactConflictKeys.has(key));
+      if (queryProfile === 'blocked_exact' && exactMatch && conflictingExactKey) {
+        whyExcluded.push(`exact_conflict:${conflictingExactKey}`);
+      }
+
+      const vectorScore = 0;
+      const finalScore =
+        (lexicalScore * weights.lexical + policyScore * weights.policy + vectorScore * weights.vector) * 100
+        + rankingContribution.reduce((sum, item) => sum + item.delta, 0)
+        - staleScore * 10;
       const duplicateKey = `${memory.memory_type}:${slugify(memory.title)}:${memory.mission_id ?? ''}`;
       const prior = duplicateKeys.get(duplicateKey);
       if (prior) {
@@ -564,7 +827,7 @@ export class BestBrain {
         duplicateKeys.set(duplicateKey, memory.id);
       }
 
-      if (keywordHits === 0 && typeIndex === -1 && !request.mission_id && !request.domain) {
+      if (keywordHits === 0 && lexicalScore === 0 && typeIndex === -1 && !request.mission_id && !request.domain) {
         whyExcluded.push('low lexical relevance');
       }
 
@@ -572,32 +835,136 @@ export class BestBrain {
         memory_id: memory.id,
         title: memory.title,
         memory_type: memory.memory_type,
+        memory_scope: memory.memory_scope,
+        memory_layer: memory.memory_layer,
+        memory_subtype: memory.memory_subtype,
         source: memory.source,
-        score,
+        lexical_score: lexicalScore,
+        vector_score: vectorScore,
+        policy_score: policyScore,
+        score: finalScore,
+        final_score: finalScore,
         why_included: whyIncluded,
         why_excluded: whyExcluded,
         ranking_contribution: rankingContribution,
       });
     }
 
-    const selectedIds = traces
-      .filter((trace) => trace.why_excluded.length === 0)
-      .sort((left, right) => right.score - left.score)
-      .slice(0, request.limit ?? 5)
-      .map((trace) => trace.memory_id);
+    const bundleProfile = request.bundle_profile
+      ?? (request.consumer === 'manager'
+        ? 'manager_plan'
+        : request.consumer === 'worker'
+          ? 'worker_exec'
+          : 'chat_direct');
+    const maxSelected = Math.min(request.limit ?? bundleMaxK(bundleProfile), bundleMaxK(bundleProfile));
+    const eligible = traces.filter((trace) => trace.why_excluded.length === 0);
+    const budgetTargets = targetLayerBudgets(intent);
+    const selectedIds: string[] = [];
+    const selectedLayerCounts = new Map<MemoryRecord['memory_layer'], number>();
+    const eligibleMap = new Map(eligible.map((trace) => [trace.memory_id, trace]));
+
+    if (queryProfile === 'blocked_exact') {
+      for (const trace of eligible
+        .filter((trace) => trace.why_included.includes('matched exact entity or alias'))
+        .sort((left, right) => right.final_score - left.final_score)
+        .slice(0, maxSelected)) {
+        selectedIds.push(trace.memory_id);
+      }
+    } else {
+      while (selectedIds.length < maxSelected) {
+        const remaining = eligible
+          .filter((trace) => !selectedIds.includes(trace.memory_id))
+          .map((trace) => {
+            const memory = this.store.getMemory(trace.memory_id);
+            if (!memory) {
+              return null;
+            }
+            const currentCount = selectedLayerCounts.get(memory.memory_layer) ?? 0;
+            const currentShare = selectedIds.length === 0 ? 0 : currentCount / selectedIds.length;
+            const targetShare = budgetTargets[memory.memory_layer];
+            const diversityPenalty = currentShare > targetShare ? (currentShare - targetShare) * 25 : 0;
+            return {
+              trace,
+              adjustedScore: trace.final_score - diversityPenalty,
+              layer: memory.memory_layer,
+            };
+          })
+          .filter((item): item is { trace: CandidateTrace; adjustedScore: number; layer: MemoryRecord['memory_layer'] } => item != null)
+          .sort((left, right) => right.adjustedScore - left.adjustedScore);
+
+        const next = remaining[0];
+        if (!next) {
+          break;
+        }
+        selectedIds.push(next.trace.memory_id);
+        selectedLayerCounts.set(next.layer, (selectedLayerCounts.get(next.layer) ?? 0) + 1);
+      }
+    }
     const selected = selectedIds
       .map((id) => this.store.getMemory(id))
       .filter((memory): memory is MemoryRecord => memory != null);
     const traceId = createId('trace');
+    const exactHits = allMemories
+      .filter((memory) => matchesExactFact(request.query, memory))
+      .filter((memory) => !traces.find((trace) => trace.memory_id === memory.id)?.why_excluded.includes('exact_conflict'))
+      .sort((left, right) => (eligibleMap.get(right.id)?.final_score ?? 0) - (eligibleMap.get(left.id)?.final_score ?? 0))
+      .slice(0, 4);
+    const exactRequirementConflicts = Array.from(exactConflictKeys.entries()).map(([key, memoryId]) => ({ key, memory_id: memoryId }));
+    const retrievalBundle = request.consumer || request.bundle_profile
+      ? ({
+          bundle_profile: bundleProfile,
+          query_profile: queryProfile,
+          exact_hits: exactHits.map(citationForMemory),
+          identity_bundle: selected.filter((memory) => memory.memory_scope === 'owner' || memory.memory_layer === 'principle').map(citationForMemory),
+          approach_bundle: selected.filter((memory) => memory.memory_layer === 'pattern' || memory.memory_layer === 'learning').map(citationForMemory),
+          proof_bundle: selected.filter((memory) => memory.memory_layer === 'retro' || memory.memory_type === 'FailureMemory').map(citationForMemory),
+          working_bundle: selected.filter((memory) => memory.memory_layer === 'working' || memory.memory_scope === 'session').map(citationForMemory),
+          suppressed_candidates: traces
+            .filter((trace) => trace.why_excluded.length > 0)
+            .slice(0, 5)
+            .map((trace) => ({
+              memory_id: trace.memory_id,
+              title: trace.title,
+              reason: trace.why_excluded[0] ?? 'suppressed',
+            })),
+          tension_signals: selected.flatMap((memory) => {
+            const conflicts = this.store.listActiveContradictionsForMemory(memory.id).slice(0, 2);
+            return conflicts.map((conflict) => ({
+              left_memory_id: conflict.left_memory_id,
+              right_memory_id: conflict.right_memory_id,
+              signal_type: 'contradiction' as const,
+              severity: 'high' as const,
+              summary: `Conflicting active memories detected for ${memory.title}.`,
+              recommended_handling: 'Resolve the contradiction before promoting or relying on an exact fact.',
+            }));
+          }),
+          blocked_exact_status: queryProfile === 'blocked_exact'
+            ? (exactRequirementConflicts.length > 0 ? 'exact_conflict' : exactHits.length > 0 ? 'resolved' : 'no_exact_match')
+            : 'resolved',
+          exact_requirements: buildExactFactResolutions(
+            exactHits.flatMap((memory) => memory.entity_keys.filter((key) => key.startsWith('owner_') || key.startsWith('preferred_'))),
+            exactHits,
+            exactRequirementConflicts,
+          ),
+        }) satisfies ManagerRetrievalBundle
+      : null;
+    const retrievalMode =
+      queryProfile === 'blocked_exact'
+        ? 'blocked_exact'
+        : queryProfile === 'semantic_long' || queryProfile === 'balanced'
+          ? 'vector_unavailable_fallback'
+          : 'fts_only';
 
     if (persistTrace) {
       this.store.insertRetrievalTrace({
         id: traceId,
         query: request.query,
         intent,
+        queryProfile,
         missionId: request.mission_id ?? null,
         domain: request.domain ?? null,
         policyPath,
+        retrievalMode,
         matchedCandidates: traces,
         whyIncluded: traces.filter((trace) => trace.why_included.length > 0).map((trace) => ({
           memory_id: trace.memory_id,
@@ -617,22 +984,32 @@ export class BestBrain {
       });
     }
 
-    return { selected, traceId, policyPath, candidates: traces };
+    return {
+      selected,
+      traceId,
+      policyPath,
+      candidates: traces,
+      queryProfile,
+      retrievalMode,
+      retrievalBundle,
+    };
   }
 
   async consult(request: ConsultRequest): Promise<ConsultResponse> {
     const retrieval = this.retrieve(request, true);
     const topScore = retrieval.candidates
       .filter((candidate) => retrieval.selected.some((memory) => memory.id === candidate.memory_id))
-      .reduce((max, candidate) => Math.max(max, candidate.score), 0);
+      .reduce((max, candidate) => Math.max(max, candidate.final_score), 0);
     const confidenceBand = scoreToBand(topScore, retrieval.selected.length);
     const intent = classifyIntent(request.query, request.mission_id);
 
-    const answer = retrieval.selected.length === 0
+    const answer = retrieval.queryProfile === 'blocked_exact' && retrieval.retrievalBundle?.blocked_exact_status === 'no_exact_match'
+      ? 'I could not resolve that exact fact from the current brain memory. Please clarify or confirm the exact value first.'
+      : retrieval.selected.length === 0
       ? 'No strong memory match was found. Capture a durable procedure, mission note, or confirmed preference before acting on this query.'
       : [
           `Consult intent: ${intent}.`,
-          ...retrieval.selected.slice(0, 3).map((memory) => `- [${memory.memory_type}] ${memory.title}: ${memory.summary}`),
+          ...retrieval.selected.slice(0, 3).map((memory) => `- [${memory.memory_type}/${memory.memory_layer}] ${memory.title}: ${memory.summary}`),
         ].join('\n');
 
     return {
@@ -640,10 +1017,13 @@ export class BestBrain {
       memory_ids: retrieval.selected.map((memory) => memory.id),
       citations: buildCitations(retrieval.selected),
       policy_path: retrieval.policyPath,
+      query_profile: retrieval.queryProfile,
+      retrieval_mode: retrieval.retrievalMode,
       confidence_band: confidenceBand,
       followup_actions: buildFollowups(intent),
       trace_id: retrieval.traceId,
       selected_memories: retrieval.selected,
+      retrieval_bundle: retrieval.retrievalBundle,
     };
   }
 
@@ -776,7 +1156,7 @@ export class BestBrain {
       'outcome_saved',
       'brain',
       `Mission outcome recorded and mission moved to ${nextMission.status}.`,
-      { outcome_memory_id: learnResult.memory_id, checks: input.verification_checks, evidence: input.evidence },
+      { outcome_memory_id: learnResult.memory_id, checks: input.verification_checks, evidence: input.evidence, reused_memory_ids: input.reused_memory_ids ?? [] },
       nowMs(),
     );
 
@@ -832,9 +1212,18 @@ export class BestBrain {
   async getContext(params: { mission_id?: string | null; domain?: string | null; query?: string | null }): Promise<MissionContextBundle> {
     const mission = params.mission_id ? this.store.getMission(params.mission_id) : null;
     const history = mission ? this.store.listMissionEvents(mission.id, 10) : [];
-    const selected = params.query
-      ? this.retrieve({ query: params.query, mission_id: params.mission_id ?? null, domain: params.domain ?? null, limit: 5 }, false).selected
-      : this.store.listMemories().filter((memory) => memory.status === 'active').slice(0, 5);
+    const retrieval = params.query
+      ? this.retrieve({
+          query: params.query,
+          mission_id: params.mission_id ?? null,
+          domain: params.domain ?? null,
+          limit: 5,
+          consumer: 'manager',
+          bundle_profile: 'manager_plan',
+        }, false)
+      : null;
+    const selected = retrieval?.selected
+      ?? this.store.listMemories().filter((memory) => memory.status === 'active').slice(0, 5);
 
     return {
       mission,
@@ -845,6 +1234,7 @@ export class BestBrain {
       preferred_format: mission?.preferred_format ?? this.getPreferredFormat(),
       verification_state: mission ? this.store.getCompletionProofState(mission.id) : null,
       verification_artifacts: mission ? this.store.getVerificationArtifactRegistrySnapshot(mission.id).artifacts : [],
+      manager_bundle: retrieval?.retrievalBundle ?? null,
     };
   }
 
@@ -935,6 +1325,17 @@ export class BestBrain {
         sourceKind: 'verification_complete',
         createdAt: nowMs(),
       });
+    }
+
+    if (input.status === 'verified_complete') {
+      const latestOutcomeEvent = this.store.listMissionEvents(nextMission.id, 10)
+        .find((event) => event.event_type === 'outcome_saved');
+      const reusedMemoryIds = Array.isArray(latestOutcomeEvent?.data.reused_memory_ids)
+        ? latestOutcomeEvent?.data.reused_memory_ids.filter((item): item is string => typeof item === 'string')
+        : [];
+      if (reusedMemoryIds.length > 0) {
+        this.store.incrementMemoryReuse(reusedMemoryIds, nowMs());
+      }
     }
 
     if (input.status === 'verified_complete' && nextMission.latest_outcome_memory_id) {

@@ -28,6 +28,11 @@ export function validateMissionBrief(brief: MissionBrief): MissionBriefValidatio
     { field: 'mission_definition', passed: brief.mission_definition.id === brief.mission_definition_id },
     { field: 'report_contract', passed: brief.report_contract.id === brief.report_contract_id && brief.report_contract.required_sections.length >= 5 },
     {
+      field: 'required_exact_keys',
+      passed: brief.required_exact_keys.length === 0
+        || brief.required_exact_keys.every((key) => brief.resolved_exact_keys.includes(key)),
+    },
+    {
       field: 'input_adapter_decisions',
       passed: brief.mission_definition.required_inputs.every((inputSpec) => {
         const decision = brief.input_adapter_decisions.find((candidate) => candidate.input_id === inputSpec.id);
@@ -57,6 +62,12 @@ export function validateMissionBrief(brief: MissionBrief): MissionBriefValidatio
   }
   if (brief.input_adapter_decisions.some((decision) => decision.decision === 'blocked')) {
     warnings.push('brief has blocked input adapters and may need clarification or a different source.');
+  }
+  if (brief.missing_exact_keys.length > 0) {
+    warnings.push(`brief is missing required exact facts: ${brief.missing_exact_keys.join(', ')}`);
+  }
+  if (brief.conflicting_exact_keys.length > 0) {
+    warnings.push(`brief has conflicting exact facts: ${brief.conflicting_exact_keys.join(', ')}`);
   }
   if (brief.mission_kind === 'thai_equities_manager_led_scanner' && brief.manager_derivation?.owner_archetype === 'unknown') {
     warnings.push('actual stock-scanner mission did not derive a clear owner archetype from memory');

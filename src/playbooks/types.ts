@@ -32,6 +32,7 @@ export interface MissionPlaybook {
   title: string;
   scope: PlaybookScope;
   mission_kind: string;
+  required_exact_keys: string[];
   preferred_workers: WorkerId[];
   planning_hints: string[];
   report_format: string;

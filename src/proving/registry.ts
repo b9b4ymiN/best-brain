@@ -62,6 +62,7 @@ function buildGenericMissionDefinition(playbook: MissionPlaybook): ProvingMissio
     title: `Proving mission definition: ${playbook.title}`,
     mission_kind: playbook.mission_kind,
     goal_template: 'Take one user goal, compile a mission brief, execute the general engine, and finish only with proof.',
+    required_exact_keys: [...playbook.required_exact_keys],
     required_inputs: [buildWorkspaceInput(playbook.mission_kind !== 'owner_guidance')],
     allowed_workers: playbook.preferred_workers.filter((worker): worker is ManagerWorker => worker !== 'verifier'),
     required_evidence: Array.from(new Set([
@@ -84,6 +85,8 @@ function buildGenericMissionDefinition(playbook: MissionPlaybook): ProvingMissio
       blocked_reasons: [
         'ambiguous_goal',
         'missing_required_input',
+        'missing_exact_fact',
+        'conflicting_exact_fact',
         'invalid_input',
         'stale_input',
         'no_available_input_adapter',

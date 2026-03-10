@@ -58,6 +58,114 @@ describe('best-brain core', () => {
 
       expect(response.policy_path).toBe('deterministic.persona_guidance.v1');
       expect(response.citations.some((citation) => citation.memory_type === 'Persona' && citation.summary.includes('Beam'))).toBe(true);
+      expect(response.query_profile).toBe('blocked_exact');
+      expect(response.retrieval_mode).toBe('blocked_exact');
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('generic executable queries use hybrid routing without being misclassified as blocked exact', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      const response = await brain.consult({
+        query: 'Implement the manager proof chain for this repo.',
+        domain: 'best-brain',
+        consumer: 'manager',
+        bundle_profile: 'manager_plan',
+        limit: 50,
+      });
+
+      expect(response.query_profile).toBe('balanced');
+      expect(response.retrieval_mode).toBe('vector_unavailable_fallback');
+      expect(response.citations.length).toBeGreaterThan(0);
+      expect(response.memory_ids.length).toBeLessThanOrEqual(12);
+      expect(response.retrieval_bundle?.blocked_exact_status).toBe('resolved');
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('confirmed persona rewrites auto-supersede older conflicting identity memory without leaving active contradictions', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      const first = await brain.learn({
+        mode: 'persona',
+        title: 'Owner name',
+        content: 'The owner name is Beam.',
+        source: 'test://persona-first',
+        confirmed_by_user: true,
+        verified_by: 'user',
+        evidence_ref: [{ type: 'note', ref: 'test://persona-first' }],
+      });
+      const second = await brain.learn({
+        mode: 'persona',
+        title: 'Primary owner identity',
+        content: 'The owner name is Beam K.',
+        source: 'test://persona-second',
+        confirmed_by_user: true,
+        verified_by: 'user',
+        evidence_ref: [{ type: 'note', ref: 'test://persona-second' }],
+      });
+
+      expect(first.accepted).toBe(true);
+      expect(second.accepted).toBe(true);
+
+      const memories = brain.store.listMemories().filter((memory) => memory.memory_subtype === 'persona.identity');
+      const active = memories.find((memory) => memory.status === 'active');
+      const superseded = memories.find((memory) => memory.id === first.memory_id);
+
+      expect(active?.content).toContain('Beam K.');
+      expect(superseded?.status).toBe('superseded');
+      expect(brain.store.listActiveContradictionsForMemory(second.memory_id!)).toHaveLength(0);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('reused memories increment only after verified completion', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      const consult = await brain.consult({
+        query: 'If you were the owner, how should this mission start?',
+        consumer: 'manager',
+        bundle_profile: 'manager_plan',
+      });
+      const reusedId = consult.memory_ids[0];
+      const before = brain.store.getMemory(reusedId);
+
+      await brain.saveMissionOutcome({
+        mission_id: 'mission-reuse-proof',
+        objective: 'Verify reuse accounting',
+        result_summary: 'Prepared proof for reuse accounting.',
+        evidence: [{ type: 'note', ref: 'proof://reuse-accounting' }],
+        verification_checks: [{ name: 'proof', passed: true }],
+        status: 'in_progress',
+        reused_memory_ids: [reusedId],
+      });
+
+      const afterOutcomeOnly = brain.store.getMemory(reusedId);
+      expect(afterOutcomeOnly?.times_reused).toBe(before?.times_reused ?? 0);
+
+      await brain.startVerification({
+        mission_id: 'mission-reuse-proof',
+        requested_by: 'tester',
+        checks: [{ name: 'proof', passed: true }],
+      });
+      await brain.completeVerification({
+        mission_id: 'mission-reuse-proof',
+        status: 'verified_complete',
+        summary: 'Reuse accounting verified.',
+        evidence: [{ type: 'note', ref: 'proof://reuse-accounting' }],
+        verification_checks: [{ name: 'proof', passed: true }],
+      });
+
+      const afterVerified = brain.store.getMemory(reusedId);
+      expect(afterVerified?.times_reused).toBe((before?.times_reused ?? 0) + 1);
+      expect(afterVerified?.last_reused_at).not.toBeNull();
     } finally {
       cleanup();
     }

@@ -102,6 +102,8 @@ export function validateConsultRequest(value: unknown): ConsultRequest {
     mission_id: readOptionalString(body, 'mission_id'),
     domain: readOptionalString(body, 'domain'),
     limit: readOptionalNumber(body, 'limit'),
+    consumer: readOptionalString(body, 'consumer') as ConsultRequest['consumer'] | undefined,
+    bundle_profile: readOptionalString(body, 'bundle_profile') as ConsultRequest['bundle_profile'] | undefined,
   };
 }
 
@@ -135,6 +137,16 @@ export function validateLearnRequestInput(value: unknown): LearnRequest {
     verified_by: readOptionalString(body, 'verified_by') as LearnRequest['verified_by'] | undefined,
     evidence_ref: readArray(body, 'evidence_ref') as LearnRequest['evidence_ref'] | undefined,
     confirmed_by_user: readOptionalBoolean(body, 'confirmed_by_user'),
+    memory_scope: readOptionalString(body, 'memory_scope') as LearnRequest['memory_scope'] | undefined,
+    memory_layer: readOptionalString(body, 'memory_layer') as LearnRequest['memory_layer'] | undefined,
+    memory_subtype: readOptionalString(body, 'memory_subtype') ?? undefined,
+    entity_keys: readArray(body, 'entity_keys') as LearnRequest['entity_keys'] | undefined,
+    entity_aliases: readArray(body, 'entity_aliases') as LearnRequest['entity_aliases'] | undefined,
+    written_by: readOptionalString(body, 'written_by') as LearnRequest['written_by'] | undefined,
+    owner_scope: readOptionalString(body, 'owner_scope') as LearnRequest['owner_scope'] | undefined,
+    retrieval_weight: readOptionalNumber(body, 'retrieval_weight'),
+    last_validated_at: readOptionalNumber(body, 'last_validated_at') ?? null,
+    valid_until: readOptionalNumber(body, 'valid_until') ?? null,
   };
 }
 
@@ -148,6 +160,7 @@ export function validateMissionOutcomeInput(value: unknown, missionId: string): 
     verification_checks: readArray(body, 'verification_checks', true) as MissionOutcomeInput['verification_checks'],
     status: readOptionalString(body, 'status') as MissionOutcomeInput['status'],
     domain: readOptionalString(body, 'domain'),
+    reused_memory_ids: readArray(body, 'reused_memory_ids') as string[] | undefined,
   };
 }
 
@@ -161,6 +174,7 @@ export function validateMissionOutcomeToolInput(value: unknown): MissionOutcomeI
     verification_checks: readArray(body, 'verification_checks', true) as MissionOutcomeInput['verification_checks'],
     status: readOptionalString(body, 'status') as MissionOutcomeInput['status'],
     domain: readOptionalString(body, 'domain'),
+    reused_memory_ids: readArray(body, 'reused_memory_ids') as string[] | undefined,
   };
 }
 
@@ -208,6 +222,7 @@ export function validateMissionOutcomeStrictInput(value: unknown): StrictMission
     verification_checks: verificationChecks,
     status: status as StrictMissionOutcomeInput['status'],
     domain,
+    reused_memory_ids: readArray(body, 'reused_memory_ids') as string[] | undefined,
   };
 }
 

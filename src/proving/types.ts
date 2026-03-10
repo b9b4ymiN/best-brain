@@ -13,6 +13,8 @@ export type MissionInputFamily = (typeof MISSION_INPUT_FAMILIES)[number];
 export const MISSION_BLOCKED_REASONS = [
   'ambiguous_goal',
   'missing_required_input',
+  'missing_exact_fact',
+  'conflicting_exact_fact',
   'invalid_input',
   'stale_input',
   'no_available_input_adapter',
@@ -128,6 +130,7 @@ export interface ProvingMissionDefinition {
   title: string;
   mission_kind: string;
   goal_template: string;
+  required_exact_keys: string[];
   required_inputs: MissionInputSpec[];
   allowed_workers: WorkerId[];
   required_evidence: Array<VerificationArtifact['type']>;
@@ -353,6 +356,14 @@ export function validateProvingMissionDefinition(value: unknown): ProvingMission
     title: isNonEmptyString(value.title) ? value.title.trim() : (() => { throw new Error('proving mission definition title is required'); })(),
     mission_kind: isNonEmptyString(value.mission_kind) ? value.mission_kind.trim() : (() => { throw new Error('proving mission definition mission_kind is required'); })(),
     goal_template: isNonEmptyString(value.goal_template) ? value.goal_template.trim() : (() => { throw new Error('proving mission definition goal_template is required'); })(),
+    required_exact_keys: Array.isArray(value.required_exact_keys)
+      ? value.required_exact_keys.map((item) => {
+          if (!isNonEmptyString(item)) {
+            throw new Error('proving mission definition required_exact_keys must contain strings');
+          }
+          return item.trim();
+        })
+      : [],
     required_inputs: Array.isArray(value.required_inputs)
       ? value.required_inputs.map(validateMissionInputSpec)
       : (() => { throw new Error('proving mission definition required_inputs must be an array'); })(),

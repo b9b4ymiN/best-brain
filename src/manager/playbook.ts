@@ -110,6 +110,7 @@ export function resolveMissionPlaybook(
     title: `Mission playbook: ${missionKind}`,
     scope: missionKind === 'thai_equities_daily_scanner' ? 'domain' : 'mission',
     mission_kind: missionKind,
+    required_exact_keys: [],
     preferred_workers: preferredWorkers,
     planning_hints: Array.from(new Set([
       ...context.planning_hints,

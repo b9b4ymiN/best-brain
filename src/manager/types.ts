@@ -69,6 +69,10 @@ export interface MissionBrief {
   mission_definition_id: string;
   acceptance_profile_id: string;
   report_contract_id: string;
+  required_exact_keys: string[];
+  resolved_exact_keys: string[];
+  missing_exact_keys: string[];
+  conflicting_exact_keys: string[];
   goal: string;
   kind: ManagerDecisionKind;
   selected_worker: ManagerWorker | null;

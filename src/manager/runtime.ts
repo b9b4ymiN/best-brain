@@ -147,6 +147,7 @@ function mergeConsultResponses(primary: Awaited<ReturnType<BrainAdapter['consult
     citations: Array.from(citationMap.values()),
     followup_actions: Array.from(new Set([...primary.followup_actions, ...secondary.followup_actions])),
     selected_memories: Array.from(selectedMemoryMap.values()),
+    retrieval_bundle: primary.retrieval_bundle ?? secondary.retrieval_bundle,
   };
 }
 
@@ -203,6 +204,8 @@ export class ManagerRuntime {
       mission_id: existingMissionId,
       domain: 'best-brain',
       limit: 5,
+      consumer: 'manager',
+      bundle_profile: 'manager_plan',
     });
     if (isThaiEquitiesActualManagerGoal(input.goal)) {
       const personaConsult = await this.brain.consult({
@@ -210,6 +213,8 @@ export class ManagerRuntime {
         mission_id: null,
         domain: 'best-brain',
         limit: 8,
+        consumer: 'manager',
+        bundle_profile: 'manager_plan',
       });
       consult = mergeConsultResponses(consult, personaConsult);
     }
@@ -325,6 +330,20 @@ export class ManagerRuntime {
         decision,
         `Mission brief is incomplete: ${briefValidation.missing_fields.join(', ')}.`,
         'policy_rejection',
+      );
+    }
+    if (brief.missing_exact_keys.length > 0 && decision.kind !== 'chat') {
+      decision = buildBlockedDecisionWithCode(
+        decision,
+        `Required exact facts are missing: ${brief.missing_exact_keys.join(', ')}.`,
+        'missing_exact_fact',
+      );
+    }
+    if (brief.conflicting_exact_keys.length > 0 && decision.kind !== 'chat') {
+      decision = buildBlockedDecisionWithCode(
+        decision,
+        `Required exact facts conflict: ${brief.conflicting_exact_keys.join(', ')}.`,
+        'conflicting_exact_fact',
       );
     }
 
@@ -526,6 +545,11 @@ export class ManagerRuntime {
       verification_checks: verificationRequest.verification_checks,
       status: 'in_progress',
       domain: 'best-brain',
+      reused_memory_ids: Array.from(new Set([
+        ...brief.brain_citations.map((citation) => citation.memory_id),
+        ...(consult.retrieval_bundle?.exact_hits ?? []).map((citation) => citation.memory_id),
+        ...(consult.retrieval_bundle?.approach_bundle ?? []).map((citation) => citation.memory_id),
+      ])),
     }) as StrictMissionOutcomeInput;
 
     const outcomeResult = await this.brain.saveOutcome(strictOutcome);

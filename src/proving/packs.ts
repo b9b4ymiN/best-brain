@@ -41,6 +41,7 @@ export function buildThaiEquitiesStockScannerPlaybook(
     title: 'Thai equities daily stock scanner',
     scope: 'domain',
     mission_kind: 'thai_equities_daily_scanner',
+    required_exact_keys: [],
     preferred_workers: Array.from(new Set([
       decision.selected_worker === 'shell' ? 'shell' : 'shell',
       'verifier',
@@ -106,6 +107,7 @@ export function buildThaiEquitiesActualManagerPlaybook(
     title: 'Thai equities manager-led scanner mission',
     scope: 'domain',
     mission_kind: 'thai_equities_manager_led_scanner',
+    required_exact_keys: [],
     preferred_workers: [selectedWorker, 'verifier'],
     planning_hints: Array.from(new Set([
       ...context.planning_hints,

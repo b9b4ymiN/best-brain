@@ -146,6 +146,7 @@ export class BrainHttpAdapter implements BrainAdapter {
       verification_checks: input.verification_checks,
       status: input.status,
       domain: input.domain,
+      reused_memory_ids: input.reused_memory_ids,
     });
   }
 

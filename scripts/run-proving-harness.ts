@@ -11,6 +11,7 @@ const genericPlaybook: MissionPlaybook = {
   title: 'Repo change mission',
   scope: 'mission',
   mission_kind: 'repo_change_mission',
+  required_exact_keys: [],
   preferred_workers: ['codex', 'verifier'],
   planning_hints: ['Keep the proof chain intact.'],
   report_format: 'Concise status, evidence, risks, next action.',
