@@ -101,10 +101,28 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
       const body = validateChatMessageRequest(await readJsonBody(c));
       const encoder = new TextEncoder();
       const stream = new ReadableStream<Uint8Array>({
-        start(controller) {
-          void services.chat!.streamMessage(body, async (event) => {
-            controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
-          }).finally(() => controller.close());
+        async start(controller) {
+          let closed = false;
+          const safeEnqueue = (payload: unknown): void => {
+            if (closed) {
+              return;
+            }
+            controller.enqueue(encoder.encode(`${JSON.stringify(payload)}\n`));
+          };
+
+          try {
+            await services.chat!.streamMessage(body, async (event) => {
+              safeEnqueue(event);
+            });
+          } catch (error) {
+            safeEnqueue({
+              type: 'error',
+              error: error instanceof Error ? error.message : String(error),
+            });
+          } finally {
+            closed = true;
+            controller.close();
+          }
         },
       });
 

@@ -7,160 +7,140 @@ export function renderChatPage(): string {
     <title>best-brain chat</title>
     <style>
       :root {
-        --bg: #0b0f14;
-        --panel: #111823;
-        --panel-strong: #0f151f;
-        --panel-soft: #171f2c;
-        --ink: #ecf2ff;
-        --muted: #93a0b8;
-        --line: #263248;
-        --accent: #65b3ff;
-        --accent-soft: rgba(101, 179, 255, 0.12);
-        --good: #79d39d;
-        --warn: #ffb86c;
-        --bad: #ff8474;
-        --shadow: 0 28px 70px rgba(0, 0, 0, 0.35);
+        --bg: #f3efe7;
+        --panel: #fdfaf4;
+        --panel-2: #f7f2e9;
+        --ink: #181510;
+        --muted: #6e6558;
+        --line: #d6c8b1;
+        --accent: #b15c1b;
+        --accent-soft: rgba(177, 92, 27, 0.11);
+        --good: #2e6b41;
+        --warn: #8f5b14;
+        --bad: #9b3322;
       }
 
       * {
         box-sizing: border-box;
       }
 
-      html, body {
-        margin: 0;
-        min-height: 100%;
-        background:
-          radial-gradient(circle at top left, rgba(101, 179, 255, 0.16), transparent 26%),
-          radial-gradient(circle at top right, rgba(121, 211, 157, 0.08), transparent 22%),
-          linear-gradient(180deg, #0a0e14, var(--bg));
-        color: var(--ink);
-        font-family: "Aptos", "Segoe UI Variable", "Segoe UI", sans-serif;
-      }
-
       body {
-        padding: 28px 18px 120px;
+        margin: 0;
+        min-height: 100vh;
+        padding: 20px 16px 112px;
+        background:
+          radial-gradient(circle at top left, rgba(177, 92, 27, 0.08), transparent 28%),
+          linear-gradient(180deg, #f8f4ed, var(--bg));
+        color: var(--ink);
+        font-family: "Segoe UI", system-ui, sans-serif;
       }
 
       main {
-        max-width: 1120px;
+        max-width: 980px;
         margin: 0 auto;
         display: grid;
-        gap: 18px;
+        gap: 16px;
       }
 
-      .hero,
-      .composer-card,
-      .message-card {
+      .card {
         border: 1px solid var(--line);
-        background: linear-gradient(180deg, rgba(17, 24, 35, 0.98), rgba(14, 20, 30, 0.98));
-        border-radius: 24px;
-        box-shadow: var(--shadow);
+        border-radius: 22px;
+        background: var(--panel);
+        box-shadow: 0 12px 26px rgba(31, 27, 22, 0.05);
       }
 
       .hero {
-        padding: 24px 24px 20px;
+        padding: 22px;
         display: grid;
-        gap: 14px;
+        gap: 10px;
       }
 
       .eyebrow {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 6px 12px;
+        width: fit-content;
+        padding: 6px 10px;
         border-radius: 999px;
         background: var(--accent-soft);
         color: var(--accent);
-        font: 600 12px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-        width: fit-content;
+        font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+        letter-spacing: 0.04em;
       }
 
       h1 {
         margin: 0;
-        font-size: clamp(34px, 6vw, 56px);
-        line-height: 0.96;
-        letter-spacing: -0.04em;
+        font-size: 28px;
+        line-height: 1.05;
       }
 
-      .hero-copy {
+      .hero p {
         margin: 0;
-        max-width: 780px;
         color: var(--muted);
-        font-size: 17px;
         line-height: 1.7;
       }
 
-      .hero-links {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-      }
-
-      a.action-link {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 14px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.04);
-        color: var(--ink);
+      .hero a {
+        color: var(--accent);
         text-decoration: none;
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        font-weight: 600;
+        font-weight: 700;
       }
 
       .thread {
         display: grid;
-        gap: 16px;
-      }
-
-      .message-card {
-        padding: 18px;
-        display: grid;
         gap: 14px;
       }
 
-      .message-card.user {
-        background: linear-gradient(180deg, rgba(21, 30, 44, 0.98), rgba(14, 20, 30, 0.98));
+      .empty-state {
+        padding: 18px 20px;
+        color: var(--muted);
+        border: 1px dashed var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.45);
+      }
+
+      .message-card {
+        padding: 16px 18px;
+        display: grid;
+        gap: 12px;
       }
 
       .message-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 16px;
-      }
-
-      .identity {
-        display: flex;
-        align-items: center;
         gap: 12px;
       }
 
+      .message-identity {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
       .avatar {
-        width: 38px;
-        height: 38px;
-        border-radius: 12px;
+        width: 32px;
+        height: 32px;
+        border-radius: 10px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        background: rgba(101, 179, 255, 0.14);
-        color: var(--accent);
-        border: 1px solid rgba(101, 179, 255, 0.24);
-        font: 700 12px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        font: 700 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
         text-transform: uppercase;
+        border: 1px solid var(--line);
+        background: var(--panel-2);
+        color: var(--accent);
       }
 
-      .identity-title {
+      .message-title {
         display: grid;
-        gap: 3px;
+        gap: 2px;
       }
 
-      .identity-title strong {
-        font-size: 16px;
+      .message-title strong {
+        font-size: 15px;
       }
 
-      .identity-title small {
+      .message-title small {
         color: var(--muted);
       }
 
@@ -168,183 +148,181 @@ export function renderChatPage(): string {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 7px 12px;
+        padding: 6px 11px;
         border-radius: 999px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.03);
+        background: #efe7d9;
         color: var(--muted);
-        font: 600 12px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
       }
 
       .state-pill::before {
         content: "";
         width: 8px;
         height: 8px;
-        border-radius: 999px;
+        border-radius: 50%;
         background: var(--accent);
-        box-shadow: 0 0 0 0 rgba(101, 179, 255, 0.5);
-        animation: pulse 1.4s infinite;
+      }
+
+      .state-pill.done {
+        color: var(--good);
+        background: rgba(46, 107, 65, 0.1);
       }
 
       .state-pill.done::before {
-        animation: none;
         background: var(--good);
-        box-shadow: none;
+      }
+
+      .state-pill.warn {
+        color: var(--warn);
+        background: rgba(143, 91, 20, 0.1);
       }
 
       .state-pill.warn::before {
-        animation: none;
         background: var(--warn);
-        box-shadow: none;
+      }
+
+      .state-pill.bad {
+        color: var(--bad);
+        background: rgba(155, 51, 34, 0.1);
       }
 
       .state-pill.bad::before {
-        animation: none;
         background: var(--bad);
-        box-shadow: none;
       }
 
       .message-body {
         white-space: pre-wrap;
         word-break: break-word;
-        line-height: 1.75;
-        font-size: 16px;
+        line-height: 1.7;
+        font-size: 15px;
       }
 
-      .message-placeholder {
+      .message-body.pending {
         color: var(--muted);
-      }
-
-      .message-body.empty {
-        display: none;
       }
 
       .meta-row,
       .link-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
       }
 
       .meta-chip {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
+        padding: 6px 10px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        font: 600 12px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        background: #efe7d9;
         color: var(--muted);
+        font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
       }
 
       .meta-chip.good {
         color: var(--good);
-        background: rgba(121, 211, 157, 0.08);
+        background: rgba(46, 107, 65, 0.1);
       }
 
       .meta-chip.warn {
         color: var(--warn);
-        background: rgba(255, 184, 108, 0.08);
+        background: rgba(143, 91, 20, 0.1);
       }
 
       .meta-chip.bad {
         color: var(--bad);
-        background: rgba(255, 132, 116, 0.08);
+        background: rgba(155, 51, 34, 0.1);
       }
 
-      .worklog {
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 18px;
-        background: linear-gradient(180deg, rgba(8, 12, 19, 0.86), rgba(10, 14, 21, 0.96));
+      .link-row a {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 700;
+      }
+
+      .activity-panel {
+        display: none;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #fbf7ef;
         overflow: hidden;
       }
 
-      .worklog-head {
+      .activity-panel.visible {
+        display: block;
+      }
+
+      .activity-head {
         display: flex;
         align-items: center;
         justify-content: space-between;
-        gap: 12px;
-        padding: 12px 14px;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        gap: 10px;
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        background: rgba(0, 0, 0, 0.02);
         color: var(--muted);
-        font: 600 12px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
+        font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
       }
 
-      .worklog-items {
+      .activity-list {
         display: grid;
-        gap: 0;
-        max-height: 260px;
+        max-height: 240px;
         overflow: auto;
       }
 
-      .worklog-entry {
+      .activity-entry {
         display: grid;
-        grid-template-columns: 118px 96px 1fr;
+        grid-template-columns: 92px 92px 1fr;
         gap: 12px;
-        padding: 12px 14px;
-        border-top: 1px solid rgba(255, 255, 255, 0.04);
-        font: 13px/1.45 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        padding: 11px 12px;
+        border-top: 1px solid rgba(0, 0, 0, 0.05);
+        font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
       }
 
-      .worklog-entry:first-child {
+      .activity-entry:first-child {
         border-top: none;
       }
 
-      .worklog-time {
-        color: #607089;
+      .activity-time {
+        color: #8a7d69;
       }
 
-      .worklog-actor {
+      .activity-actor {
         color: var(--accent);
-        text-transform: lowercase;
       }
 
-      .worklog-copy {
+      .activity-copy {
         display: grid;
         gap: 4px;
       }
 
-      .worklog-copy strong {
+      .activity-copy strong {
         color: var(--ink);
-        font-weight: 700;
       }
 
-      .worklog-copy span {
+      .activity-copy span {
         color: var(--muted);
       }
 
-      .worklog-entry.info .worklog-actor {
-        color: #c0ccde;
-      }
-
-      .worklog-entry.completed .worklog-actor {
+      .activity-entry.completed .activity-actor {
         color: var(--good);
       }
 
-      .worklog-entry.blocked .worklog-actor,
-      .worklog-entry.failed .worklog-actor {
+      .activity-entry.blocked .activity-actor,
+      .activity-entry.failed .activity-actor {
         color: var(--bad);
       }
 
-      .composer-card {
+      .composer {
         position: sticky;
-        bottom: 18px;
-        padding: 16px;
-        background: linear-gradient(180deg, rgba(15, 21, 31, 0.98), rgba(11, 15, 22, 0.98));
-        backdrop-filter: blur(16px);
+        bottom: 14px;
+        padding: 14px;
+        background: rgba(253, 250, 244, 0.94);
+        backdrop-filter: blur(10px);
       }
 
       .composer-grid {
         display: grid;
         gap: 12px;
-      }
-
-      .composer-note {
-        color: var(--muted);
-        font-size: 13px;
       }
 
       textarea,
@@ -354,29 +332,28 @@ export function renderChatPage(): string {
       }
 
       textarea {
-        min-height: 120px;
-        padding: 16px 18px;
-        border-radius: 18px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        background: rgba(255, 255, 255, 0.03);
+        min-height: 98px;
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: #fffdf8;
         color: var(--ink);
         resize: vertical;
-        outline: none;
-        line-height: 1.65;
       }
 
       textarea:focus {
-        border-color: rgba(101, 179, 255, 0.55);
-        box-shadow: 0 0 0 4px rgba(101, 179, 255, 0.12);
+        outline: none;
+        border-color: rgba(177, 92, 27, 0.55);
+        box-shadow: 0 0 0 4px rgba(177, 92, 27, 0.12);
       }
 
       button {
         border: none;
-        border-radius: 18px;
-        padding: 14px 18px;
-        background: linear-gradient(135deg, #4d8fd0, #67b6ff);
-        color: #07131f;
-        font-weight: 800;
+        border-radius: 16px;
+        padding: 13px 16px;
+        background: var(--accent);
+        color: white;
+        font-weight: 700;
         cursor: pointer;
       }
 
@@ -385,68 +362,50 @@ export function renderChatPage(): string {
         cursor: wait;
       }
 
-      .empty-thread {
-        border: 1px dashed rgba(255, 255, 255, 0.12);
-        border-radius: 24px;
-        padding: 28px;
+      .composer-note {
         color: var(--muted);
-        background: rgba(255, 255, 255, 0.02);
+        font-size: 13px;
       }
 
-      @keyframes pulse {
-        0% {
-          box-shadow: 0 0 0 0 rgba(101, 179, 255, 0.45);
-        }
-        70% {
-          box-shadow: 0 0 0 10px rgba(101, 179, 255, 0);
-        }
-        100% {
-          box-shadow: 0 0 0 0 rgba(101, 179, 255, 0);
-        }
-      }
-
-      @media (max-width: 760px) {
+      @media (max-width: 720px) {
         body {
-          padding: 18px 12px 120px;
+          padding: 14px 10px 104px;
         }
 
-        .hero,
-        .message-card,
-        .composer-card {
-          border-radius: 20px;
-        }
-
-        .worklog-entry {
-          grid-template-columns: 1fr;
-          gap: 5px;
+        .card,
+        .activity-panel {
+          border-radius: 18px;
         }
 
         .message-head {
           align-items: flex-start;
           flex-direction: column;
         }
+
+        .activity-entry {
+          grid-template-columns: 1fr;
+          gap: 4px;
+        }
       }
     </style>
   </head>
   <body>
     <main>
-      <section class="hero">
-        <div class="eyebrow">best-brain / live manager console</div>
+      <section class="card hero">
+        <div class="eyebrow">manager-led chat</div>
         <h1>best-brain chat</h1>
-        <p class="hero-copy">Ask normally. The AI manager decides whether to answer directly, do light work, or turn the request into a mission internally. While it works, you can see the manager, worker, and verifier steps in real time.</p>
-        <div class="hero-links">
-          <a class="action-link" href="/control-room">Open control room</a>
-        </div>
+        <p>Ask normally. The AI manager decides whether to answer directly, do light work, or turn the request into a mission internally.</p>
+        <a href="/control-room">Open control room</a>
       </section>
 
       <section id="thread" class="thread">
-        <div class="empty-thread" id="emptyThread">Start with any question or goal. best-brain will show a live work log whenever it needs to think, dispatch a worker, or verify a result.</div>
+        <div id="emptyThread" class="empty-state">Type anything. If best-brain needs to consult memory, dispatch Claude, fall back, verify, or block on missing facts, you will see those steps here.</div>
       </section>
 
-      <section class="composer-card">
+      <section class="card composer">
         <div class="composer-grid">
           <textarea id="message" placeholder="Ask anything. Example: What is my name? / Please remember that I prefer concise reports. / I want a stock scanner that matches my investing style."></textarea>
-          <div class="composer-note">No mode hints required. The AI manager chooses chat, task, or mission on its own.</div>
+          <div class="composer-note">No mode hints needed. The AI manager decides the path by itself.</div>
           <button id="send">Send</button>
         </div>
       </section>
@@ -457,7 +416,6 @@ export function renderChatPage(): string {
       const emptyThread = document.getElementById('emptyThread');
       const messageEl = document.getElementById('message');
       const sendButton = document.getElementById('send');
-      const decoder = new TextDecoder();
       const FENCE = String.fromCharCode(96).repeat(3);
 
       function ensureThreadStarted() {
@@ -479,9 +437,7 @@ export function renderChatPage(): string {
           return trimmed;
         }
 
-        const normalized = trimmed
-          .split('\\r\\n').join('\\n')
-          .split('\\r').join('\\n');
+        const normalized = trimmed.replaceAll('\\r\\n', '\\n').replaceAll('\\r', '\\n');
         const lines = normalized.split('\\n');
         if (lines.length === 1) {
           return trimmed.split(FENCE).join('').trim();
@@ -504,7 +460,6 @@ export function renderChatPage(): string {
             if (payload.type === 'result' && typeof payload.result === 'string' && payload.result.trim()) {
               latestText = payload.result.trim();
             }
-
             if (Array.isArray(payload.message && payload.message.content)) {
               const text = payload.message.content
                 .filter((entry) => entry.type === 'text' && typeof entry.text === 'string')
@@ -515,7 +470,6 @@ export function renderChatPage(): string {
                 latestText = text;
               }
             }
-
             if (payload.msg && payload.msg.type === 'agent_message' && typeof payload.msg.message === 'string' && payload.msg.message.trim()) {
               latestText = payload.msg.message.trim();
             }
@@ -555,34 +509,29 @@ export function renderChatPage(): string {
       }
 
       function formatClock(value) {
-        const date = new Date(typeof value === 'number' ? value : Date.now());
-        return date.toLocaleTimeString([], {
+        return new Date(typeof value === 'number' ? value : Date.now()).toLocaleTimeString([], {
           hour: '2-digit',
           minute: '2-digit',
           second: '2-digit',
         });
       }
 
-      function statusLabel(event) {
-        if (!event) {
-          return 'working';
-        }
-
-        if (event.status === 'completed') {
+      function classifyState(label) {
+        if (label === 'verified_complete' || label === 'done' || label === 'chat') {
           return 'done';
         }
-        if (event.status === 'blocked') {
-          return 'blocked';
+        if (label === 'verification_failed' || label === 'rejected' || label === 'failed') {
+          return 'bad';
         }
-        if (event.status === 'failed') {
-          return 'needs repair';
+        if (label === 'blocked' || label === 'mission') {
+          return 'warn';
         }
-        return 'working';
+        return '';
       }
 
-      function bubbleMetaChip(text, className) {
+      function createMetaChip(text, stateClass) {
         const chip = document.createElement('span');
-        chip.className = 'meta-chip' + (className ? ' ' + className : '');
+        chip.className = 'meta-chip' + (stateClass ? ' ' + stateClass : '');
         chip.textContent = text;
         return chip;
       }
@@ -590,12 +539,12 @@ export function renderChatPage(): string {
       function addUserBubble(message) {
         ensureThreadStarted();
         const card = document.createElement('section');
-        card.className = 'message-card user';
+        card.className = 'card message-card';
         card.innerHTML = ''
           + '<div class="message-head">'
-          + '  <div class="identity">'
+          + '  <div class="message-identity">'
           + '    <div class="avatar">you</div>'
-          + '    <div class="identity-title"><strong>You</strong><small>input</small></div>'
+          + '    <div class="message-title"><strong>You</strong><small>input</small></div>'
           + '  </div>'
           + '  <div class="state-pill done">sent</div>'
           + '</div>'
@@ -607,43 +556,44 @@ export function renderChatPage(): string {
       function createAssistantBubble() {
         ensureThreadStarted();
         const card = document.createElement('section');
-        card.className = 'message-card assistant pending';
+        card.className = 'card message-card';
         card.innerHTML = ''
           + '<div class="message-head">'
-          + '  <div class="identity">'
+          + '  <div class="message-identity">'
           + '    <div class="avatar">bb</div>'
-          + '    <div class="identity-title"><strong>best-brain</strong><small>manager-led response</small></div>'
+          + '    <div class="message-title"><strong>best-brain</strong><small>live manager activity</small></div>'
           + '  </div>'
           + '  <div class="state-pill" data-role="state">working</div>'
           + '</div>'
-          + '<div class="message-body message-placeholder" data-role="answer">Waiting for the next step...</div>'
+          + '<div class="message-body pending" data-role="answer">Waiting for the next step...</div>'
           + '<div class="meta-row" data-role="meta"></div>'
-          + '<div class="worklog">'
-          + '  <div class="worklog-head"><span>Live activity</span><span data-role="activity-count">0 events</span></div>'
-          + '  <div class="worklog-items" data-role="worklog"></div>'
+          + '<div class="activity-panel" data-role="activity-panel">'
+          + '  <div class="activity-head"><span>Live activity</span><span data-role="activity-count">0 events</span></div>'
+          + '  <div class="activity-list" data-role="activity-list"></div>'
           + '</div>'
           + '<div class="link-row" data-role="links"></div>';
         thread.appendChild(card);
         card.scrollIntoView({ block: 'end', behavior: 'smooth' });
         return {
-          card,
-          answer: card.querySelector('[data-role="answer"]'),
-          meta: card.querySelector('[data-role="meta"]'),
-          links: card.querySelector('[data-role="links"]'),
-          worklog: card.querySelector('[data-role="worklog"]'),
-          activityCount: card.querySelector('[data-role="activity-count"]'),
-          state: card.querySelector('[data-role="state"]'),
-          activitySeen: new Set(),
-          activityTotal: 0,
+          card: card,
+          answerEl: card.querySelector('[data-role="answer"]'),
+          metaEl: card.querySelector('[data-role="meta"]'),
+          linksEl: card.querySelector('[data-role="links"]'),
+          stateEl: card.querySelector('[data-role="state"]'),
+          activityPanelEl: card.querySelector('[data-role="activity-panel"]'),
+          activityListEl: card.querySelector('[data-role="activity-list"]'),
+          activityCountEl: card.querySelector('[data-role="activity-count"]'),
+          seenEvents: new Set(),
+          eventCount: 0,
         };
       }
 
-      function appendStatusEvent(view, event) {
-        if (!event || !view.worklog) {
+      function appendProgress(view, event) {
+        if (!event || !view.activityListEl) {
           return;
         }
 
-        const eventKey = [
+        const key = [
           event.timestamp,
           event.stage,
           event.status,
@@ -651,124 +601,126 @@ export function renderChatPage(): string {
           event.title,
           event.detail,
         ].join('|');
-        if (view.activitySeen.has(eventKey)) {
+        if (view.seenEvents.has(key)) {
           return;
         }
-        view.activitySeen.add(eventKey);
-        view.activityTotal += 1;
-        if (view.activityCount) {
-          view.activityCount.textContent = view.activityTotal + ' event' + (view.activityTotal === 1 ? '' : 's');
+        view.seenEvents.add(key);
+        view.eventCount += 1;
+
+        if (view.activityPanelEl) {
+          view.activityPanelEl.classList.add('visible');
+        }
+        if (view.activityCountEl) {
+          view.activityCountEl.textContent = view.eventCount + ' event' + (view.eventCount === 1 ? '' : 's');
         }
 
-        const entry = document.createElement('div');
-        entry.className = 'worklog-entry ' + event.status;
-        entry.innerHTML = ''
-          + '<div class="worklog-time">' + escapeHtml(formatClock(event.timestamp)) + '</div>'
-          + '<div class="worklog-actor">' + escapeHtml(event.actor) + '</div>'
-          + '<div class="worklog-copy"><strong>' + escapeHtml(event.title) + '</strong><span>' + escapeHtml(event.detail) + '</span></div>';
-        view.worklog.appendChild(entry);
-        view.worklog.scrollTop = view.worklog.scrollHeight;
+        const row = document.createElement('div');
+        row.className = 'activity-entry ' + event.status;
+        row.innerHTML = ''
+          + '<div class="activity-time">' + escapeHtml(formatClock(event.timestamp)) + '</div>'
+          + '<div class="activity-actor">' + escapeHtml(event.actor) + '</div>'
+          + '<div class="activity-copy"><strong>' + escapeHtml(event.title) + '</strong><span>' + escapeHtml(event.detail) + '</span></div>';
+        view.activityListEl.appendChild(row);
+        view.activityListEl.scrollTop = view.activityListEl.scrollHeight;
 
-        if (view.state) {
-          view.state.textContent = statusLabel(event);
-          view.state.className = 'state-pill'
-            + (event.status === 'completed' ? ' done' : '')
-            + (event.status === 'blocked' ? ' warn' : '')
-            + (event.status === 'failed' ? ' bad' : '');
+        if (view.stateEl) {
+          const stateClass = event.status === 'completed'
+            ? 'done'
+            : event.status === 'blocked'
+              ? 'warn'
+              : event.status === 'failed'
+                ? 'bad'
+                : '';
+          view.stateEl.className = 'state-pill' + (stateClass ? ' ' + stateClass : '');
+          view.stateEl.textContent = event.status === 'started' ? 'working' : event.status;
         }
       }
 
-      function populateActivityLog(view, activityLog) {
-        if (!Array.isArray(activityLog)) {
-          return;
+      function clearActivity(view) {
+        view.seenEvents.clear();
+        view.eventCount = 0;
+        if (view.activityListEl) {
+          view.activityListEl.innerHTML = '';
         }
-
-        for (const event of activityLog) {
-          appendStatusEvent(view, event);
+        if (view.activityCountEl) {
+          view.activityCountEl.textContent = '0 events';
+        }
+        if (view.activityPanelEl) {
+          view.activityPanelEl.classList.remove('visible');
         }
       }
 
       function renderMeta(view, payload) {
-        if (!view.meta) {
+        if (!view.metaEl) {
           return;
         }
 
-        view.meta.innerHTML = '';
-        view.meta.appendChild(bubbleMetaChip(payload.decision_kind || 'chat', ''));
+        view.metaEl.innerHTML = '';
+        if (payload.decision_kind) {
+          view.metaEl.appendChild(createMetaChip(payload.decision_kind, classifyState(payload.decision_kind)));
+        }
         if (payload.mission_status) {
-          view.meta.appendChild(
-            bubbleMetaChip(
-              payload.mission_status,
-              payload.mission_status === 'verified_complete'
-                ? 'good'
-                : payload.mission_status === 'verification_failed' || payload.mission_status === 'rejected'
-                  ? 'bad'
-                  : 'warn',
-            ),
-          );
+          view.metaEl.appendChild(createMetaChip(payload.mission_status, classifyState(payload.mission_status)));
         }
         if (payload.blocked_reason) {
-          view.meta.appendChild(bubbleMetaChip('blocked', 'bad'));
+          view.metaEl.appendChild(createMetaChip('blocked', 'bad'));
         }
       }
 
       function renderLinks(view, payload) {
-        if (!view.links) {
+        if (!view.linksEl) {
           return;
         }
-        view.links.innerHTML = '';
+        view.linksEl.innerHTML = '';
         if (payload.control_room_path) {
           const link = document.createElement('a');
-          link.className = 'action-link';
           link.href = payload.control_room_path;
           link.textContent = 'Inspect in control room';
-          view.links.appendChild(link);
+          view.linksEl.appendChild(link);
         }
       }
 
       function renderAssistantResult(view, payload) {
-        populateActivityLog(view, payload.activity_log);
+        if (Array.isArray(payload.activity_log) && payload.activity_log.length > 0) {
+          clearActivity(view);
+          payload.activity_log.forEach((event) => appendProgress(view, event));
+        }
+
         renderMeta(view, payload);
         renderLinks(view, payload);
 
-        if (view.answer) {
-          view.answer.className = 'message-body';
-          view.answer.textContent = sanitizeAssistantAnswer(payload.answer);
+        if (view.answerEl) {
+          view.answerEl.className = 'message-body';
+          view.answerEl.textContent = sanitizeAssistantAnswer(payload.answer);
         }
 
-        if (view.state) {
-          const stateClass = payload.mission_status === 'verified_complete'
-            ? ' done'
-            : payload.mission_status === 'verification_failed' || payload.mission_status === 'rejected'
-              ? ' bad'
-              : payload.decision_kind === 'chat'
-                ? ' done'
-                : ' warn';
-          view.state.className = 'state-pill' + stateClass;
-          view.state.textContent = payload.mission_status || payload.decision_kind || 'done';
+        if (view.stateEl) {
+          const stateText = payload.mission_status || payload.decision_kind || 'done';
+          const stateClass = classifyState(stateText);
+          view.stateEl.className = 'state-pill' + (stateClass ? ' ' + stateClass : '');
+          view.stateEl.textContent = stateText;
         }
-
-        view.card.classList.remove('pending');
-        view.card.scrollIntoView({ block: 'end', behavior: 'smooth' });
       }
 
       function renderAssistantError(view, message) {
-        if (view.answer) {
-          view.answer.className = 'message-body';
-          view.answer.textContent = message;
+        if (view.answerEl) {
+          view.answerEl.className = 'message-body';
+          view.answerEl.textContent = message;
         }
-        if (view.state) {
-          view.state.className = 'state-pill bad';
-          view.state.textContent = 'failed';
+        if (view.stateEl) {
+          view.stateEl.className = 'state-pill bad';
+          view.stateEl.textContent = 'failed';
         }
-        if (view.meta) {
-          view.meta.innerHTML = '';
-          view.meta.appendChild(bubbleMetaChip('request_failed', 'bad'));
+        if (view.metaEl) {
+          view.metaEl.innerHTML = '';
+          view.metaEl.appendChild(createMetaChip('request_failed', 'bad'));
         }
-        view.card.classList.remove('pending');
+        if (view.activityPanelEl && view.eventCount === 0) {
+          view.activityPanelEl.classList.remove('visible');
+        }
       }
 
-      async function fallbackRequest(message, view) {
+      async function sendWithFallback(message, view) {
         const response = await fetch('/chat/api/message', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -782,55 +734,61 @@ export function renderChatPage(): string {
         renderAssistantResult(view, payload);
       }
 
-      async function streamRequest(message, view) {
-        const response = await fetch('/chat/api/message/stream', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ message: message }),
-        });
+      function startPendingActivity(view) {
+        const placeholders = [
+          {
+            actor: 'manager',
+            title: 'Received your message',
+            detail: 'best-brain is deciding whether to answer directly or run a mission.',
+          },
+          {
+            actor: 'brain',
+            title: 'Consulting memory',
+            detail: 'Checking owner context, preferences, procedures, and recent mission history.',
+          },
+          {
+            actor: 'manager',
+            title: 'Planning the next step',
+            detail: 'The manager is deciding whether to answer directly, do light work, or run a mission.',
+          },
+          {
+            actor: 'runtime',
+            title: 'Still working',
+            detail: 'If a worker is needed, best-brain is waiting for that run to finish before answering.',
+          },
+          {
+            actor: 'verifier',
+            title: 'Preparing verification',
+            detail: 'If this becomes a mission, proof and verification will be checked before marking it done.',
+          },
+        ];
 
-        if (!response.ok || !response.body) {
-          await fallbackRequest(message, view);
-          return;
-        }
-
-        const reader = response.body.getReader();
-        let buffer = '';
-
-        while (true) {
-          const chunk = await reader.read();
-          if (chunk.done) {
-            break;
+        let index = 0;
+        const emitNext = () => {
+          if (index >= placeholders.length) {
+            return;
           }
+          const item = placeholders[index];
+          index += 1;
+          appendProgress(view, {
+            stage: 'pending_' + index,
+            status: 'started',
+            actor: item.actor,
+            title: item.title,
+            detail: item.detail,
+            timestamp: Date.now(),
+            mission_id: null,
+            task_id: null,
+            decision_kind: null,
+            requested_worker: null,
+            executed_worker: null,
+            blocked_reason_code: null,
+          });
+        };
 
-          buffer += decoder.decode(chunk.value, { stream: true });
-          let newlineIndex = buffer.indexOf('\\n');
-          while (newlineIndex >= 0) {
-            const line = buffer.slice(0, newlineIndex).trim();
-            buffer = buffer.slice(newlineIndex + 1);
-            if (line) {
-              const payload = JSON.parse(line);
-              if (payload.type === 'status') {
-                appendStatusEvent(view, payload.event);
-              } else if (payload.type === 'result') {
-                renderAssistantResult(view, payload.payload);
-              } else if (payload.type === 'error') {
-                renderAssistantError(view, payload.error || 'Request failed.');
-              }
-            }
-            newlineIndex = buffer.indexOf('\\n');
-          }
-        }
-
-        const trailing = buffer.trim();
-        if (trailing) {
-          const payload = JSON.parse(trailing);
-          if (payload.type === 'result') {
-            renderAssistantResult(view, payload.payload);
-          } else if (payload.type === 'error') {
-            renderAssistantError(view, payload.error || 'Request failed.');
-          }
-        }
+        emitNext();
+        const timer = setInterval(emitNext, 900);
+        return () => clearInterval(timer);
       }
 
       async function sendMessage() {
@@ -843,15 +801,17 @@ export function renderChatPage(): string {
         const assistantView = createAssistantBubble();
         messageEl.value = '';
         sendButton.disabled = true;
+        const stopPendingActivity = startPendingActivity(assistantView);
 
         try {
-          await streamRequest(message, assistantView);
+          await sendWithFallback(message, assistantView);
         } catch (error) {
           renderAssistantError(
             assistantView,
             error instanceof Error ? error.message : 'Request failed.',
           );
         } finally {
+          stopPendingActivity();
           sendButton.disabled = false;
           messageEl.focus();
         }
