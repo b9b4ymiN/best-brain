@@ -48,6 +48,12 @@ Current local source:
 - actual manager-generated plan
 - actual worker control end-to-end
 - actual mission without demo shortcut
+- repeatability verified-complete rate
+- repeatability memory-reuse citation rate
+- repeatability retry-recovery rate
+- repeatability blocked-with-correct-reason rate
+- repeatability false-complete count
+- repeatability no-hidden-human-steps
 
 Interpretation notes:
 
@@ -62,6 +68,7 @@ Current local source:
 - `artifacts/proving-harness.latest.json`
 - `artifacts/phase4-proof.latest.json`
 - `artifacts/phase5-actual.latest.json`
+- `artifacts/phase6-repeatability.latest.json`
 - manager tests and HTTP integration tests
 
 ## Runtime metrics
@@ -134,7 +141,7 @@ That scorecard is the local baseline for current program readiness. It is expect
 - `Phase3_ProvingMissionFramework`: pass only after the generic proving harness is green
 - `Phase4_DemoAcceptanceMission`: pass only after the demo mission proof is green
 - `Phase5_ActualManagerLedMission`: pass once one-goal manager-led execution is real and locally proven
-- `Phase6_Repeatability`: fail until repeated actual mission runs exist
+- `Phase6_Repeatability`: pass once repeated actual mission runs prove memory reuse, retry recovery, blocked correctness, and zero false completes
 
 The scorecard should also track these plan-critical signals even before they are fully instrumented:
 

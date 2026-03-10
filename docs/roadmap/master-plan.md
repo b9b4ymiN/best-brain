@@ -122,7 +122,8 @@ Key outputs:
 
 Status:
 
-- not started
+- implemented and locally proven
+- repeated actual runs, memory reuse, blocked correctness, retry recovery, and zero false completes are now captured in the scorecard
 
 ### Phase 7 - Lightweight Chat
 
@@ -218,11 +219,11 @@ Status:
 
 To stay aligned with the final concept, the next recommended order is:
 
-1. turn the actual manager-led mission into repeatable evidence with memory reuse
+1. add the first control surface beyond CLI on top of the repeatable mission core
 2. harden manager alpha toward manager beta across more than one mission pattern
-3. add the first control surface beyond CLI
-4. broaden task-mode quality for normal daily use
-5. expand beyond the first mission into browser, mail, and richer worker flows
+3. broaden task-mode quality for normal daily use
+4. expand beyond the first mission into browser, mail, and richer worker flows
+5. deepen runtime/operator maturity without weakening verification rails
 
 ## Measurement discipline to add now
 

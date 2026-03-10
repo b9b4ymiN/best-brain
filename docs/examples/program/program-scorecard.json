@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T02:50:51.815Z",
+  "generated_at": "2026-03-10T03:09:27.297Z",
   "success_bar": "Repeatable One-Mission",
   "proving_mission": "Thai equities daily stock scanner",
   "acceptance_run_set": "thai_equities_daily_controlled_acceptance_runs",
@@ -399,6 +399,60 @@
       "actual": true,
       "status": "pass",
       "note": "The actual mission path must not rely on proving-mission helper runners as the primary execution path."
+    },
+    {
+      "id": "repeatability_verified_complete_rate",
+      "label": "Repeatability verified-complete rate",
+      "category": "north_star",
+      "target": ">= 80",
+      "actual": 100,
+      "status": "pass",
+      "note": "Repeated actual manager-led runs should still reach verified_complete at the target rate."
+    },
+    {
+      "id": "repeatability_memory_reuse_citation_rate",
+      "label": "Repeatability memory-reuse citation rate",
+      "category": "brain",
+      "target": ">= 70",
+      "actual": 100,
+      "status": "pass",
+      "note": "Follow-up actual runs should cite prior verified mission memory often enough to prove reuse."
+    },
+    {
+      "id": "repeatability_retry_recovery_rate",
+      "label": "Repeatability retry-recovery rate",
+      "category": "manager",
+      "target": ">= 60",
+      "actual": 100,
+      "status": "pass",
+      "note": "Verification-failed actual missions should recover to verified_complete at the target rate."
+    },
+    {
+      "id": "repeatability_blocked_with_correct_reason_rate",
+      "label": "Repeatability blocked-with-correct-reason rate",
+      "category": "manager",
+      "target": ">= 95",
+      "actual": 100,
+      "status": "pass",
+      "note": "Repeated actual runs must still fail closed with the correct explicit reason when blocked."
+    },
+    {
+      "id": "repeatability_false_complete_count",
+      "label": "Repeatability false-complete count",
+      "category": "manager",
+      "target": "= 0",
+      "actual": 0,
+      "status": "pass",
+      "note": "Repeatability proof must not introduce missions that look complete without a valid final proof chain."
+    },
+    {
+      "id": "repeatability_no_hidden_human_steps",
+      "label": "Repeatability runs stay free of hidden human rescue",
+      "category": "north_star",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Repeatability claims must still avoid undocumented human rescue between actual mission runs."
     }
   ],
   "phase_readiness": [
@@ -434,8 +488,8 @@
     },
     {
       "phase": "Phase6_Repeatability",
-      "status": "fail",
-      "note": "Repeatable one-mission proof still requires repeated actual manager-led runs over the acceptance set."
+      "status": "pass",
+      "note": "Repeated actual manager-led runs now prove success, blocked, retry-recovery, and memory reuse over the acceptance set without false completes."
     }
   ]
 }

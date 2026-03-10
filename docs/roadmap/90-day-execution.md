@@ -92,14 +92,15 @@ Current local status:
 
 - demo / acceptance proof is complete
 - the actual manager-led mission from one user goal is also proven locally
+- repeatability over the named acceptance set is also proven locally
 
-## Next bar after the actual mission proof
+## Next bar after the repeatability proof
 
-The next concept-critical phase is not "more demo" and not "just one successful actual run".
+The next concept-critical phase is not "more demo", not "just one successful actual run", and not "repeatability only in CLI".
 
 It is:
 
-- rerun the actual manager-led mission across the named acceptance set
-- prove memory reuse helps the next related run
-- prove blocked and retryable cases stay correct under repeated use
-- keep false-complete count at zero while the system becomes repeatable
+- expose the repeatable mission core through an inspectable control surface
+- keep manager/kernel policy as the only state-mutation path
+- broaden the same mission rails beyond the first stock-scanner proving mission
+- preserve memory reuse and zero false completes while the surface area grows

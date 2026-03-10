@@ -15,7 +15,7 @@ export function isThaiEquitiesStockScannerGoal(goal: string): boolean {
   return hasScanner && hasThai && hasEquities;
 }
 
-const DEMO_HINTS = ['demo', 'unavailable', 'incomplete proof', 'controlled'];
+const DEMO_HINTS = ['demo', 'controlled', 'acceptance mission'];
 
 export function isThaiEquitiesDemoGoal(goal: string): boolean {
   const normalized = goal.toLowerCase();

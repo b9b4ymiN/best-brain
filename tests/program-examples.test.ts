@@ -82,5 +82,6 @@ describe('program example library', () => {
     expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase0_ProgramLock')).toBe(true);
     expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase4_DemoAcceptanceMission' && phase.status === 'pass')).toBe(true);
     expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase5_ActualManagerLedMission' && phase.status === 'pass')).toBe(true);
+    expect(scorecard.phase_readiness.some((phase) => phase.phase === 'Phase6_Repeatability' && phase.status === 'pass')).toBe(true);
   });
 });

@@ -93,6 +93,16 @@ export interface ActualMissionProofInput {
   no_demo_shortcut_path: boolean;
 }
 
+export interface Phase6RepeatabilityProofInput {
+  repeated_run_count: number;
+  repeatable_verified_complete_rate: number;
+  memory_reuse_citation_rate: number;
+  retry_recovery_rate: number;
+  blocked_with_correct_reason_rate: number;
+  false_complete_count: number;
+  no_hidden_human_steps: boolean;
+}
+
 export interface ProgramScorecardInput {
   generated_at: string;
   contract_snapshot: ProgramContractSnapshot;
@@ -104,6 +114,7 @@ export interface ProgramScorecardInput {
   proving_harness?: ProvingHarnessSummaryInput;
   phase4_proof?: Phase4ProofInput;
   actual_mission_proof?: ActualMissionProofInput;
+  phase6_repeatability_proof?: Phase6RepeatabilityProofInput;
 }
 
 export interface ProgramMetricValue {
@@ -544,6 +555,54 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     true,
     'The actual mission path must not rely on proving-mission helper runners as the primary execution path.',
   ));
+  metricValues.push(percentageMetric(
+    'repeatability_verified_complete_rate',
+    'Repeatability verified-complete rate',
+    'north_star',
+    input.phase6_repeatability_proof?.repeatable_verified_complete_rate,
+    80,
+    'Repeated actual manager-led runs should still reach verified_complete at the target rate.',
+  ));
+  metricValues.push(percentageMetric(
+    'repeatability_memory_reuse_citation_rate',
+    'Repeatability memory-reuse citation rate',
+    'brain',
+    input.phase6_repeatability_proof?.memory_reuse_citation_rate,
+    70,
+    'Follow-up actual runs should cite prior verified mission memory often enough to prove reuse.',
+  ));
+  metricValues.push(percentageMetric(
+    'repeatability_retry_recovery_rate',
+    'Repeatability retry-recovery rate',
+    'manager',
+    input.phase6_repeatability_proof?.retry_recovery_rate,
+    60,
+    'Verification-failed actual missions should recover to verified_complete at the target rate.',
+  ));
+  metricValues.push(percentageMetric(
+    'repeatability_blocked_with_correct_reason_rate',
+    'Repeatability blocked-with-correct-reason rate',
+    'manager',
+    input.phase6_repeatability_proof?.blocked_with_correct_reason_rate,
+    95,
+    'Repeated actual runs must still fail closed with the correct explicit reason when blocked.',
+  ));
+  metricValues.push(equalityMetric(
+    'repeatability_false_complete_count',
+    'Repeatability false-complete count',
+    'manager',
+    input.phase6_repeatability_proof?.false_complete_count,
+    0,
+    'Repeatability proof must not introduce missions that look complete without a valid final proof chain.',
+  ));
+  metricValues.push(equalityMetric(
+    'repeatability_no_hidden_human_steps',
+    'Repeatability runs stay free of hidden human rescue',
+    'north_star',
+    input.phase6_repeatability_proof?.no_hidden_human_steps,
+    true,
+    'Repeatability claims must still avoid undocumented human rescue between actual mission runs.',
+  ));
 
   const phase0ContractsFrozen = input.contract_snapshot.docs_locked
     && input.contract_snapshot.example_libraries_refreshed
@@ -586,6 +645,14 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     && input.actual_mission_proof?.manager_generated_plan === true
     && input.actual_mission_proof?.worker_control_end_to_end === true
     && input.actual_mission_proof?.no_demo_shortcut_path === true;
+  const phase6RepeatabilityReady = phase5ActualMissionReady
+    && (input.phase6_repeatability_proof?.repeated_run_count ?? 0) >= 4
+    && (input.phase6_repeatability_proof?.repeatable_verified_complete_rate ?? 0) >= 80
+    && (input.phase6_repeatability_proof?.memory_reuse_citation_rate ?? 0) >= 70
+    && (input.phase6_repeatability_proof?.retry_recovery_rate ?? 0) >= 60
+    && (input.phase6_repeatability_proof?.blocked_with_correct_reason_rate ?? 0) >= 95
+    && input.phase6_repeatability_proof?.false_complete_count === 0
+    && input.phase6_repeatability_proof?.no_hidden_human_steps === true;
 
   const phaseReadiness: ProgramPhaseReadiness[] = [
     {
@@ -632,10 +699,12 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     },
     {
       phase: 'Phase6_Repeatability',
-      status: 'fail',
-      note: phase5ActualMissionReady
-        ? 'Repeatable one-mission proof still requires repeated actual manager-led runs over the acceptance set.'
-        : 'Repeatability is deferred until the actual manager-led mission path exists.',
+      status: phase6RepeatabilityReady ? 'pass' : 'fail',
+      note: phase6RepeatabilityReady
+        ? 'Repeated actual manager-led runs now prove success, blocked, retry-recovery, and memory reuse over the acceptance set without false completes.'
+        : phase5ActualMissionReady
+          ? 'Repeatable one-mission proof still requires repeated actual manager-led runs over the acceptance set.'
+          : 'Repeatability is deferred until the actual manager-led mission path exists.',
     },
   ];
 

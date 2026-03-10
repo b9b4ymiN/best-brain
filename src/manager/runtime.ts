@@ -178,9 +178,9 @@ export class ManagerRuntime {
     if (isThaiEquitiesActualManagerGoal(input.goal)) {
       const personaConsult = await this.brain.consult({
         query: `If you were the owner, what investment persona and screening criteria should guide this Thai equities stock scanner mission? Goal: ${input.goal}`,
-        mission_id: existingMissionId,
+        mission_id: null,
         domain: 'best-brain',
-        limit: 5,
+        limit: 8,
       });
       consult = mergeConsultResponses(consult, personaConsult);
     }

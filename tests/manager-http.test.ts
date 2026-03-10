@@ -500,4 +500,133 @@ describe('manager alpha via brain HTTP', () => {
       cleanup();
     }
   });
+
+  test('blocks an actual manager-led stock-scanner mission with the correct reason when live data is unavailable', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'vi-owner' });
+    await runOnboarding(brain, {
+      ownerPersona: 'The owner is a Thai-equities VI investor who prefers moat, earnings consistency, free cash flow, high ROE, low debt, and margin of safety.',
+      preferredReportFormat: 'Objective, owner profile, screening criteria, system plan, evidence, risks, next action.',
+      communicationStyle: 'Direct and factual.',
+      qualityBar: 'Only complete the mission when the final owner-facing plan is grounded in memory and verification passes.',
+      planningPlaybook: 'Recall the owner persona first, derive the screening criteria, choose the data source, prepare the scanner system plan, then verify.',
+    });
+
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'I want a Thai stock scanner system that matches how I invest, but live market data is unavailable today.',
+        output_mode: 'json',
+      });
+
+      expect(result.mission_brief.mission_kind).toBe('thai_equities_manager_led_scanner');
+      expect(result.decision.should_execute).toBe(false);
+      expect(result.decision.blocked_reason_code).toBe('no_available_input_adapter');
+      expect(result.worker_result).toBeNull();
+      expect(result.runtime_bundle?.session.status).toBe('aborted');
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
+
+  test('recovers an actual manager-led stock-scanner mission after a retryable verification failure', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'vi-owner' });
+    await runOnboarding(brain, {
+      ownerPersona: 'The owner is a Thai-equities VI investor who prefers moat, earnings consistency, free cash flow, high ROE, low debt, and margin of safety.',
+      preferredReportFormat: 'Objective, owner profile, screening criteria, system plan, evidence, risks, next action.',
+      communicationStyle: 'Direct and factual.',
+      qualityBar: 'Only complete the mission when the final owner-facing plan is grounded in memory and verification passes.',
+      planningPlaybook: 'Recall the owner persona first, derive the screening criteria, choose the data source, prepare the scanner system plan, then verify.',
+    });
+
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const failingRuntime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+      workers: {
+        claude: new StaticWorkerAdapter('claude', {
+          summary: 'First draft is incomplete and needs another pass.',
+          status: 'needs_retry',
+          artifacts: [],
+          proposed_checks: [{
+            name: 'owner-plan-complete',
+            passed: false,
+            detail: 'The owner-facing scanner system plan is incomplete.',
+          }],
+          raw_output: 'incomplete-draft',
+        }),
+      },
+    });
+
+    const recoveryRuntime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+      workers: {
+        claude: new StaticWorkerAdapter('claude', {
+          summary: 'Produced a verified owner-facing Thai stock scanner system plan.',
+          status: 'success',
+          artifacts: [
+            { type: 'note', ref: 'worker://manager-http/recovered-actual-stock-plan', description: 'Recovered VI-aligned stock-scanner system plan.' },
+          ],
+          proposed_checks: [{
+            name: 'owner-plan-complete',
+            passed: true,
+            detail: 'The owner-facing scanner system plan is now complete.',
+          }],
+          raw_output: 'recovered-draft',
+        }),
+      },
+    });
+
+    try {
+      const missionId = 'mission_http_actual_retry';
+      const failed = await failingRuntime.run({
+        goal: 'I want a Thai stock scanner system that matches how I invest.',
+        mission_id: missionId,
+        output_mode: 'json',
+      });
+      const recovered = await recoveryRuntime.run({
+        goal: 'I want a Thai stock scanner system that matches how I invest.',
+        mission_id: missionId,
+        output_mode: 'json',
+      });
+
+      expect(failed.mission_brief.mission_kind).toBe('thai_equities_manager_led_scanner');
+      expect(failed.verification_result?.status).toBe('verification_failed');
+      expect(failed.retryable).toBe(true);
+      expect(recovered.mission_brief.mission_kind).toBe('thai_equities_manager_led_scanner');
+      expect(recovered.verification_result?.status).toBe('verified_complete');
+      expect(recovered.runtime_bundle?.session.mission_id).toBe(missionId);
+      expect(recovered.runtime_bundle?.session.final_report_artifact_id).not.toBeNull();
+    } finally {
+      await failingRuntime.dispose();
+      await recoveryRuntime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
 });

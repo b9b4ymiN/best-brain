@@ -177,6 +177,6 @@ Expected behavior:
 The repo should be read as:
 
 - `final concept`: full local AI work operating system
-- `current implementation`: brain-v1 plus manager alpha, with both a proven demo / acceptance mission and a proven actual manager-led mission path
-- `next concept-critical milestone`: repeat the actual manager-led mission over the acceptance set with stable memory reuse and no false completes
+- `current implementation`: brain-v1 plus manager alpha, with a proven demo / acceptance mission, a proven actual manager-led mission path, and proven repeatability over the acceptance set
+- `next concept-critical milestone`: expose the repeatable mission core through a real control surface and broaden the same rails to more mission types
 - `next growth path`: expand workers, runtime OS, and control surface without replacing the brain/manager core

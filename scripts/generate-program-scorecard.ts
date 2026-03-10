@@ -94,6 +94,17 @@ const phase5ActualProof = readJson<{
   worker_control_end_to_end: boolean;
   no_demo_shortcut_path: boolean;
 }>(path.join(artifactsDir, 'phase5-actual.latest.json'));
+const phase6RepeatabilityProof = readJson<{
+  payload: {
+    repeated_run_count: number;
+    repeatable_verified_complete_rate: number;
+    memory_reuse_citation_rate: number;
+    retry_recovery_rate: number;
+    blocked_with_correct_reason_rate: number;
+    false_complete_count: number;
+    no_hidden_human_steps: boolean;
+  };
+}>(path.join(artifactsDir, 'phase6-repeatability.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 const capturedBootstrapProofs = fs.existsSync(bootstrapProofDir)
   ? fs.readdirSync(bootstrapProofDir)
@@ -139,6 +150,7 @@ const scorecard = buildProgramScorecard({
   proving_harness: provingHarness?.summary,
   phase4_proof: phase4Proof ?? undefined,
   actual_mission_proof: phase5ActualProof ?? undefined,
+  phase6_repeatability_proof: phase6RepeatabilityProof?.payload,
 });
 
 fs.mkdirSync(artifactsDir, { recursive: true });

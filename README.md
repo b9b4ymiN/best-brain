@@ -107,6 +107,7 @@ bun run smoke:manager:ambiguity
 bun run proof:manager
 bun run proof:phase4
 bun run proof:phase5
+bun run proof:phase6
 bun run examples:program
 bun run proof:proving
 bun run scorecard:program
@@ -222,7 +223,8 @@ The 90-day program is now frozen around:
 - success bar: `Repeatable One-Mission`
 - first demo / acceptance mission: `Thai equities daily stock scanner`
 - actual manager-led mission: `implemented and locally proven from one user goal`
-- next concept-critical phase: `repeatability over the acceptance run set`
+- repeatability over the acceptance run set: `implemented and locally proven`
+- next concept-critical phase: `turn the repeatable mission core into an inspectable control surface and expand beyond the first mission`
 - execution style: `general engine + reusable playbooks`
 - data strategy: `live-data-first` through adapter selection, not hard-coded source logic
 - control surface target: `full mission console`
@@ -230,7 +232,8 @@ The 90-day program is now frozen around:
 Current caveat:
 
 - the controlled stock-scanner demo path is still separate from the actual manager-led path and remains useful as an acceptance harness
-- the current concept-critical bar is now: repeat the actual one-goal mission across the acceptance set with stable memory reuse and no false completes
+- the current concept-critical bar that is already proven locally is: repeat the actual one-goal mission across the acceptance set with stable memory reuse and no false completes
+- the next bar is: expose this repeatable mission core through a real control surface and extend the same rails to broader mission types
 
 ## Manager examples
 
