@@ -166,14 +166,17 @@ export function renderChatPage(): string {
           return trimmed;
         }
 
-        const lines = trimmed.split(/\r?\n/);
+        const normalized = trimmed
+          .split('\\r\\n').join('\\n')
+          .split('\\r').join('\\n');
+        const lines = normalized.split('\\n');
         if (lines.length === 1) {
           return trimmed.split(FENCE).join('').trim();
         }
 
         const first = lines[0] ?? '';
         const last = lines[lines.length - 1] ?? '';
-        const body = lines.slice(1, last.trim() === FENCE ? -1 : undefined).join('\n').trim();
+        const body = lines.slice(1, last.trim() === FENCE ? -1 : undefined).join('\\n').trim();
         return body || first.split(FENCE).join('').trim();
       }
 
