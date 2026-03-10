@@ -38,6 +38,31 @@ describe('best-brain core', () => {
     }
   });
 
+  test('owner identity queries route to persona guidance and can retrieve a confirmed owner name', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      const learnResult = await brain.learn({
+        mode: 'persona',
+        title: 'Owner name',
+        content: 'The owner name is Beam.',
+        source: 'manual-test',
+        confirmed_by_user: true,
+        verified_by: 'user',
+        evidence_ref: [{ type: 'note', ref: 'manual://owner-name' }],
+      });
+
+      expect(learnResult.accepted).toBe(true);
+
+      const response = await brain.consult({ query: 'What is the owner name?' });
+
+      expect(response.policy_path).toBe('deterministic.persona_guidance.v1');
+      expect(response.citations.some((citation) => citation.memory_type === 'Persona' && citation.summary.includes('Beam'))).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
   test('expires working memory and records exclusion in retrieval trace', async () => {
     const { brain, cleanup } = await createTestBrain();
 

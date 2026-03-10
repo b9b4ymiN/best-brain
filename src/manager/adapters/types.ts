@@ -3,6 +3,7 @@ import type {
   ConsultRequest,
   ConsultResponse,
   FailureInput,
+  LearnRequest,
   LearnResult,
   MissionContextBundle,
   StrictMissionOutcomeInput,
@@ -26,6 +27,7 @@ export interface BrainAdapter {
   ensureAvailable(): Promise<BrainHealthResponse>;
   wasStartedByAdapter(): boolean;
   consult(request: ConsultRequest): Promise<ConsultResponse>;
+  learn(request: LearnRequest): Promise<LearnResult>;
   context(params: { mission_id?: string | null; domain?: string | null; query?: string | null }): Promise<MissionContextBundle>;
   saveOutcome(input: StrictMissionOutcomeInput): Promise<{
     mission: { id: string; status: string };

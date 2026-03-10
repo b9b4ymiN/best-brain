@@ -241,6 +241,9 @@ export function runClaudeStreamResult(
     env?: Record<string, string>;
     timeoutMs?: number;
     disableTools?: boolean;
+    maxTurns?: number;
+    bypassPermissions?: boolean;
+    extraArgs?: string[];
   },
 ): Promise<{
   result: string | null;
@@ -259,10 +262,20 @@ export function runClaudeStreamResult(
       '--verbose',
       '--no-session-persistence',
       '--output-format', 'stream-json',
-      '--max-turns', '1',
+      '--max-turns', String(options.maxTurns ?? 1),
     ];
+    if (options.bypassPermissions === true) {
+      args.push(
+        '--allow-dangerously-skip-permissions',
+        '--dangerously-skip-permissions',
+        '--permission-mode', 'bypassPermissions',
+      );
+    }
     if (options.disableTools === true) {
       args.push('--tools', '');
+    }
+    if (Array.isArray(options.extraArgs) && options.extraArgs.length > 0) {
+      args.push(...options.extraArgs);
     }
     const child = spawn(resolved.command, [...resolved.argsPrefix, ...args], {
       cwd: options.cwd,
@@ -303,6 +316,8 @@ export function runClaudeStreamResult(
             const payload = JSON.parse(line) as { type?: string; result?: string; subtype?: string; message?: { content?: Array<{ text?: string }> } };
             if (payload.type === 'result' && typeof payload.result === 'string' && payload.result.trim().length > 0) {
               resultText = payload.result.trim();
+              forceKill(child);
+              finish(child.exitCode);
             }
             if (payload.type === 'assistant' && payload.subtype === 'message' && Array.isArray(payload.message?.content)) {
               const text = payload.message.content
@@ -318,10 +333,6 @@ export function runClaudeStreamResult(
           }
         }
         newlineIndex = buffer.indexOf('\n');
-      }
-      if (resultText) {
-        forceKill(child);
-        finish(child.exitCode);
       }
     };
 

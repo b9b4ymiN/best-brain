@@ -69,7 +69,14 @@ function parseArgs(argv: string[]): {
 
 const runtime = new ManagerRuntime({
   reasoner: new LocalCliManagerReasoner(),
-  chatResponder: new LocalCliChatResponder(),
+  chatResponder: new LocalCliChatResponder({
+    executionCwd: process.cwd(),
+    mcpServerEnv: {
+      BEST_BRAIN_DATA_DIR: process.env.BEST_BRAIN_DATA_DIR,
+      BEST_BRAIN_DB_PATH: process.env.BEST_BRAIN_DB_PATH,
+      BEST_BRAIN_OWNER: process.env.BEST_BRAIN_OWNER,
+    },
+  }),
 });
 
 try {

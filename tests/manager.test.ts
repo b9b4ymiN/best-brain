@@ -3,6 +3,7 @@ import type {
   CompletionProofState,
   ConsultResponse,
   FailureInput,
+  LearnRequest,
   LearnResult,
   MissionContextBundle,
   StrictMissionOutcomeInput,
@@ -80,6 +81,7 @@ class FakeBrainAdapter implements BrainAdapter {
   readonly calls = {
     ensureAvailable: 0,
     consult: [] as Array<{ query: string }>,
+    learn: [] as LearnRequest[],
     context: [] as Array<{ mission_id?: string | null; domain?: string | null; query?: string | null }>,
     saveOutcome: [] as StrictMissionOutcomeInput[],
     saveFailure: [] as FailureInput[],
@@ -117,6 +119,18 @@ class FakeBrainAdapter implements BrainAdapter {
   async consult(request: { query: string }): Promise<ConsultResponse> {
     this.calls.consult.push(request);
     return this.consultResponse;
+  }
+
+  async learn(request: LearnRequest): Promise<LearnResult> {
+    this.calls.learn.push(request);
+    return {
+      accepted: true,
+      action: 'created',
+      reason: 'stored chat memory',
+      memory_id: 'mem_chat_learn',
+      memory_type: request.mode === 'persona' ? 'Persona' : 'WorkingMemory',
+      status: 'active',
+    };
   }
 
   async context(params: { mission_id?: string | null; domain?: string | null; query?: string | null }): Promise<MissionContextBundle> {
@@ -332,6 +346,64 @@ describe('manager alpha unit flow', () => {
 
       expect(result.decision.kind).toBe('chat');
       expect(result.owner_response).toContain('\u0e40\u0e2b\u0e25\u0e37\u0e2d\u0e07');
+      expect(reasoner.calls).toBe(1);
+      expect(chatResponder.calls).toBe(1);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('memory-sensitive chat bypasses direct-answer shortcuts and uses the brain-aware chat responder', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'chat',
+      reason: 'The message is a normal chat question.',
+      direct_answer: 'I do not know your name.',
+    });
+    const chatResponder = new FakeChatResponder('Your name is Beam.');
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+      chatResponder,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'What is my name?',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('chat');
+      expect(result.owner_response).toBe('Your name is Beam.');
+      expect(reasoner.calls).toBe(1);
+      expect(chatResponder.calls).toBe(1);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('memory-write chat bypasses direct-answer shortcuts and uses the brain-aware chat responder', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'chat',
+      reason: 'The message is a normal chat question.',
+      direct_answer: 'Okay, I will remember that.',
+    });
+    const chatResponder = new FakeChatResponder('Saved. Your name is Beam.');
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+      chatResponder,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Please remember that my name is Beam.',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('chat');
+      expect(result.owner_response).toBe('Saved. Your name is Beam.');
       expect(reasoner.calls).toBe(1);
       expect(chatResponder.calls).toBe(1);
     } finally {

@@ -1,29 +1,9 @@
 import type { ConsultResponse, MissionContextBundle } from '../types.ts';
 
 const THAI_TEXT = /[\u0E00-\u0E7F]/;
-const WEEKDAY_ONLY_HINTS = [
-  'monday',
-  'tuesday',
-  'wednesday',
-  'thursday',
-  'friday',
-  'saturday',
-  'sunday',
-  'วันจันทร์',
-  'วันอังคาร',
-  'วันพุธ',
-  'วันพฤหัสบดี',
-  'วันศุกร์',
-  'วันเสาร์',
-  'วันอาทิตย์',
-];
 
 function containsThai(text: string): boolean {
   return THAI_TEXT.test(text);
-}
-
-function includesAnyText(haystack: string, hints: string[]): boolean {
-  return hints.some((hint) => haystack.includes(hint));
 }
 
 function stripConsultPreamble(answer: string): string {
@@ -58,12 +38,7 @@ export function buildChatOwnerResponse(
   consult: ConsultResponse,
   context: MissionContextBundle,
 ): string {
-  const normalizedGoal = goal.trim().toLowerCase();
   const consultAnswer = stripConsultPreamble(consult.answer);
-
-  if (includesAnyText(normalizedGoal, WEEKDAY_ONLY_HINTS)) {
-    return buildClarifyingChatResponse(goal);
-  }
 
   if (consultAnswer && !looksLikeMemoryList(consultAnswer)) {
     return consultAnswer;
@@ -76,11 +51,11 @@ export function buildChatOwnerResponse(
   const planningHint = context.planning_hints[0];
   if (containsThai(goal)) {
     return planningHint
-      ? `ตอนนี้ local AI responder ยังไม่ให้คำตอบที่ใช้ได้ ควรเริ่มจาก: ${planningHint}`
-      : 'ตอนนี้ local AI responder ยังไม่ให้คำตอบที่ใช้ได้ ลองถามให้ชัดขึ้นอีกนิด';
+      ? `ตอนนี้ยังสรุปคำตอบที่ใช้ได้ไม่พอ ควรเริ่มจาก: ${planningHint}`
+      : 'ตอนนี้ยังสรุปคำตอบที่ใช้ได้ไม่พอ ลองถามให้ชัดขึ้นอีกนิด';
   }
 
   return planningHint
-    ? `The local AI responder did not return a usable answer yet. Start with: ${planningHint}`
-    : 'The local AI responder did not return a usable answer yet. Please ask a more specific question.';
+    ? `I do not have a usable answer yet. Start with: ${planningHint}`
+    : 'I do not have a usable answer yet. Please ask a more specific question.';
 }

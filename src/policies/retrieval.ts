@@ -1,7 +1,7 @@
 import type { ConsultIntent, MemoryType } from '../types.ts';
 
 const INTENT_HINTS: Array<{ intent: ConsultIntent; keywords: string[] }> = [
-  { intent: 'persona_guidance', keywords: ['owner', 'persona', 'think like', 'as the owner', 'identity'] },
+  { intent: 'persona_guidance', keywords: ['owner', 'persona', 'think like', 'as the owner', 'identity', 'who am i', 'my name', 'name', 'about me'] },
   { intent: 'preference_lookup', keywords: ['prefer', 'format', 'style', 'report', 'output'] },
   { intent: 'procedure_lookup', keywords: ['how', 'steps', 'procedure', 'checklist', 'process'] },
   { intent: 'recent_mission', keywords: ['latest', 'recent', 'last mission', 'last task', 'recent work'] },

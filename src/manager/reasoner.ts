@@ -52,7 +52,6 @@ function buildPrompt(input: {
     'Use mission for multi-step work, building a system, or anything that needs verification.',
     'Set direct_answer to null unless kind is chat.',
     'Do not mention tools, workers, routing, repositories, or internal implementation details inside direct_answer.',
-    `Heuristic suggestion: ${input.heuristic.kind} | ${input.heuristic.reason}`,
     ...contextBlock,
     `User message: ${input.goal}`,
   ].join('\n');

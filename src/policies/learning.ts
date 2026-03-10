@@ -12,14 +12,14 @@ const RULES: Record<LearnMode, LearningRule> = {
   persona: {
     memoryType: 'Persona',
     defaultStatus: 'active',
-    defaultVerifiedBy: 'trusted_import',
+    defaultVerifiedBy: 'user',
     requiresExplicitConfirmation: true,
     allowsAutoMerge: true,
   },
   preference: {
     memoryType: 'Preferences',
     defaultStatus: 'active',
-    defaultVerifiedBy: 'trusted_import',
+    defaultVerifiedBy: 'user',
     requiresExplicitConfirmation: true,
     allowsAutoMerge: true,
   },

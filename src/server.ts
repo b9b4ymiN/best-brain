@@ -15,7 +15,14 @@ const managerFactory = () => new ManagerRuntime({
     autoStart: false,
   }),
   reasoner: new LocalCliManagerReasoner(),
-  chatResponder: new LocalCliChatResponder(),
+  chatResponder: new LocalCliChatResponder({
+    executionCwd: process.cwd(),
+    mcpServerEnv: {
+      BEST_BRAIN_DATA_DIR: brain.config.dataDir,
+      BEST_BRAIN_DB_PATH: brain.config.dbPath,
+      BEST_BRAIN_OWNER: brain.config.owner,
+    },
+  }),
 });
 const controlRoom = new ControlRoomService({
   dataDir: brain.config.dataDir,

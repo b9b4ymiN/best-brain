@@ -86,6 +86,12 @@ bun run server
 
 The brain HTTP server defaults to `http://localhost:47888`.
 
+Normal browser chat lives at:
+
+```text
+http://localhost:47888/
+```
+
 ## Current operator commands
 
 ```bash
@@ -111,6 +117,7 @@ bun run proof:phase4
 bun run proof:phase5
 bun run proof:phase6
 bun run proof:control-room
+bun run proof:chat-memory
 bun run examples:program
 bun run proof:proving
 bun run scorecard:program
@@ -161,6 +168,16 @@ Control room:
 4. Save mission outcome with `/missions/:id/outcome`
 5. Start and complete verification through `/verification/start` and `/verification/complete`
 6. Use `/brain/context` to retrieve mission context plus artifact registry entries
+
+### Chat memory proof
+
+To prove the AI can write to the brain through MCP and read it back through normal chat:
+
+```bash
+bun run proof:chat-memory
+```
+
+This uses the normal chat HTTP path, asks the AI to remember a name, asks the AI to recall it, and then verifies from the brain that the stored memory came from `chat://mcp-memory-write`.
 
 ### Claude Code flow
 

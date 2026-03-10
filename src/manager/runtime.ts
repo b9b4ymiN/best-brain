@@ -150,6 +150,10 @@ function mergeConsultResponses(primary: Awaited<ReturnType<BrainAdapter['consult
   };
 }
 
+function shouldUseBrainAwareChat(goal: string): boolean {
+  return /remember|my name|who am i|what do you know about me|what have you remembered|owner|persona|preference|\u0e08\u0e33\u0e44\u0e27\u0e49|\u0e09\u0e31\u0e19\u0e0a\u0e37\u0e48\u0e2d|\u0e09\u0e31\u0e19\u0e0a\u0e37\u0e48\u0e2d\u0e2d\u0e30\u0e44\u0e23|\u0e40\u0e23\u0e35\u0e22\u0e01\u0e09\u0e31\u0e19|\u0e04\u0e38\u0e13\u0e08\u0e33\u0e2d\u0e30\u0e44\u0e23\u0e40\u0e01\u0e35\u0e48\u0e22\u0e27\u0e01\u0e31\u0e1a\u0e09\u0e31\u0e19|\u0e15\u0e31\u0e27\u0e09\u0e31\u0e19/i.test(goal);
+}
+
 export class ManagerRuntime {
   readonly brain: BrainAdapter;
   readonly workers: Partial<Record<ManagerWorker, WorkerAdapter>>;
@@ -238,7 +242,7 @@ export class ManagerRuntime {
     }
     const missionId = existingMissionId ?? createId('mission');
     const ambiguity = detectGoalAmbiguity(input, decision);
-    if (ambiguity.is_ambiguous) {
+    if (ambiguity.is_ambiguous && decision.kind !== 'chat') {
       decision = buildBlockedDecisionWithCode(decision, ambiguity.reason, 'ambiguous_goal');
     }
 
@@ -334,7 +338,8 @@ export class ManagerRuntime {
     }
 
     if (!decision.should_execute) {
-      const directChatResponse = decision.kind === 'chat' && aiTriage?.direct_answer == null && this.chatResponder
+      const forceBrainAwareChat = decision.kind === 'chat' && shouldUseBrainAwareChat(input.goal);
+      const directChatResponse = decision.kind === 'chat' && (forceBrainAwareChat || aiTriage?.direct_answer == null) && this.chatResponder
         ? await this.chatResponder.answer({
             goal: input.goal,
             cwd: input.cwd,

@@ -5,6 +5,7 @@ import type {
   ConsultRequest,
   ConsultResponse,
   FailureInput,
+  LearnRequest,
   LearnResult,
   MissionContextBundle,
   StrictMissionOutcomeInput,
@@ -112,6 +113,10 @@ export class BrainHttpAdapter implements BrainAdapter {
 
   async consult(request: ConsultRequest): Promise<ConsultResponse> {
     return this.postJson('/brain/consult', request);
+  }
+
+  async learn(request: LearnRequest): Promise<LearnResult> {
+    return this.postJson('/brain/learn', request);
   }
 
   async context(params: { mission_id?: string | null; domain?: string | null; query?: string | null }): Promise<MissionContextBundle> {
