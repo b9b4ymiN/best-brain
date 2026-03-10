@@ -1,5 +1,5 @@
 import type { ConsultResponse, MissionContextBundle } from '../types.ts';
-import { resolveNeutralAICwd, runClaudeStreamResult, runCommand, toEnvRecord } from './adapters/shared.ts';
+import { isSpawnCommandMissing, resolveNeutralAICwd, runClaudeStreamResult, runCommand, toEnvRecord } from './adapters/shared.ts';
 
 export interface ChatResponder {
   answer(input: {
@@ -69,13 +69,20 @@ function isContaminatedAnswer(goal: string, answer: string): boolean {
 }
 
 async function runClaude(prompt: string, timeoutMs: number): Promise<string | null> {
-  const result = await runClaudeStreamResult(prompt, {
-    cwd: resolveNeutralAICwd(),
-    env: toEnvRecord({}),
-    timeoutMs,
-    disableTools: true,
-  });
-  return normalizeAnswer(result.result ?? '');
+  try {
+    const result = await runClaudeStreamResult(prompt, {
+      cwd: resolveNeutralAICwd(),
+      env: toEnvRecord({}),
+      timeoutMs,
+      disableTools: true,
+    });
+    return normalizeAnswer(result.result ?? '');
+  } catch (error) {
+    if (isSpawnCommandMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 function extractCodexMessage(output: string): string | null {
@@ -100,25 +107,32 @@ function extractCodexMessage(output: string): string | null {
 }
 
 async function runCodex(prompt: string, timeoutMs: number): Promise<string | null> {
-  const result = await runCommand('codex', [
-    'exec',
-    '--json',
-    '--full-auto',
-    '--skip-git-repo-check',
-    '-c', 'model_reasoning_effort=high',
-    '-C', resolveNeutralAICwd(),
-    '-',
-  ], {
-    cwd: resolveNeutralAICwd(),
-    env: toEnvRecord({}),
-    timeoutMs,
-    stdin: prompt,
-  });
-  if (result.timedOut || result.exitCode !== 0) {
-    return null;
-  }
+  try {
+    const result = await runCommand('codex', [
+      'exec',
+      '--json',
+      '--full-auto',
+      '--skip-git-repo-check',
+      '-c', 'model_reasoning_effort=high',
+      '-C', resolveNeutralAICwd(),
+      '-',
+    ], {
+      cwd: resolveNeutralAICwd(),
+      env: toEnvRecord({}),
+      timeoutMs,
+      stdin: prompt,
+    });
+    if (result.timedOut || result.exitCode !== 0) {
+      return null;
+    }
 
-  return normalizeAnswer(extractCodexMessage(result.stdout) ?? result.stdout);
+    return normalizeAnswer(extractCodexMessage(result.stdout) ?? result.stdout);
+  } catch (error) {
+    if (isSpawnCommandMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export class LocalCliChatResponder implements ChatResponder {

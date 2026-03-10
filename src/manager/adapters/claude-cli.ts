@@ -1,7 +1,7 @@
 import type { VerificationArtifact, VerificationCheck } from '../../types.ts';
 import type { WorkerAdapter } from './types.ts';
 import type { ExecutionRequest, WorkerExecutionResult } from '../types.ts';
-import { extractJsonText, runCommand, toEnvRecord } from './shared.ts';
+import { extractJsonText, isSpawnCommandMissing, runCommand, toEnvRecord } from './shared.ts';
 
 function normalizeArtifacts(value: unknown): VerificationArtifact[] {
   if (!Array.isArray(value)) {
@@ -114,19 +114,43 @@ export class ClaudeCliAdapter implements WorkerAdapter {
       'Return strict JSON only. Do not wrap the JSON in commentary.',
     ].join('\n');
 
-    const result = await runCommand('claude', [
-      '-p',
-      '--no-session-persistence',
-      '--output-format', 'json',
-      '--allow-dangerously-skip-permissions',
-      '--dangerously-skip-permissions',
-      '--permission-mode', 'bypassPermissions',
-    ], {
-      cwd: request.cwd,
-      env: toEnvRecord({}),
-      timeoutMs: 180000,
-      stdin: prompt,
-    });
+    let result;
+    try {
+      result = await runCommand('claude', [
+        '-p',
+        '--no-session-persistence',
+        '--output-format', 'json',
+        '--allow-dangerously-skip-permissions',
+        '--dangerously-skip-permissions',
+        '--permission-mode', 'bypassPermissions',
+      ], {
+        cwd: request.cwd,
+        env: toEnvRecord({}),
+        timeoutMs: 180000,
+        stdin: prompt,
+      });
+    } catch (error) {
+      if (isSpawnCommandMissing(error)) {
+        return {
+          summary: 'Claude worker is not available on this machine.',
+          status: 'failed',
+          artifacts: [{
+            type: 'note',
+            ref: 'worker://claude/not-available',
+            description: 'Claude CLI could not be started from the current PATH.',
+          }],
+          proposed_checks: [{
+            name: 'claude-cli-available',
+            passed: false,
+            detail: 'Claude CLI could not be started from the current PATH.',
+          }],
+          raw_output: String(error),
+          invocation: null,
+          process_output: null,
+        };
+      }
+      throw error;
+    }
 
     if (result.exitCode !== 0) {
       return {

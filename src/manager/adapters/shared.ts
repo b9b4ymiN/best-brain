@@ -1,5 +1,5 @@
 import { spawn, spawnSync, type ChildProcess } from 'node:child_process';
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -78,6 +78,85 @@ export function resolveNeutralAICwd(): string {
   return dir;
 }
 
+export interface ResolvedSpawnCommand {
+  command: string;
+  argsPrefix: string[];
+  displayCommand: string;
+}
+
+function windowsCommandCandidates(command: string): string[] {
+  if (path.extname(command)) {
+    return [command];
+  }
+
+  return [
+    `${command}.cmd`,
+    `${command}.exe`,
+    `${command}.bat`,
+    `${command}.com`,
+    `${command}.ps1`,
+    command,
+  ];
+}
+
+function findCommandOnPath(command: string): string | null {
+  const pathValue = process.env.PATH;
+  if (!pathValue) {
+    return null;
+  }
+
+  for (const directory of pathValue.split(path.delimiter).filter(Boolean)) {
+    for (const candidate of windowsCommandCandidates(command)) {
+      const fullPath = path.join(directory, candidate);
+      if (existsSync(fullPath)) {
+        return fullPath;
+      }
+    }
+  }
+
+  return null;
+}
+
+export function resolveSpawnCommand(command: string): ResolvedSpawnCommand {
+  if (process.platform !== 'win32') {
+    return {
+      command,
+      argsPrefix: [],
+      displayCommand: command,
+    };
+  }
+
+  const found = findCommandOnPath(command);
+  if (!found) {
+    return {
+      command,
+      argsPrefix: [],
+      displayCommand: command,
+    };
+  }
+
+  if (found.toLowerCase().endsWith('.ps1')) {
+    return {
+      command: 'powershell.exe',
+      argsPrefix: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', found],
+      displayCommand: path.basename(found),
+    };
+  }
+
+  return {
+    command: found,
+    argsPrefix: [],
+    displayCommand: path.basename(found),
+  };
+}
+
+export function isSpawnCommandMissing(error: unknown): boolean {
+  return typeof error === 'object'
+    && error !== null
+    && 'code' in error
+    && (error as { code?: string }).code === 'ENOENT';
+}
+
 function forceKill(child: ChildProcess): void {
   if (child.killed || child.exitCode !== null) {
     return;
@@ -113,7 +192,8 @@ export function runCommand(
 }> {
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
-    const child = spawn(command, args, {
+    const resolved = resolveSpawnCommand(command);
+    const child = spawn(resolved.command, [...resolved.argsPrefix, ...args], {
       cwd: options.cwd,
       env: options.env,
       stdio: ['pipe', 'pipe', 'pipe'],
@@ -173,6 +253,7 @@ export function runClaudeStreamResult(
 }> {
   return new Promise((resolve, reject) => {
     const startedAt = Date.now();
+    const resolved = resolveSpawnCommand('claude');
     const args = [
       '-p',
       '--verbose',
@@ -183,7 +264,7 @@ export function runClaudeStreamResult(
     if (options.disableTools === true) {
       args.push('--tools', '');
     }
-    const child = spawn('claude', args, {
+    const child = spawn(resolved.command, [...resolved.argsPrefix, ...args], {
       cwd: options.cwd,
       env: options.env,
       stdio: ['pipe', 'pipe', 'pipe'],

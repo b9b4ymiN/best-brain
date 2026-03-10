@@ -1,6 +1,6 @@
 import type { ConsultResponse, MissionContextBundle } from '../types.ts';
 import type { ManagerDecision, ManagerDecisionKind } from './types.ts';
-import { extractJsonText, resolveNeutralAICwd, runClaudeStreamResult, runCommand, toEnvRecord } from './adapters/shared.ts';
+import { extractJsonText, isSpawnCommandMissing, resolveNeutralAICwd, runClaudeStreamResult, runCommand, toEnvRecord } from './adapters/shared.ts';
 
 export interface ManagerTriageResult {
   kind: ManagerDecisionKind;
@@ -101,35 +101,49 @@ function extractCodexMessage(output: string): string | null {
 }
 
 async function runClaude(prompt: string, timeoutMs: number): Promise<ManagerTriageResult | null> {
-  const result = await runClaudeStreamResult(prompt, {
-    cwd: resolveNeutralAICwd(),
-    env: toEnvRecord({}),
-    timeoutMs,
-    disableTools: true,
-  });
-  return result.result ? parseTriage(result.result) : null;
+  try {
+    const result = await runClaudeStreamResult(prompt, {
+      cwd: resolveNeutralAICwd(),
+      env: toEnvRecord({}),
+      timeoutMs,
+      disableTools: true,
+    });
+    return result.result ? parseTriage(result.result) : null;
+  } catch (error) {
+    if (isSpawnCommandMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 async function runCodex(prompt: string, timeoutMs: number): Promise<ManagerTriageResult | null> {
-  const result = await runCommand('codex', [
-    'exec',
-    '--json',
-    '--full-auto',
-    '--skip-git-repo-check',
-    '-c', 'model_reasoning_effort=high',
-    '-C', resolveNeutralAICwd(),
-    '-',
-  ], {
-    cwd: resolveNeutralAICwd(),
-    env: toEnvRecord({}),
-    timeoutMs,
-    stdin: prompt,
-  });
-  if (result.timedOut || result.exitCode !== 0) {
-    return null;
-  }
+  try {
+    const result = await runCommand('codex', [
+      'exec',
+      '--json',
+      '--full-auto',
+      '--skip-git-repo-check',
+      '-c', 'model_reasoning_effort=high',
+      '-C', resolveNeutralAICwd(),
+      '-',
+    ], {
+      cwd: resolveNeutralAICwd(),
+      env: toEnvRecord({}),
+      timeoutMs,
+      stdin: prompt,
+    });
+    if (result.timedOut || result.exitCode !== 0) {
+      return null;
+    }
 
-  return parseTriage(extractCodexMessage(result.stdout) ?? result.stdout);
+    return parseTriage(extractCodexMessage(result.stdout) ?? result.stdout);
+  } catch (error) {
+    if (isSpawnCommandMissing(error)) {
+      return null;
+    }
+    throw error;
+  }
 }
 
 export class LocalCliManagerReasoner implements ManagerReasoner {

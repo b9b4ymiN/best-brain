@@ -4,7 +4,7 @@ import path from 'path';
 import type { VerificationArtifact, VerificationCheck } from '../../types.ts';
 import type { WorkerAdapter } from './types.ts';
 import type { ExecutionRequest, WorkerExecutionResult } from '../types.ts';
-import { extractJsonText, runCommand, toEnvRecord } from './shared.ts';
+import { extractJsonText, isSpawnCommandMissing, runCommand, toEnvRecord } from './shared.ts';
 
 function normalizeArtifacts(value: unknown): VerificationArtifact[] {
   if (!Array.isArray(value)) {
@@ -120,21 +120,45 @@ export class CodexCliAdapter implements WorkerAdapter {
     ].join('\n');
 
     try {
-      const result = await runCommand('codex', [
-        'exec',
-        '--json',
-        '--full-auto',
-        '--skip-git-repo-check',
-        '-c', 'model_reasoning_effort=high',
-        '--output-last-message', lastMessageFile,
-        '-C', request.cwd,
-        '-',
-      ], {
-        cwd: request.cwd,
-        env: toEnvRecord({}),
-        timeoutMs: 180000,
-        stdin: prompt,
-      });
+      let result;
+      try {
+        result = await runCommand('codex', [
+          'exec',
+          '--json',
+          '--full-auto',
+          '--skip-git-repo-check',
+          '-c', 'model_reasoning_effort=high',
+          '--output-last-message', lastMessageFile,
+          '-C', request.cwd,
+          '-',
+        ], {
+          cwd: request.cwd,
+          env: toEnvRecord({}),
+          timeoutMs: 180000,
+          stdin: prompt,
+        });
+      } catch (error) {
+        if (isSpawnCommandMissing(error)) {
+          return {
+            summary: 'Codex worker is not available on this machine.',
+            status: 'failed',
+            artifacts: [{
+              type: 'note',
+              ref: 'worker://codex/not-available',
+              description: 'Codex CLI could not be started from the current PATH.',
+            }],
+            proposed_checks: [{
+              name: 'codex-cli-available',
+              passed: false,
+              detail: 'Codex CLI could not be started from the current PATH.',
+            }],
+            raw_output: String(error),
+            invocation: null,
+            process_output: null,
+          };
+        }
+        throw error;
+      }
 
       const lastMessage = fs.existsSync(lastMessageFile)
         ? fs.readFileSync(lastMessageFile, 'utf8')
