@@ -156,25 +156,26 @@ export function renderChatPage(): string {
       function addAssistantBubble(payload) {
         const card = document.createElement('section');
         card.className = 'bubble';
-        const chips = [
-          '<span class="chip">' + payload.decision_kind + '</span>',
-          payload.mission_status ? '<span class="chip ' + (payload.mission_status === 'verified_complete' ? 'good' : 'warn') + '">' + payload.mission_status + '</span>' : '',
-          payload.blocked_reason ? '<span class="chip warn">blocked</span>' : '',
-        ].filter(Boolean).join('');
-        const citations = (payload.citations || []).map((citation) =>
-          '<div class="small">[' + citation.memory_type + '] ' + citation.title + '</div>'
-        ).join('');
+        const showMissionMeta = payload.decision_kind !== 'chat';
+        const chips = showMissionMeta
+          ? [
+              '<span class="chip">' + payload.decision_kind + '</span>',
+              payload.mission_status ? '<span class="chip ' + (payload.mission_status === 'verified_complete' ? 'good' : 'warn') + '">' + payload.mission_status + '</span>' : '',
+              payload.blocked_reason ? '<span class="chip warn">blocked</span>' : '',
+            ].filter(Boolean).join('')
+          : '';
         const links = payload.control_room_path
           ? '<div class="links"><a href="' + payload.control_room_path + '">Inspect in control room</a></div>'
           : '';
+        const meta = showMissionMeta
+          ? ('<div class="chips">' + chips + '</div>'
+            + (payload.blocked_reason ? '<div class="small">Blocked reason: ' + escapeHtml(payload.blocked_reason) + '</div>' : ''))
+          : '';
         card.innerHTML = ''
           + '<strong>best-brain</strong>'
-          + '<div class="chips">' + chips + '</div>'
+          + meta
           + '<pre>' + escapeHtml(payload.answer) + '</pre>'
-          + (payload.blocked_reason ? '<div class="small">Blocked reason: ' + escapeHtml(payload.blocked_reason) + '</div>' : '')
-          + '<div class="small">Trace: ' + escapeHtml(payload.trace_id) + '</div>'
-          + links
-          + citations;
+          + links;
         thread.prepend(card);
       }
 

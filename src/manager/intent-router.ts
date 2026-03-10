@@ -8,6 +8,7 @@ const MISSION_HINTS = ['mission', 'complete', 'proof', 'verification', 'deliver'
 const SYSTEM_HINTS = ['system', 'platform', 'workflow', 'pipeline', 'service', 'scanner', 'tool'];
 const ANALYSIS_HINTS = ['analyze', 'analysis', 'review', 'plan', 'draft', 'outline', 'summarize'];
 const CODE_HINTS = ['code', 'repo', 'typescript', 'bun', 'test', 'server', 'cli', 'script', 'file'];
+const WORK_TARGET_HINTS = ['file', 'repo', 'server', 'script', 'report', 'browser', 'mail', 'stock', 'scanner', 'system', 'web'];
 const IMPLEMENT_HINTS = ['implement', 'edit', 'fix', 'write', 'patch', 'scaffold'];
 const SHELL_HINTS = ['run', 'build', 'lint', 'smoke', 'terminal', 'shell', 'powershell', 'command'];
 const THAI_CHAT_HINTS = [
@@ -46,6 +47,15 @@ const THAI_SYSTEM_HINTS = [
   '\u0e23\u0e30\u0e1a\u0e1a',
   '\u0e40\u0e04\u0e23\u0e37\u0e48\u0e2d\u0e07\u0e21\u0e37\u0e2d',
   '\u0e40\u0e27\u0e34\u0e23\u0e4c\u0e01\u0e42\u0e1f\u0e25\u0e27\u0e4c',
+  '\u0e2a\u0e41\u0e01\u0e19\u0e2b\u0e38\u0e49\u0e19',
+];
+const THAI_WORK_TARGET_HINTS = [
+  '\u0e44\u0e1f\u0e25\u0e4c',
+  '\u0e23\u0e30\u0e1a\u0e1a',
+  '\u0e23\u0e32\u0e22\u0e07\u0e32\u0e19',
+  '\u0e40\u0e27\u0e47\u0e1a',
+  '\u0e40\u0e21\u0e25',
+  '\u0e2b\u0e38\u0e49\u0e19',
   '\u0e2a\u0e41\u0e01\u0e19\u0e2b\u0e38\u0e49\u0e19',
 ];
 const OWNER_WANT_HINTS = ['i want', 'want a', 'want an', 'want the', 'need a', 'need an'];
@@ -95,6 +105,7 @@ export function routeIntent(input: ManagerInput): ManagerDecision {
   const hasExecution = includesAny(tokens, EXECUTION_HINTS) || includesAnyText(goalText, THAI_EXECUTION_HINTS);
   const hasMission = input.mission_id != null || includesAny(tokens, MISSION_HINTS) || includesAnyText(goalText, THAI_MISSION_HINTS);
   const hasSystemGoal = includesAny(tokens, SYSTEM_HINTS) || includesAnyText(goalText, THAI_SYSTEM_HINTS);
+  const hasWorkTarget = includesAny(tokens, WORK_TARGET_HINTS) || includesAnyText(goalText, THAI_WORK_TARGET_HINTS);
   const hasAnalysis = includesAny(tokens, ANALYSIS_HINTS);
   const ownerWantsAnOutcome = includesAnyText(goalText, OWNER_WANT_HINTS) || includesAnyText(goalText, THAI_OWNER_WANT_HINTS);
   const hasQuestion = input.goal.trim().endsWith('?')
@@ -111,6 +122,9 @@ export function routeIntent(input: ManagerInput): ManagerDecision {
   } else if (hasSystemGoal && (hasExecution || hasMission || ownerWantsAnOutcome)) {
     kind = 'mission';
     reason = 'classified as mission because the goal asks the manager to create or deliver a system, not only answer a question.';
+  } else if (!hasExecution && !hasMission && !hasWorkTarget) {
+    kind = 'chat';
+    reason = 'classified as chat because the goal does not indicate executable work or a concrete work target.';
   } else if ((hasQuestion || hasAnalysis) && !hasExecution && !hasMission) {
     kind = 'chat';
     reason = 'classified as chat because the goal asks for guidance or analysis without execution verbs.';

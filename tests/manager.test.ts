@@ -21,6 +21,7 @@ import type {
 } from '../src/manager/types.ts';
 
 const THAI_TODAY_QUESTION = '\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49\u0e27\u0e31\u0e19\u0e2d\u0e30\u0e44\u0e23';
+const THAI_MONDAY_FRAGMENT = '\u0e27\u0e31\u0e19\u0e08\u0e31\u0e19\u0e17\u0e23\u0e4c';
 
 function makeInput(goal: string, overrides: Partial<ManagerInput> = {}): ManagerInput {
   return {
@@ -208,6 +209,7 @@ describe('manager alpha unit flow', () => {
     expect(routeIntent(makeInput('Run `bun --version` locally and summarize the result.')).selected_worker).toBe('shell');
     expect(routeIntent(makeInput('I want a Thai stock scanner system that matches how I invest.')).selected_worker).toBe('claude');
     expect(routeIntent(makeInput(THAI_TODAY_QUESTION)).kind).toBe('chat');
+    expect(routeIntent(makeInput(THAI_MONDAY_FRAGMENT)).kind).toBe('chat');
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.', { worker_preference: 'claude' })).selected_worker).toBe('claude');
   });
 

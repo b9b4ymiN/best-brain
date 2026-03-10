@@ -10,8 +10,10 @@ import { runOnboarding } from '../src/services/onboarding.ts';
 import { createTestBrain } from './helpers.ts';
 
 const THAI_TODAY_QUESTION = '\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49\u0e27\u0e31\u0e19\u0e2d\u0e30\u0e44\u0e23';
+const THAI_MONDAY_FRAGMENT = '\u0e27\u0e31\u0e19\u0e08\u0e31\u0e19\u0e17\u0e23\u0e4c';
 const THAI_STOCK_SYSTEM_GOAL = '\u0e2d\u0e22\u0e32\u0e01\u0e44\u0e14\u0e49\u0e23\u0e30\u0e1a\u0e1a\u0e2a\u0e41\u0e01\u0e19\u0e2b\u0e38\u0e49\u0e19\u0e17\u0e35\u0e48\u0e15\u0e23\u0e07\u0e01\u0e31\u0e1a\u0e41\u0e19\u0e27\u0e25\u0e07\u0e17\u0e38\u0e19\u0e02\u0e2d\u0e07\u0e09\u0e31\u0e19';
 const THAI_TODAY_PREFIX = '\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49\u0e04\u0e37\u0e2d';
+const THAI_CLARIFY_PREFIX = '\u0e0a\u0e48\u0e27\u0e22\u0e1e\u0e34\u0e21\u0e1e\u0e4c\u0e04\u0e33\u0e16\u0e32\u0e21';
 
 class StaticWorkerAdapter implements WorkerAdapter {
   readonly name: ExecutionRequest['selected_worker'];
@@ -79,6 +81,55 @@ describe('chat HTTP', () => {
       expect(payload.answer).toContain('2569');
       expect(payload.mission_id).toBeNull();
       expect(payload.control_room_path).toBeNull();
+    } finally {
+      server.stop(true);
+      cleanup();
+    }
+  });
+
+  test('asks for clarification on short Thai chat fragments instead of dumping memory retrieval', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'chat-owner' });
+    let server: ReturnType<typeof Bun.serve>;
+    const managerFactory = () => new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+    });
+    const controlRoom = new ControlRoomService({
+      dataDir: brain.config.dataDir,
+      managerFactory,
+    });
+    const chat = new ChatService({
+      managerFactory,
+      controlRoom,
+    });
+    const app = createApp(brain, { chat, controlRoom });
+    server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    try {
+      const baseUrl = `http://127.0.0.1:${server.port}`;
+      const response = await fetch(`${baseUrl}/chat/api/message`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          message: THAI_MONDAY_FRAGMENT,
+        }),
+      });
+      expect(response.status).toBe(200);
+      const payload = await response.json() as {
+        decision_kind: string;
+        answer: string;
+        mission_id: string | null;
+      };
+      expect(payload.decision_kind).toBe('chat');
+      expect(payload.answer).toContain(THAI_CLARIFY_PREFIX);
+      expect(payload.answer).not.toContain('[MissionMemory]');
+      expect(payload.mission_id).toBeNull();
     } finally {
       server.stop(true);
       cleanup();
