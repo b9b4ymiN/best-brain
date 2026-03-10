@@ -25,6 +25,9 @@ try {
   if (result.goal_ambiguity.is_ambiguous) {
     throw new Error(`thin manager smoke did not expect an ambiguous goal: ${result.goal_ambiguity.reason}`);
   }
+  if (!result.mission_brief.playbook.id) {
+    throw new Error('thin manager smoke expected a resolved playbook');
+  }
   if (!result.mission_graph.nodes.some((node) => node.id === 'context_review')) {
     throw new Error('thin manager smoke expected a mission graph with a context review node');
   }

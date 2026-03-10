@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T00:03:00.317Z",
+  "generated_at": "2026-03-10T00:13:54.551Z",
   "success_bar": "Repeatable One-Mission",
   "proving_mission": "Thai equities daily stock scanner",
   "acceptance_run_set": "thai_equities_daily_controlled_acceptance_runs",
@@ -185,7 +185,7 @@
     {
       "phase": "Phase1_ManagerBeta",
       "status": "partial",
-      "note": "Manager paths pass and core safety rails are measured, but mission graph and playbook execution are still scaffolding-level."
+      "note": "Manager paths pass, core safety rails are measured, and mission graph plus playbook execution are wired into the live path, but multi-step decomposition is still thin."
     },
     {
       "phase": "Phase2_WorkerFabricRuntimeSpine",

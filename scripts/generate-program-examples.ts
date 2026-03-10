@@ -61,6 +61,8 @@ const workerTaskResult: WorkerTaskResult = {
 
 const missionGraph: MissionTaskGraph = {
   mission_id: workerTaskInput.mission_id,
+  mission_kind: 'thai_equities_daily_scanner',
+  playbook_id: 'playbook_thai_equities_daily',
   created_at: now,
   updated_at: now,
   nodes: [

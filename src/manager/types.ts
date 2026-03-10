@@ -6,6 +6,7 @@ import type {
   VerificationArtifact,
   VerificationCheck,
 } from '../types.ts';
+import type { MissionPlaybook } from '../playbooks/types.ts';
 import type { MissionTaskGraph } from './graph.ts';
 
 export const MANAGER_WORKER_PREFERENCES = ['auto', 'claude', 'codex'] as const;
@@ -48,6 +49,7 @@ export interface GoalAmbiguityAssessment {
 
 export interface MissionBrief {
   mission_id: string;
+  mission_kind: string;
   goal: string;
   kind: ManagerDecisionKind;
   selected_worker: ManagerWorker | null;
@@ -57,6 +59,8 @@ export interface MissionBrief {
   planning_hints: string[];
   brain_citations: ConsultCitation[];
   brain_trace_id: string;
+  playbook: MissionPlaybook;
+  mission_graph: MissionTaskGraph;
   execution_plan: string[];
 }
 
@@ -69,10 +73,17 @@ export interface MissionBriefValidation {
 
 export interface ExecutionRequest {
   mission_id: string;
+  mission_kind: string;
+  task_id: string;
+  task_title: string;
   selected_worker: ManagerWorker;
   prompt: string;
   cwd: string;
   expected_artifacts: Array<VerificationArtifact['type']>;
+  context_citations: ConsultCitation[];
+  playbook_id: string;
+  playbook: MissionPlaybook;
+  mission_graph: MissionTaskGraph;
   verification_required: boolean;
 }
 

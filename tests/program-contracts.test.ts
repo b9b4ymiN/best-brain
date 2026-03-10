@@ -176,6 +176,8 @@ describe('program contract freeze', () => {
   test('recomputes mission graph readiness from dependency completion', () => {
     const graph = recomputeMissionGraph({
       mission_id: 'mission-program',
+      mission_kind: 'general_mission',
+      playbook_id: 'playbook_general_mission',
       created_at: 1,
       updated_at: 1,
       nodes: [

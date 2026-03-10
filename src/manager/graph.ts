@@ -38,6 +38,8 @@ export interface MissionTaskNode {
 
 export interface MissionTaskGraph {
   mission_id: string;
+  mission_kind: string;
+  playbook_id: string;
   nodes: MissionTaskNode[];
   created_at: number;
   updated_at: number;
@@ -49,6 +51,8 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
   if (brief.kind === 'chat') {
     return recomputeMissionGraph({
       mission_id: brief.mission_id,
+      mission_kind: brief.mission_kind,
+      playbook_id: brief.playbook.id,
       created_at: now,
       updated_at: now,
       nodes: [
@@ -67,7 +71,7 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
         {
           id: 'final_response',
           title: 'Prepare the final response',
-          objective: 'Return a grounded response or next action to the owner.',
+          objective: `Return a grounded response or next action in the preferred format: ${brief.playbook.report_format}`,
           node_type: 'report',
           assigned_worker: null,
           depends_on: ['context_review'],
@@ -85,6 +89,8 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
 
   return recomputeMissionGraph({
     mission_id: brief.mission_id,
+    mission_kind: brief.mission_kind,
+    playbook_id: brief.playbook.id,
     created_at: now,
     updated_at: now,
     nodes: [
@@ -115,7 +121,7 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
       {
         id: 'verification_gate',
         title: 'Run verification gate',
-        objective: 'Prove the result with evidence and verification checks before completion.',
+        objective: `Prove the result with checklist: ${brief.playbook.verifier_checklist.map((item) => item.name).join(' | ')}`,
         node_type: 'verification',
         assigned_worker: 'verifier',
         depends_on: ['primary_work'],
@@ -127,7 +133,7 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
       {
         id: 'final_report',
         title: 'Prepare final owner report',
-        objective: 'Summarize the result, proof status, risks, and next action for the owner.',
+        objective: `Summarize the result for the owner using format: ${brief.playbook.report_format}`,
         node_type: 'report',
         assigned_worker: null,
         depends_on: ['verification_gate'],

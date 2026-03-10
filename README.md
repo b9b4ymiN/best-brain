@@ -47,6 +47,7 @@ What exists now:
 - brain HTTP and MCP contracts
 - persona, preference, mission, failure, and verification memory
 - manager alpha with `chat`, `task`, and `mission` routing
+- manager beta rails for `MissionBrief` validation, goal ambiguity detection, mission graph compilation, and playbook-guided verification
 - one-primary-worker execution with `claude` or `codex`
 - proof-chain persistence: outcome, verification start, verification complete, failure lesson
 

@@ -334,7 +334,7 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
       status: managerPathsReady ? 'partial' : 'fail',
       note: managerPathsReady
         ? managerRailsMeasured
-          ? 'Manager paths pass and core safety rails are measured, but mission graph and playbook execution are still scaffolding-level.'
+          ? 'Manager paths pass, core safety rails are measured, and mission graph plus playbook execution are wired into the live path, but multi-step decomposition is still thin.'
           : 'Manager alpha proves the core one-worker path, but MissionBrief validation and ambiguity detection still need explicit proof coverage.'
         : 'Manager proof capture is incomplete.',
     },

@@ -1,4 +1,4 @@
-import type { VerificationRequest, WorkerExecutionResult } from './types.ts';
+import type { ExecutionRequest, VerificationRequest, WorkerExecutionResult } from './types.ts';
 import type { VerificationArtifact, VerificationCheck } from '../types.ts';
 
 function uniqueArtifacts(artifacts: VerificationArtifact[]): VerificationArtifact[] {
@@ -39,13 +39,36 @@ function ensureChecks(workerResult: WorkerExecutionResult): VerificationCheck[] 
   }];
 }
 
-export function buildVerificationRequest(missionId: string, workerResult: WorkerExecutionResult): VerificationRequest {
-  const evidence = ensureNoteEvidence(workerResult, missionId);
-  const verificationChecks = ensureChecks(workerResult);
+function buildPlaybookChecks(
+  request: ExecutionRequest,
+  evidence: VerificationArtifact[],
+  workerResult: WorkerExecutionResult,
+): VerificationCheck[] {
+  return request.playbook.verifier_checklist.map((item) => {
+    const artifactMatch = item.artifact_kind == null
+      ? workerResult.proposed_checks.length > 0
+      : evidence.some((artifact) => artifact.type === item.artifact_kind);
+
+    return {
+      name: item.name,
+      passed: item.required ? artifactMatch : true,
+      detail: item.required
+        ? `${item.detail} Expected artifact kind: ${item.artifact_kind ?? 'any'}.`
+        : `Optional playbook check: ${item.detail}`,
+    };
+  });
+}
+
+export function buildVerificationRequest(request: ExecutionRequest, workerResult: WorkerExecutionResult): VerificationRequest {
+  const evidence = ensureNoteEvidence(workerResult, request.mission_id);
+  const verificationChecks = [
+    ...ensureChecks(workerResult),
+    ...buildPlaybookChecks(request, evidence, workerResult),
+  ];
   const allChecksPass = verificationChecks.every((check) => check.passed);
 
   return {
-    mission_id: missionId,
+    mission_id: request.mission_id,
     summary: workerResult.summary,
     evidence,
     verification_checks: verificationChecks,

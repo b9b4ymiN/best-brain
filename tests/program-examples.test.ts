@@ -14,6 +14,7 @@ describe('program example library', () => {
       artifacts: unknown[];
     };
     const missionGraph = JSON.parse(fs.readFileSync(path.join(examplesDir, 'mission-task-graph.json'), 'utf8')) as {
+      playbook_id: string;
       nodes: Array<{ id: string; status: string }>;
     };
     const runtimeBundle = JSON.parse(fs.readFileSync(path.join(examplesDir, 'runtime-session-bundle.json'), 'utf8')) as {
@@ -43,6 +44,7 @@ describe('program example library', () => {
     expect(workerTaskInput.worker).toBe('claude');
     expect(workerTaskResult.status).toBe('success');
     expect(workerTaskResult.artifacts.length).toBeGreaterThan(0);
+    expect(missionGraph.playbook_id).toBe('playbook_thai_equities_daily');
     expect(missionGraph.nodes.some((node) => node.status === 'ready')).toBe(true);
     expect(runtimeBundle.session.mission_id).toBe(workerTaskInput.mission_id);
     expect(runtimeBundle.artifacts.length).toBeGreaterThan(0);

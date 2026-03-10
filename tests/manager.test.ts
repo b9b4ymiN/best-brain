@@ -261,8 +261,11 @@ describe('manager alpha unit flow', () => {
       expect(result.mission_brief.preferred_format).toContain('proof chain');
       expect(result.mission_brief.planning_hints).toContain('Reuse the last verified mission.');
       expect(result.mission_brief.success_criteria.some((item) => item.includes('Do not claim done'))).toBe(true);
+      expect(result.mission_brief.playbook.id).toContain('analysis-reporting-mission');
+      expect(result.mission_brief.playbook.verifier_checklist.length).toBeGreaterThan(0);
       expect(result.mission_brief_validation.is_complete).toBe(true);
       expect(result.mission_brief_validation.completeness_score).toBe(100);
+      expect(result.mission_brief.mission_graph.playbook_id).toBe(result.mission_brief.playbook.id);
       expect(result.mission_graph.nodes.map((node) => node.id)).toEqual([
         'context_review',
         'primary_work',
@@ -345,6 +348,9 @@ describe('manager alpha unit flow', () => {
       expect(brain.calls.saveOutcome[0]?.domain).toBe('best-brain');
       expect(brain.calls.completeVerification[0]?.status).toBe('verified_complete');
       expect(worker.requests).toHaveLength(1);
+      expect(worker.requests[0]?.task_id).toBe('primary_work');
+      expect(worker.requests[0]?.playbook_id).toBe(result.mission_brief.playbook.id);
+      expect(worker.requests[0]?.context_citations).toHaveLength(result.mission_brief.brain_citations.length);
       expect(result.mission_graph.nodes.find((node) => node.id === 'primary_work')?.status).toBe('completed');
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
       expect(result.mission_graph.nodes.find((node) => node.id === 'final_report')?.status).toBe('completed');
@@ -382,6 +388,37 @@ describe('manager alpha unit flow', () => {
       expect(brain.calls.completeVerification[0]?.status).toBe('verification_failed');
       expect(brain.calls.saveFailure).toHaveLength(1);
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('failed');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('playbook verifier checklist blocks implementation missions that lack required file evidence', async () => {
+    const brain = new FakeBrainAdapter();
+    const worker = new FakeWorkerAdapter('codex', {
+      summary: 'Implemented the change but only returned a note.',
+      status: 'success',
+      artifacts: [{ type: 'note', ref: 'worker://codex/note-only', description: 'No file artifact was returned.' }],
+      proposed_checks: [{ name: 'worker-produced-note', passed: true }],
+      raw_output: '{}',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      workers: { codex: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Implement a repo change for this project.',
+        worker_preference: 'codex',
+        mission_id: 'mission_playbook_file_required',
+        output_mode: 'json',
+      });
+
+      expect(result.mission_brief.playbook.mission_kind).toBe('repo_change_mission');
+      expect(result.verification_result?.status).toBe('verification_failed');
+      expect(result.brain_writes.some((entry) => entry.action === 'save_failure')).toBe(true);
+      expect(brain.calls.completeVerification[0]?.verification_checks.some((check) => check.name === 'Code or test artifact exists' && check.passed === false)).toBe(true);
     } finally {
       await runtime.dispose();
     }

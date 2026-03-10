@@ -67,7 +67,10 @@ describe('manager alpha via brain HTTP', () => {
         codex: new StaticWorkerAdapter('codex', {
           summary: 'Worker produced a verifiable mission note.',
           status: 'success',
-          artifacts: [{ type: 'note', ref: 'worker://manager-http/success', description: 'Mission proof note.' }],
+          artifacts: [
+            { type: 'note', ref: 'worker://manager-http/success', description: 'Mission proof note.' },
+            { type: 'file', ref: 'file://manager-http/proof.ts', description: 'Implementation artifact for the repo change.' },
+          ],
           proposed_checks: [{ name: 'worker-proof-note', passed: true }],
           raw_output: '{}',
         }),
@@ -84,6 +87,7 @@ describe('manager alpha via brain HTTP', () => {
       expect(result.verification_result?.status).toBe('verified_complete');
       expect(result.started_brain_server).toBe(false);
       expect(result.mission_brief_validation.is_complete).toBe(true);
+      expect(result.mission_brief.playbook.mission_kind).toBe('repo_change_mission');
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
 
       const contextResponse = await fetch(`http://127.0.0.1:${server.port}/brain/context?mission_id=mission_http_manager&query=latest%20mission%20context`);
@@ -119,7 +123,10 @@ describe('manager alpha via brain HTTP', () => {
         codex: new StaticWorkerAdapter('codex', {
           summary: 'Worker produced a verified mission seed.',
           status: 'success',
-          artifacts: [{ type: 'note', ref: 'worker://manager-http/reuse', description: 'Reusable proof.' }],
+          artifacts: [
+            { type: 'note', ref: 'worker://manager-http/reuse', description: 'Reusable proof.' },
+            { type: 'file', ref: 'file://manager-http/reuse.ts', description: 'Reusable implementation artifact.' },
+          ],
           proposed_checks: [{ name: 'proof-ready', passed: true }],
           raw_output: '{}',
         }),
@@ -142,6 +149,7 @@ describe('manager alpha via brain HTTP', () => {
 
       expect(followUp.mission_brief.brain_citations.some((citation) => citation.title.includes('Mission outcome: Implement the first verified manager mission.'))).toBe(true);
       expect(followUp.mission_brief_validation.completeness_score).toBe(100);
+      expect(followUp.mission_brief.playbook.verifier_checklist.length).toBeGreaterThan(0);
       expect(followUp.brain_writes).toHaveLength(0);
     } finally {
       await runtime.dispose();

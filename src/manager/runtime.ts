@@ -4,7 +4,7 @@ import { createId } from '../utils/id.ts';
 import { dispatchPrimaryWorker } from './dispatcher.ts';
 import { validateMissionBrief } from './brief-validator.ts';
 import { detectGoalAmbiguity } from './goal-ambiguity.ts';
-import { buildMissionTaskGraph, updateTaskStatus } from './graph.ts';
+import { updateTaskStatus } from './graph.ts';
 import { routeIntent } from './intent-router.ts';
 import {
   assertCompletionPolicy,
@@ -143,11 +143,12 @@ export class ManagerRuntime {
     }, missionId);
     const briefValidation = validateMissionBrief(brief);
     let missionGraph = updateTaskStatus(
-      buildMissionTaskGraph(brief),
+      brief.mission_graph,
       'context_review',
       'completed',
       brief.brain_citations.map((citation) => citation.memory_id),
     );
+    brief.mission_graph = missionGraph;
 
     if (!briefValidation.is_complete && decision.kind !== 'chat') {
       decision = buildBlockedDecision(
@@ -166,6 +167,7 @@ export class ManagerRuntime {
     }
 
     missionGraph = updateTaskStatus(missionGraph, 'primary_work', 'running');
+    brief.mission_graph = missionGraph;
 
     const brainWrites: BrainWriteRecord[] = [];
     let workerResult: WorkerExecutionResult;
@@ -180,6 +182,7 @@ export class ManagerRuntime {
       workerResult.status === 'success' ? 'completed' : 'failed',
       artifactRefs(workerResult),
     );
+    brief.mission_graph = missionGraph;
 
     const verificationRequest = await this.verifier.review(executionRequest, workerResult);
     assertCompletionPolicy(verificationRequest);
@@ -233,6 +236,7 @@ export class ManagerRuntime {
       verificationResult.status === 'verified_complete' ? 'completed' : 'failed',
       verificationRequest.evidence.map((artifact) => artifact.ref),
     );
+    brief.mission_graph = missionGraph;
     if (verificationResult.status === 'verified_complete') {
       missionGraph = updateTaskStatus(
         missionGraph,
@@ -240,6 +244,7 @@ export class ManagerRuntime {
         'completed',
         verificationRequest.evidence.map((artifact) => artifact.ref),
       );
+      brief.mission_graph = missionGraph;
     }
 
     if (verificationResult.status !== 'verified_complete') {

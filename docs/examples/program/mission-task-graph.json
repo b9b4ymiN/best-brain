@@ -1,7 +1,9 @@
 {
   "mission_id": "mission_program_example",
-  "created_at": 1773100980317,
-  "updated_at": 1773100980317,
+  "mission_kind": "thai_equities_daily_scanner",
+  "playbook_id": "playbook_thai_equities_daily",
+  "created_at": 1773101634551,
+  "updated_at": 1773101634551,
   "nodes": [
     {
       "id": "task_analysis",

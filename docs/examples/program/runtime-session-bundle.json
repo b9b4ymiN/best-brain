@@ -8,8 +8,8 @@
     "checkpoint_ids": [
       "checkpoint_before_verification"
     ],
-    "created_at": 1773100980317,
-    "updated_at": 1773100980317
+    "created_at": 1773101634551,
+    "updated_at": 1773101634551
   },
   "processes": [
     {
@@ -27,8 +27,8 @@
       "exit_code": 0,
       "stdout_artifact_id": "artifact_stdout",
       "stderr_artifact_id": null,
-      "started_at": 1773101010317,
-      "completed_at": 1773101020317
+      "started_at": 1773101664551,
+      "completed_at": 1773101674551
     }
   ],
   "artifacts": [
@@ -42,7 +42,7 @@
       "description": "Mission analysis note.",
       "checksum": null,
       "source": "claude",
-      "created_at": 1773100995317
+      "created_at": 1773101649551
     },
     {
       "id": "artifact_stdout",
@@ -54,7 +54,7 @@
       "description": "Scanner stdout output.",
       "checksum": null,
       "source": "shell",
-      "created_at": 1773101020317
+      "created_at": 1773101674551
     }
   ],
   "checkpoints": [
@@ -68,7 +68,7 @@
         "artifact_stdout"
       ],
       "restore_supported": true,
-      "created_at": 1773101025317
+      "created_at": 1773101679551
     }
   ],
   "events": [
@@ -81,7 +81,7 @@
       "actor": "manager",
       "detail": "Mission launched from a single user goal.",
       "data": {},
-      "created_at": 1773100980317
+      "created_at": 1773101634551
     }
   ]
 }
