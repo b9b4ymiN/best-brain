@@ -17,6 +17,12 @@ const THAI_STOCK_SYSTEM_GOAL = '\u0e2d\u0e22\u0e32\u0e01\u0e44\u0e14\u0e49\u0e23
 const THAI_TODAY_PREFIX = '\u0e27\u0e31\u0e19\u0e19\u0e35\u0e49\u0e04\u0e37\u0e2d';
 const THAI_CLARIFY_PREFIX = '\u0e0a\u0e48\u0e27\u0e22\u0e1e\u0e34\u0e21\u0e1e\u0e4c\u0e04\u0e33\u0e16\u0e32\u0e21';
 const THAI_MONTH_PREFIX = '\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e19\u0e35\u0e49\u0e04\u0e37\u0e2d';
+const RAW_CLAUDE_STREAM = [
+  '{"type":"system","subtype":"init"}',
+  '{"type":"assistant","message":{"content":[{"type":"thinking","text":"internal"}]}}',
+  '{"type":"assistant","message":{"content":[{"type":"text","text":"สวัสดีครับ มีอะไรให้ช่วยไหม"}]}}',
+  '{"type":"result","result":"สวัสดีครับ มีอะไรให้ช่วยไหม"}',
+].join('\n');
 
 class StaticWorkerAdapter implements WorkerAdapter {
   readonly name: ExecutionRequest['selected_worker'];
@@ -195,6 +201,51 @@ describe('chat HTTP', () => {
       expect(payload.answer).toContain(THAI_MONTH_PREFIX);
       expect(payload.answer).toContain('\u0e21\u0e35\u0e19\u0e32\u0e04\u0e21');
       expect(payload.mission_id).toBeNull();
+    } finally {
+      server.stop(true);
+      cleanup();
+    }
+  });
+
+  test('sanitizes internal stream-json output before it reaches the chat UI', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'chat-owner' });
+    let server: ReturnType<typeof Bun.serve>;
+    const managerFactory = () => new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+      chatResponder: new StaticChatResponder(RAW_CLAUDE_STREAM),
+    });
+    const controlRoom = new ControlRoomService({
+      dataDir: brain.config.dataDir,
+      managerFactory,
+    });
+    const chat = new ChatService({
+      managerFactory,
+      controlRoom,
+    });
+    const app = createApp(brain, { chat, controlRoom });
+    server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    try {
+      const baseUrl = `http://127.0.0.1:${server.port}`;
+      const response = await fetch(`${baseUrl}/chat/api/message`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          message: '\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35',
+        }),
+      });
+      expect(response.status).toBe(200);
+      const payload = await response.json() as { answer: string };
+      expect(payload.answer).toBe('\u0e2a\u0e27\u0e31\u0e2a\u0e14\u0e35\u0e04\u0e23\u0e31\u0e1a \u0e21\u0e35\u0e2d\u0e30\u0e44\u0e23\u0e43\u0e2b\u0e49\u0e0a\u0e48\u0e27\u0e22\u0e44\u0e2b\u0e21');
+      expect(payload.answer).not.toContain('"type":"system"');
+      expect(payload.answer).not.toContain('"type":"assistant"');
     } finally {
       server.stop(true);
       cleanup();

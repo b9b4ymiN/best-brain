@@ -75,7 +75,7 @@ async function runClaude(prompt: string, timeoutMs: number): Promise<string | nu
     timeoutMs,
     disableTools: true,
   });
-  return normalizeAnswer(result.result ?? result.stdout);
+  return normalizeAnswer(result.result ?? '');
 }
 
 function extractCodexMessage(output: string): string | null {

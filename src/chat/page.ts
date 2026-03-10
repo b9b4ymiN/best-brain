@@ -13,7 +13,6 @@ export function renderChatPage(): string {
         --muted: #6d655b;
         --line: #d5c8b3;
         --accent: #9f4f16;
-        --accent-soft: #f0d9c7;
         --good: #24613a;
         --warn: #8a2f1f;
       }
@@ -44,7 +43,20 @@ export function renderChatPage(): string {
         display: grid;
         gap: 8px;
       }
-      .hero p, .meta, .small { color: var(--muted); }
+      .hero p, .small { color: var(--muted); }
+      .thread {
+        display: grid;
+        gap: 14px;
+        min-height: 240px;
+      }
+      .composer {
+        position: sticky;
+        bottom: 0;
+      }
+      .composer-inner {
+        display: grid;
+        gap: 12px;
+      }
       textarea, button {
         width: 100%;
         font: inherit;
@@ -67,10 +79,6 @@ export function renderChatPage(): string {
         font-weight: 600;
         cursor: pointer;
       }
-      .thread {
-        display: grid;
-        gap: 14px;
-      }
       .bubble {
         border: 1px solid var(--line);
         border-radius: 16px;
@@ -81,6 +89,17 @@ export function renderChatPage(): string {
       }
       .bubble.user {
         background: linear-gradient(135deg, #fff5e8, #fffaf1);
+      }
+      .bubble.pending {
+        opacity: 0.85;
+      }
+      .label {
+        font-weight: 700;
+      }
+      .message {
+        white-space: pre-wrap;
+        word-break: break-word;
+        line-height: 1.6;
       }
       .chips {
         display: flex;
@@ -106,13 +125,6 @@ export function renderChatPage(): string {
         text-decoration: none;
         font-weight: 600;
       }
-      pre {
-        margin: 0;
-        white-space: pre-wrap;
-        word-break: break-word;
-        font-family: ui-monospace, monospace;
-        font-size: 13px;
-      }
     </style>
   </head>
   <body>
@@ -125,19 +137,20 @@ export function renderChatPage(): string {
         </div>
       </section>
 
-      <section class="panel">
-        <div style="display:grid; gap:12px;">
+      <section id="thread" class="thread"></section>
+
+      <section class="panel composer">
+        <div class="composer-inner">
           <textarea id="message" placeholder="ถามได้เลย เช่น วันนี้วันอะไร หรือ อยากได้ระบบสแกนหุ้นที่ตรงกับแนวลงทุนของฉัน"></textarea>
           <button id="send">Send</button>
         </div>
       </section>
-
-      <section id="thread" class="thread"></section>
     </main>
 
     <script>
       const thread = document.getElementById('thread');
       const messageEl = document.getElementById('message');
+      const sendButton = document.getElementById('send');
 
       function escapeHtml(value) {
         return value
@@ -149,14 +162,21 @@ export function renderChatPage(): string {
       function addUserBubble(message) {
         const card = document.createElement('section');
         card.className = 'bubble user';
-        card.innerHTML = '<strong>You</strong><pre>' + escapeHtml(message) + '</pre>';
+        card.innerHTML = '<div class="label">You</div><div class="message">' + escapeHtml(message) + '</div>';
         thread.appendChild(card);
         card.scrollIntoView({ block: 'end', behavior: 'smooth' });
       }
 
-      function addAssistantBubble(payload) {
+      function addPendingBubble() {
         const card = document.createElement('section');
-        card.className = 'bubble';
+        card.className = 'bubble pending';
+        card.innerHTML = '<div class="label">best-brain</div><div class="message">กำลังคิด...</div>';
+        thread.appendChild(card);
+        card.scrollIntoView({ block: 'end', behavior: 'smooth' });
+        return card;
+      }
+
+      function renderAssistantBubble(card, payload) {
         const showMissionMeta = payload.decision_kind !== 'chat';
         const chips = showMissionMeta
           ? [
@@ -172,12 +192,12 @@ export function renderChatPage(): string {
           ? ('<div class="chips">' + chips + '</div>'
             + (payload.blocked_reason ? '<div class="small">Blocked reason: ' + escapeHtml(payload.blocked_reason) + '</div>' : ''))
           : '';
+        card.className = 'bubble';
         card.innerHTML = ''
-          + '<strong>best-brain</strong>'
+          + '<div class="label">best-brain</div>'
           + meta
-          + '<pre>' + escapeHtml(payload.answer) + '</pre>'
+          + '<div class="message">' + escapeHtml(payload.answer) + '</div>'
           + links;
-        thread.appendChild(card);
         card.scrollIntoView({ block: 'end', behavior: 'smooth' });
       }
 
@@ -186,31 +206,45 @@ export function renderChatPage(): string {
         if (!message) return;
         addUserBubble(message);
         messageEl.value = '';
+        sendButton.disabled = true;
+        const pending = addPendingBubble();
 
-        const response = await fetch('/chat/api/message', {
-          method: 'POST',
-          headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ message }),
-        });
-        const payload = await response.json();
-        if (!response.ok) {
-          addAssistantBubble({
-            answer: payload.error || 'Request failed.',
+        try {
+          const response = await fetch('/chat/api/message', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ message }),
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            renderAssistantBubble(pending, {
+              answer: payload.error || 'Request failed.',
+              decision_kind: 'chat',
+              blocked_reason: payload.error || null,
+              mission_status: null,
+              control_room_path: null,
+            });
+            return;
+          }
+          renderAssistantBubble(pending, payload);
+        } catch (error) {
+          renderAssistantBubble(pending, {
+            answer: error instanceof Error ? error.message : 'Request failed.',
             decision_kind: 'chat',
-            blocked_reason: payload.error || null,
+            blocked_reason: 'request_failed',
             mission_status: null,
             control_room_path: null,
-            trace_id: 'n/a',
-            citations: [],
           });
-          return;
+        } finally {
+          sendButton.disabled = false;
+          messageEl.focus();
         }
-        addAssistantBubble(payload);
       }
 
-      document.getElementById('send').addEventListener('click', sendMessage);
+      sendButton.addEventListener('click', sendMessage);
       messageEl.addEventListener('keydown', (event) => {
-        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        if (event.key === 'Enter' && !event.shiftKey) {
+          event.preventDefault();
           sendMessage();
         }
       });

@@ -1,5 +1,6 @@
 import type { ControlRoomService } from '../control-room/service.ts';
 import type { ManagerRuntime } from '../manager/runtime.ts';
+import { normalizeChatDisplayAnswer } from './format.ts';
 import type { ChatMessageRequest, ChatMessageResponse } from './types.ts';
 
 export interface ChatServiceOptions {
@@ -42,7 +43,7 @@ export class ChatService {
 
       return {
         user_message: message,
-        answer: result.owner_response,
+        answer: normalizeChatDisplayAnswer(result.owner_response),
         decision_kind: result.decision.kind,
         blocked_reason: result.decision.blocked_reason,
         mission_id: missionId,
