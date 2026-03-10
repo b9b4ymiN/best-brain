@@ -80,6 +80,7 @@ export interface RuntimeCheckpointRecord {
   label: string;
   artifact_ids: string[];
   restore_supported: boolean;
+  snapshot_path: string | null;
   created_at: number;
 }
 

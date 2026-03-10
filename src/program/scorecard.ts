@@ -52,12 +52,14 @@ export interface ManagerProofInput {
   thin_manager_pass: boolean;
   claude_primary_pass: boolean;
   codex_primary_pass: boolean;
+  shell_primary_pass?: boolean;
   mission_brief_completeness?: number;
   goal_ambiguity_detection?: boolean;
   false_complete_count?: number;
   blocked_with_correct_reason_rate?: number;
   runtime_session_capture?: boolean;
   checkpoint_capture?: boolean;
+  checkpoint_restore_capture?: boolean;
 }
 
 export interface ProgramScorecardInput {
@@ -301,6 +303,14 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     'Derived from manager smoke capture.',
   ));
   metricValues.push(equalityMetric(
+    'manager_shell_path',
+    'Shell primary worker path pass',
+    'runtime',
+    input.manager_proof?.shell_primary_pass,
+    true,
+    'Derived from manager shell smoke capture.',
+  ));
+  metricValues.push(equalityMetric(
     'runtime_session_capture',
     'Runtime session captured on manager runs',
     'runtime',
@@ -315,6 +325,14 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     input.manager_proof?.checkpoint_capture,
     true,
     'Execution runs should create retry-safe checkpoints after primary work and verification.',
+  ));
+  metricValues.push(equalityMetric(
+    'checkpoint_restore_capture',
+    'Runtime checkpoint restore captured',
+    'runtime',
+    input.manager_proof?.checkpoint_restore_capture,
+    true,
+    'A failing mission should prove that runtime state can be restored from a checkpoint.',
   ));
   metricValues.push(equalityMetric(
     'mission_console_visibility',
@@ -340,8 +358,10 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     && (input.manager_proof.blocked_with_correct_reason_rate ?? 0) >= 95;
   const runtimeEvidenceReady = input.bootstrap_smoke?.first_run_db_init_success === true
     && input.consult_eval?.orphan_evidence_count === 0
+    && input.manager_proof?.shell_primary_pass === true
     && input.manager_proof?.runtime_session_capture === true
-    && input.manager_proof?.checkpoint_capture === true;
+    && input.manager_proof?.checkpoint_capture === true
+    && input.manager_proof?.checkpoint_restore_capture === true;
 
   const phaseReadiness: ProgramPhaseReadiness[] = [
     {
@@ -362,7 +382,7 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
       phase: 'Phase2_WorkerFabricRuntimeSpine',
       status: runtimeEvidenceReady ? 'partial' : 'fail',
       note: runtimeEvidenceReady
-        ? 'Artifact lineage, bootstrap proof, and live runtime session/checkpoint capture exist, but worker fabric breadth and checkpoint restore are still incomplete.'
+        ? 'Artifact lineage, shell worker execution, and live runtime session/checkpoint/restore capture exist, but worker fabric breadth and checkpoint recovery breadth are still incomplete.'
         : 'Runtime proof is incomplete.',
     },
     {

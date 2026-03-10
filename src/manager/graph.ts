@@ -84,7 +84,11 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
     });
   }
 
-  const primaryNodeType: MissionNodeType = brief.selected_worker === 'codex' ? 'implementation' : 'analysis';
+  const primaryNodeType: MissionNodeType = brief.selected_worker === 'codex'
+    ? 'implementation'
+    : brief.selected_worker === 'shell'
+      ? 'execution'
+      : 'analysis';
   const primaryWorker: WorkerId | null = brief.selected_worker;
 
   return recomputeMissionGraph({

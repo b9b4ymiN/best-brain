@@ -9,8 +9,8 @@
       "checkpoint_after_primary_work",
       "checkpoint_after_verification"
     ],
-    "created_at": 1773102508088,
-    "updated_at": 1773102508088
+    "created_at": 1773103693701,
+    "updated_at": 1773103693701
   },
   "processes": [
     {
@@ -28,8 +28,8 @@
       "exit_code": 0,
       "stdout_artifact_id": "artifact_stdout",
       "stderr_artifact_id": null,
-      "started_at": 1773102538088,
-      "completed_at": 1773102548088
+      "started_at": 1773103723701,
+      "completed_at": 1773103733701
     }
   ],
   "artifacts": [
@@ -43,7 +43,7 @@
       "description": "Mission analysis note.",
       "checksum": null,
       "source": "claude",
-      "created_at": 1773102523088
+      "created_at": 1773103708701
     },
     {
       "id": "artifact_stdout",
@@ -55,7 +55,7 @@
       "description": "Scanner stdout output.",
       "checksum": null,
       "source": "shell",
-      "created_at": 1773102548088
+      "created_at": 1773103733701
     }
   ],
   "checkpoints": [
@@ -69,7 +69,8 @@
         "artifact_stdout"
       ],
       "restore_supported": true,
-      "created_at": 1773102543088
+      "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-checkpoint_after_primary_work.json",
+      "created_at": 1773103728701
     },
     {
       "id": "checkpoint_after_verification",
@@ -81,7 +82,8 @@
         "artifact_stdout"
       ],
       "restore_supported": false,
-      "created_at": 1773102553088
+      "snapshot_path": "C:/tmp/best-brain-runtime/session_program_example-checkpoint_after_verification.json",
+      "created_at": 1773103738701
     }
   ],
   "events": [
@@ -94,7 +96,7 @@
       "actor": "manager",
       "detail": "Mission launched from a single user goal.",
       "data": {},
-      "created_at": 1773102508088
+      "created_at": 1773103693701
     },
     {
       "id": "event_runtime_finalized",
@@ -109,7 +111,7 @@
         "evidence_count": 2,
         "checks_total": 2
       },
-      "created_at": 1773102558088
+      "created_at": 1773103743701
     }
   ]
 }

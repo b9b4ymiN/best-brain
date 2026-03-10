@@ -203,6 +203,7 @@ describe('manager alpha unit flow', () => {
   test('intent routing auto-selects claude or codex and respects override', () => {
     expect(routeIntent(makeInput('Analyze the current mission plan.')).selected_worker).toBe('claude');
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.')).selected_worker).toBe('codex');
+    expect(routeIntent(makeInput('Run `bun --version` locally and summarize the result.')).selected_worker).toBe('shell');
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.', { worker_preference: 'claude' })).selected_worker).toBe('claude');
   });
 
@@ -397,6 +398,7 @@ describe('manager alpha unit flow', () => {
       expect(brain.calls.saveFailure).toHaveLength(1);
       expect(result.runtime_bundle?.session.status).toBe('failed');
       expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'checkpoint_restored')).toBe(true);
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('failed');
     } finally {
       await runtime.dispose();

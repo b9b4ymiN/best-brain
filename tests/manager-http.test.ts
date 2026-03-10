@@ -165,6 +165,76 @@ describe('manager alpha via brain HTTP', () => {
     }
   });
 
+  test('executes a shell worker mission through the real brain HTTP contract', async () => {
+    const { brain, cleanup } = await createTestBrain();
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Run `bun --version` locally and return a concise proof note.',
+        worker_preference: 'shell',
+        mission_id: 'mission_http_shell',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.selected_worker).toBe('shell');
+      expect(result.worker_result?.status).toBe('success');
+      expect(result.verification_result?.status).toBe('verified_complete');
+      expect(result.runtime_bundle?.processes[0]?.command).toBe('bun');
+      expect(result.runtime_bundle?.checkpoints).toHaveLength(2);
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
+
+  test('restores a runtime checkpoint after a failed shell verification path', async () => {
+    const { brain, cleanup } = await createTestBrain();
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Run `bun --version` and prove the repo change is complete for this project.',
+        worker_preference: 'shell',
+        mission_id: 'mission_http_shell_restore',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.selected_worker).toBe('shell');
+      expect(result.verification_result?.status).toBe('verification_failed');
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'checkpoint_restored')).toBe(true);
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
+
   test('auto-starts the brain server when /health is unavailable', async () => {
     const port = await freePort();
     const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'best-brain-manager-autostart-'));

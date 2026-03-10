@@ -8,6 +8,7 @@ import type { ManagerDecision, ManagerInput } from './types.ts';
 const STOCK_HINTS = ['stock', 'stocks', 'equities', 'scanner', 'scan', 'set', 'thai'];
 const CODE_HINTS = ['repo', 'code', 'typescript', 'bun', 'test', 'file', 'script', 'server', 'patch', 'implement'];
 const REPORT_HINTS = ['report', 'summary', 'summarize', 'analysis', 'review', 'plan'];
+const REPO_CHANGE_HINTS = ['repo', 'code', 'file', 'script', 'server', 'typescript', 'patch', 'implement', 'fix'];
 
 function includesAny(goal: string, hints: string[]): boolean {
   const tokens = tokenize(goal);
@@ -24,6 +25,9 @@ function inferMissionKind(goal: string, decision: ManagerDecision): string {
   }
   if (decision.kind === 'chat') {
     return 'owner_guidance';
+  }
+  if (decision.selected_worker === 'shell' && goal.includes('`') && !includesAny(goal, REPO_CHANGE_HINTS)) {
+    return decision.kind === 'mission' ? 'command_execution_mission' : 'command_execution_task';
   }
   if (includesAny(goal, CODE_HINTS)) {
     return 'repo_change_mission';
@@ -110,6 +114,9 @@ export function resolveMissionPlaybook(
 ): MissionPlaybook {
   const missionKind = inferMissionKind(input.goal, decision);
   const preferredWorkers: WorkerId[] = Array.from(new Set([
+    missionKind === 'analysis_reporting_mission' || missionKind === 'owner_guidance' ? 'claude' : null,
+    missionKind === 'repo_change_mission' ? 'codex' : null,
+    missionKind === 'thai_equities_daily_scanner' || missionKind.startsWith('command_execution') ? 'shell' : null,
     decision.selected_worker,
     decision.kind === 'chat' ? null : 'verifier',
   ].filter((value): value is WorkerId => value != null)));

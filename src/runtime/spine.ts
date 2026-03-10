@@ -1,3 +1,6 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { createId } from '../utils/id.ts';
 import type {
   RuntimeArtifactKind,
@@ -16,7 +19,11 @@ function cloneBundle(bundle: RuntimeSessionBundle): RuntimeSessionBundle {
     session: { ...bundle.session, checkpoint_ids: [...bundle.session.checkpoint_ids] },
     processes: bundle.processes.map((process) => ({ ...process, args: [...process.args] })),
     artifacts: bundle.artifacts.map((artifact) => ({ ...artifact })),
-    checkpoints: bundle.checkpoints.map((checkpoint) => ({ ...checkpoint, artifact_ids: [...checkpoint.artifact_ids] })),
+    checkpoints: bundle.checkpoints.map((checkpoint) => ({
+      ...checkpoint,
+      artifact_ids: [...checkpoint.artifact_ids],
+      snapshot_path: checkpoint.snapshot_path,
+    })),
     events: bundle.events.map((event) => ({ ...event, data: { ...event.data } })),
   };
 }
@@ -42,6 +49,7 @@ export interface RuntimeSessionContext {
 
 export class LocalRuntimeSpine {
   private bundle: RuntimeSessionBundle | null = null;
+  private checkpointDir: string | null = null;
 
   openSession(context: RuntimeSessionContext): RuntimeSessionBundle {
     const now = Date.now();
@@ -63,6 +71,7 @@ export class LocalRuntimeSpine {
       checkpoints: [],
       events: [],
     };
+    this.checkpointDir = fs.mkdtempSync(path.join(os.tmpdir(), 'best-brain-runtime-'));
 
     this.recordEvent({
       task_id: null,
@@ -263,6 +272,7 @@ export class LocalRuntimeSpine {
       label: input.label,
       artifact_ids: [...input.artifact_ids],
       restore_supported: input.restore_supported,
+      snapshot_path: this.checkpointDir ? path.join(this.checkpointDir, `${bundle.session.id}-${Date.now()}.json`) : null,
       created_at: Date.now(),
     };
     bundle.checkpoints.push(checkpoint);
@@ -279,7 +289,44 @@ export class LocalRuntimeSpine {
         artifact_ids: input.artifact_ids,
       },
     });
+    if (checkpoint.snapshot_path) {
+      fs.writeFileSync(checkpoint.snapshot_path, JSON.stringify(this.snapshot(), null, 2));
+    }
     return checkpoint;
+  }
+
+  latestRestorableCheckpoint(): RuntimeCheckpointRecord | null {
+    const bundle = this.ensureSession();
+    const checkpoint = [...bundle.checkpoints]
+      .reverse()
+      .find((candidate) => candidate.restore_supported);
+    return checkpoint ?? null;
+  }
+
+  restoreCheckpoint(checkpointId: string): RuntimeSessionBundle {
+    const bundle = this.ensureSession();
+    const checkpoint = bundle.checkpoints.find((candidate) => candidate.id === checkpointId);
+    if (!checkpoint || !checkpoint.restore_supported || !checkpoint.snapshot_path) {
+      throw new Error(`runtime checkpoint cannot be restored: ${checkpointId}`);
+    }
+    if (!fs.existsSync(checkpoint.snapshot_path)) {
+      throw new Error(`runtime checkpoint snapshot is missing: ${checkpoint.snapshot_path}`);
+    }
+
+    const restored = JSON.parse(fs.readFileSync(checkpoint.snapshot_path, 'utf8')) as RuntimeSessionBundle;
+    this.bundle = restored;
+    this.setSessionStatus('active');
+    this.recordEvent({
+      task_id: null,
+      event_type: 'checkpoint_restored',
+      actor: 'runtime',
+      detail: `Restored runtime state from checkpoint ${checkpoint.label}.`,
+      data: {
+        checkpoint_id: checkpoint.id,
+        snapshot_path: checkpoint.snapshot_path,
+      },
+    });
+    return this.snapshot();
   }
 
   finalize(status: RuntimeSessionStatus, detail: string, data: Record<string, unknown> = {}): RuntimeSessionBundle {

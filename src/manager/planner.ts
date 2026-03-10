@@ -2,6 +2,52 @@ import type { MissionTaskNode } from './graph.ts';
 import { getReadyTaskNodes } from './graph.ts';
 import type { ExecutionRequest, MissionBrief } from './types.ts';
 
+function splitCommandLine(value: string): string[] {
+  const parts: string[] = [];
+  let current = '';
+  let quote: '"' | '\'' | null = null;
+
+  for (let index = 0; index < value.length; index += 1) {
+    const char = value[index] ?? '';
+    if ((char === '"' || char === '\'') && quote == null) {
+      quote = char;
+      continue;
+    }
+    if (char === quote) {
+      quote = null;
+      continue;
+    }
+    if (quote == null && /\s/.test(char)) {
+      if (current.length > 0) {
+        parts.push(current);
+        current = '';
+      }
+      continue;
+    }
+    current += char;
+  }
+
+  if (current.length > 0) {
+    parts.push(current);
+  }
+
+  return parts;
+}
+
+function extractShellCommand(goal: string): ExecutionRequest['shell_command'] {
+  const explicitMatch = goal.match(/`([^`]+)`/);
+  if (explicitMatch?.[1]) {
+    const raw = explicitMatch[1].trim();
+    const parts = splitCommandLine(raw);
+    if (parts.length > 0) {
+      const [command, ...args] = parts;
+      return { command, args, raw };
+    }
+  }
+
+  return null;
+}
+
 function requiresCodeArtifacts(goal: string): boolean {
   const normalized = goal.toLowerCase();
   return ['code', 'repo', 'typescript', 'bun', 'test', 'file', 'script', 'server'].some((hint) => normalized.includes(hint));
@@ -12,10 +58,13 @@ export function buildExecutionPlan(brief: MissionBrief): string[] {
     .map((item) => item.name)
     .slice(0, 3)
     .join(' | ');
+  const shellCommand = brief.selected_worker === 'shell' ? extractShellCommand(brief.goal)?.raw ?? null : null;
 
   const steps = [
     'Review brain consult guidance and mission context before acting.',
-    `Execute the primary worker from playbook ${brief.playbook.id}: ${brief.selected_worker ?? 'none'}.`,
+    shellCommand
+      ? `Execute the primary worker from playbook ${brief.playbook.id}: shell command \`${shellCommand}\`.`
+      : `Execute the primary worker from playbook ${brief.playbook.id}: ${brief.selected_worker ?? 'none'}.`,
     `Collect evidence and proposed verification checks from the worker result. Required checklist: ${checklistSummary || 'default proof checklist'}.`,
     `Prepare the owner-facing report using format: ${brief.playbook.report_format}.`,
     'Persist outcome, start verification, and only mark complete if proof passes.',
@@ -31,8 +80,15 @@ function getPrimaryTask(brief: MissionBrief): MissionTaskNode | null {
 
 function collectExpectedArtifacts(brief: MissionBrief): Array<ExecutionRequest['expected_artifacts'][number]> {
   const artifactKinds = new Set<ExecutionRequest['expected_artifacts'][number]>();
+  const normalizedGoal = brief.goal.toLowerCase();
   if (requiresCodeArtifacts(brief.goal)) {
     artifactKinds.add('file');
+    artifactKinds.add('test');
+  }
+  if (brief.selected_worker === 'shell' || ['run', 'build', 'lint', 'smoke', 'command'].some((hint) => normalizedGoal.includes(hint))) {
+    artifactKinds.add('other');
+  }
+  if (['test', 'build', 'lint', 'smoke'].some((hint) => normalizedGoal.includes(hint))) {
     artifactKinds.add('test');
   }
 
@@ -72,6 +128,7 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
     .map((citation) => `${citation.memory_type}:${citation.title}`)
     .slice(0, 5)
     .join(' | ');
+  const shellCommand = brief.selected_worker === 'shell' ? extractShellCommand(brief.goal) : null;
 
   return {
     mission_id: brief.mission_id,
@@ -79,12 +136,14 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
     task_id: primaryTask.id,
     task_title: primaryTask.title,
     selected_worker: brief.selected_worker,
+    shell_command: shellCommand,
     prompt: [
       'You are the primary worker inside best-brain manager alpha.',
       `Mission ID: ${brief.mission_id}`,
       `Mission kind: ${brief.mission_kind}`,
       `Current task: ${primaryTask.id} - ${primaryTask.title}`,
       `Goal: ${brief.goal}`,
+      `Shell command: ${shellCommand?.raw ?? 'none'}`,
       `Playbook: ${brief.playbook.id} (${brief.playbook.title})`,
       `Preferred format: ${brief.preferred_format}`,
       `Success criteria: ${brief.success_criteria.join(' | ')}`,

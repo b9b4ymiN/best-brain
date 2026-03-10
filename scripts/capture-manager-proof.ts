@@ -40,6 +40,8 @@ const tasks = [
   { id: 'thin_manager', script: 'smoke:manager' },
   { id: 'claude_primary', script: 'smoke:manager:claude' },
   { id: 'codex_primary', script: 'smoke:manager:codex' },
+  { id: 'shell_primary', script: 'smoke:manager:shell' },
+  { id: 'restore_retry', script: 'smoke:manager:restore' },
   { id: 'ambiguity_blocked', script: 'smoke:manager:ambiguity' },
 ] as const;
 
@@ -61,7 +63,7 @@ for (const task of tasks) {
   };
 }
 
-const successRuns = [results.thin_manager, results.claude_primary, results.codex_primary]
+const successRuns = [results.thin_manager, results.claude_primary, results.codex_primary, results.shell_primary]
   .filter((result) => result.parsed != null);
 const completenessScores = successRuns
   .map((result) => Number((result.parsed?.mission_brief_validation as { completeness_score?: number } | undefined)?.completeness_score))
@@ -75,7 +77,7 @@ const blockedRuns = [ambiguityRun].filter((result): result is Record<string, unk
 const blockedCorrectReasonRate = blockedRuns.length === 0
   ? null
   : Math.round((blockedRuns.filter(() => ambiguityBlockedCorrectly).length / blockedRuns.length) * 100);
-const falseCompleteCount = [results.thin_manager, results.claude_primary, results.codex_primary, results.ambiguity_blocked]
+const falseCompleteCount = [results.thin_manager, results.claude_primary, results.codex_primary, results.shell_primary, results.restore_retry, results.ambiguity_blocked]
   .reduce((total, result) => {
     const verificationStatus = (result.parsed?.verification_result as { status?: string } | null | undefined)?.status;
     const blockedReason = (result.parsed?.decision as { blocked_reason?: string | null } | undefined)?.blocked_reason;
@@ -91,18 +93,22 @@ const runtimeSessionCapture = successRuns.every((result) => {
   } | null | undefined;
   return runtimeBundle?.session?.status === 'completed';
 });
-const checkpointCapture = [results.claude_primary, results.codex_primary].every((result) => {
+const checkpointCapture = [results.claude_primary, results.codex_primary, results.shell_primary].every((result) => {
   const runtimeBundle = result.parsed?.runtime_bundle as {
     checkpoints?: unknown[];
   } | null | undefined;
   return Array.isArray(runtimeBundle?.checkpoints) && runtimeBundle.checkpoints.length >= 2;
 });
+const checkpointRestoreCapture = ((results.restore_retry.parsed?.runtime_bundle as {
+  events?: Array<{ event_type?: string }>;
+} | null | undefined)?.events ?? []).some((event) => event.event_type === 'checkpoint_restored');
 
 const payload = {
   generated_at: new Date().toISOString(),
   thin_manager_pass: results.thin_manager.pass,
   claude_primary_pass: results.claude_primary.pass,
   codex_primary_pass: results.codex_primary.pass,
+  shell_primary_pass: results.shell_primary.pass,
   mission_brief_completeness: completenessScores.length === 0
     ? null
     : Math.round(completenessScores.reduce((total, value) => total + value, 0) / completenessScores.length),
@@ -111,6 +117,7 @@ const payload = {
   blocked_with_correct_reason_rate: blockedCorrectReasonRate,
   runtime_session_capture: runtimeSessionCapture,
   checkpoint_capture: checkpointCapture,
+  checkpoint_restore_capture: checkpointRestoreCapture,
   runs: results,
 };
 

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T00:28:28.088Z",
+  "generated_at": "2026-03-10T00:48:13.701Z",
   "success_bar": "Repeatable One-Mission",
   "proving_mission": "Thai equities daily stock scanner",
   "acceptance_run_set": "thai_equities_daily_controlled_acceptance_runs",
@@ -167,6 +167,15 @@
       "note": "Derived from manager smoke capture."
     },
     {
+      "id": "manager_shell_path",
+      "label": "Shell primary worker path pass",
+      "category": "runtime",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Derived from manager shell smoke capture."
+    },
+    {
       "id": "runtime_session_capture",
       "label": "Runtime session captured on manager runs",
       "category": "runtime",
@@ -183,6 +192,15 @@
       "actual": true,
       "status": "pass",
       "note": "Execution runs should create retry-safe checkpoints after primary work and verification."
+    },
+    {
+      "id": "checkpoint_restore_capture",
+      "label": "Runtime checkpoint restore captured",
+      "category": "runtime",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "A failing mission should prove that runtime state can be restored from a checkpoint."
     },
     {
       "id": "mission_console_visibility",
@@ -208,7 +226,7 @@
     {
       "phase": "Phase2_WorkerFabricRuntimeSpine",
       "status": "partial",
-      "note": "Artifact lineage, bootstrap proof, and live runtime session/checkpoint capture exist, but worker fabric breadth and checkpoint restore are still incomplete."
+      "note": "Artifact lineage, shell worker execution, and live runtime session/checkpoint/restore capture exist, but worker fabric breadth and checkpoint recovery breadth are still incomplete."
     },
     {
       "phase": "Phase3_ThaiEquitiesStockScanner",

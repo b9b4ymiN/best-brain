@@ -55,12 +55,14 @@ const managerProof = readJson<{
   thin_manager_pass: boolean;
   claude_primary_pass: boolean;
   codex_primary_pass: boolean;
+  shell_primary_pass?: boolean;
   mission_brief_completeness?: number;
   goal_ambiguity_detection?: boolean;
   false_complete_count?: number;
   blocked_with_correct_reason_rate?: number;
   runtime_session_capture?: boolean;
   checkpoint_capture?: boolean;
+  checkpoint_restore_capture?: boolean;
 }>(path.join(artifactsDir, 'manager-proof.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 const capturedBootstrapProofs = fs.existsSync(bootstrapProofDir)

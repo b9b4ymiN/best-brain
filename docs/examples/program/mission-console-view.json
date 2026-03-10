@@ -16,7 +16,7 @@
       "title": "Mission launched",
       "detail": "Manager compiled the mission brief and task graph.",
       "artifact_ids": [],
-      "created_at": 1773102508088
+      "created_at": 1773103693701
     },
     {
       "id": "timeline_worker",
@@ -28,7 +28,7 @@
       "artifact_ids": [
         "artifact_analysis_note"
       ],
-      "created_at": 1773102528088
+      "created_at": 1773103713701
     }
   ],
   "workers": [
@@ -37,14 +37,14 @@
       "status": "completed",
       "current_task_id": null,
       "current_task_title": null,
-      "last_update_at": 1773102528088
+      "last_update_at": 1773103713701
     },
     {
       "worker": "codex",
       "status": "queued",
       "current_task_id": "task_implementation",
       "current_task_title": "Implement scanner logic",
-      "last_update_at": 1773102528088
+      "last_update_at": 1773103713701
     }
   ],
   "artifacts": [
@@ -58,7 +58,7 @@
       "description": "Mission analysis note.",
       "checksum": null,
       "source": "claude",
-      "created_at": 1773102523088
+      "created_at": 1773103708701
     },
     {
       "id": "artifact_stdout",
@@ -70,7 +70,7 @@
       "description": "Scanner stdout output.",
       "checksum": null,
       "source": "shell",
-      "created_at": 1773102548088
+      "created_at": 1773103733701
     }
   ],
   "verdict": {

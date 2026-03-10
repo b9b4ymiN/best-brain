@@ -10,10 +10,10 @@ import type { MissionPlaybook } from '../playbooks/types.ts';
 import type { RuntimeSessionBundle } from '../runtime/types.ts';
 import type { MissionTaskGraph } from './graph.ts';
 
-export const MANAGER_WORKER_PREFERENCES = ['auto', 'claude', 'codex'] as const;
+export const MANAGER_WORKER_PREFERENCES = ['auto', 'claude', 'codex', 'shell'] as const;
 export type ManagerWorkerPreference = (typeof MANAGER_WORKER_PREFERENCES)[number];
 
-export const MANAGER_WORKERS = ['claude', 'codex'] as const;
+export const MANAGER_WORKERS = ['claude', 'codex', 'shell'] as const;
 export type ManagerWorker = (typeof MANAGER_WORKERS)[number];
 
 export const MANAGER_DECISION_KINDS = ['chat', 'task', 'mission'] as const;
@@ -78,6 +78,11 @@ export interface ExecutionRequest {
   task_id: string;
   task_title: string;
   selected_worker: ManagerWorker;
+  shell_command: {
+    command: string;
+    args: string[];
+    raw: string;
+  } | null;
   prompt: string;
   cwd: string;
   expected_artifacts: Array<VerificationArtifact['type']>;

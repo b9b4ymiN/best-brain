@@ -6,18 +6,27 @@ const EXECUTION_HINTS = ['implement', 'edit', 'fix', 'write', 'run', 'ship', 'bu
 const MISSION_HINTS = ['mission', 'complete', 'proof', 'verification', 'deliver', 'finish'];
 const ANALYSIS_HINTS = ['analyze', 'analysis', 'review', 'plan', 'draft', 'outline', 'summarize'];
 const CODE_HINTS = ['code', 'repo', 'typescript', 'bun', 'test', 'server', 'cli', 'script', 'file'];
+const IMPLEMENT_HINTS = ['implement', 'edit', 'fix', 'write', 'patch', 'scaffold'];
+const SHELL_HINTS = ['run', 'build', 'lint', 'smoke', 'terminal', 'shell', 'powershell', 'command'];
 
 function includesAny(tokens: string[], hints: string[]): boolean {
   return hints.some((hint) => tokens.includes(hint));
 }
 
 export function selectWorker(goal: string, preference: ManagerWorkerPreference): ManagerWorker | null {
-  if (preference === 'claude' || preference === 'codex') {
+  if (preference === 'claude' || preference === 'codex' || preference === 'shell') {
     return preference;
   }
 
   const tokens = tokenize(goal);
-  if (includesAny(tokens, CODE_HINTS) || includesAny(tokens, EXECUTION_HINTS)) {
+  const hasExplicitCommand = goal.includes('`');
+  const hasImplementationIntent = includesAny(tokens, IMPLEMENT_HINTS);
+
+  if (hasExplicitCommand || (includesAny(tokens, SHELL_HINTS) && !hasImplementationIntent)) {
+    return 'shell';
+  }
+
+  if (includesAny(tokens, CODE_HINTS) || hasImplementationIntent) {
     return 'codex';
   }
 

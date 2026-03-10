@@ -167,6 +167,7 @@ const runtimeBundle: RuntimeSessionBundle = {
       label: 'After primary work',
       artifact_ids: ['artifact_analysis_note', 'artifact_stdout'],
       restore_supported: true,
+      snapshot_path: 'C:/tmp/best-brain-runtime/session_program_example-checkpoint_after_primary_work.json',
       created_at: now + 35_000,
     },
     {
@@ -176,6 +177,7 @@ const runtimeBundle: RuntimeSessionBundle = {
       label: 'After verification',
       artifact_ids: ['artifact_analysis_note', 'artifact_stdout'],
       restore_supported: false,
+      snapshot_path: 'C:/tmp/best-brain-runtime/session_program_example-checkpoint_after_verification.json',
       created_at: now + 45_000,
     },
   ],
@@ -374,12 +376,14 @@ const programScorecard = buildProgramScorecard({
     thin_manager_pass: true,
     claude_primary_pass: true,
     codex_primary_pass: true,
+    shell_primary_pass: true,
     mission_brief_completeness: 100,
     goal_ambiguity_detection: true,
     false_complete_count: 0,
     blocked_with_correct_reason_rate: 100,
     runtime_session_capture: true,
     checkpoint_capture: true,
+    checkpoint_restore_capture: true,
   },
 });
 

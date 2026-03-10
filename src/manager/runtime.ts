@@ -19,6 +19,7 @@ import type { BrainAdapter, VerifierAdapter, WorkerAdapter } from './adapters/ty
 import { BrainHttpAdapter } from './adapters/brain-http.ts';
 import { ClaudeCliAdapter } from './adapters/claude-cli.ts';
 import { CodexCliAdapter } from './adapters/codex-cli.ts';
+import { ShellCliAdapter } from './adapters/shell-cli.ts';
 import { ManagerVerifierAdapter } from './adapters/verifier.ts';
 import type {
   BrainWriteRecord,
@@ -43,7 +44,7 @@ function normalizeOutputMode(value: ManagerOutputMode | undefined): ManagerOutpu
 }
 
 function normalizeWorkerPreference(value: ManagerWorkerPreference | undefined): ManagerWorkerPreference {
-  return value === 'claude' || value === 'codex' ? value : 'auto';
+  return value === 'claude' || value === 'codex' || value === 'shell' ? value : 'auto';
 }
 
 function normalizeInput(
@@ -112,6 +113,7 @@ export class ManagerRuntime {
     this.workers = {
       claude: new ClaudeCliAdapter(),
       codex: new CodexCliAdapter(),
+      shell: new ShellCliAdapter(),
       ...(options.workers ?? {}),
     };
     this.verifier = options.verifier ?? new ManagerVerifierAdapter();
@@ -218,11 +220,17 @@ export class ManagerRuntime {
 
     missionGraph = updateTaskStatus(missionGraph, 'primary_work', 'running');
     brief.mission_graph = missionGraph;
+    const runtimeCommand = executionRequest.selected_worker === 'shell' && executionRequest.shell_command
+      ? executionRequest.shell_command.command
+      : executionRequest.selected_worker;
+    const runtimeArgs = executionRequest.selected_worker === 'shell' && executionRequest.shell_command
+      ? executionRequest.shell_command.args
+      : [executionRequest.task_id, executionRequest.playbook_id];
     const runtimeProcess = runtimeBundle
       ? runtimeSpine.startProcess({
           actor: executionRequest.selected_worker,
-          command: executionRequest.selected_worker,
-          args: [executionRequest.task_id, executionRequest.playbook_id],
+          command: runtimeCommand,
+          args: runtimeArgs,
           cwd: executionRequest.cwd,
         })
       : null;
@@ -372,6 +380,14 @@ export class ManagerRuntime {
         artifact_ids: verificationArtifacts.map((artifact) => artifact.id),
         restore_supported: verificationResult.status !== 'verified_complete',
       });
+      let restoredCheckpointId: string | null = null;
+      if (verificationResult.status === 'verification_failed') {
+        const restorableCheckpoint = runtimeSpine.latestRestorableCheckpoint();
+        if (restorableCheckpoint) {
+          runtimeBundle = runtimeSpine.restoreCheckpoint(restorableCheckpoint.id);
+          restoredCheckpointId = restorableCheckpoint.id;
+        }
+      }
       runtimeSpine.finalize(
         verificationResult.status === 'verified_complete' ? 'completed' : 'failed',
         `Runtime session finalized after verification status ${verificationResult.status}.`,
@@ -379,6 +395,7 @@ export class ManagerRuntime {
           verification_status: verificationResult.status,
           evidence_count: verificationResult.evidence_count,
           checks_total: verificationResult.checks_total,
+          restored_checkpoint_id: restoredCheckpointId,
         },
       );
       runtimeBundle = runtimeSpine.snapshot();
