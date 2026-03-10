@@ -7,18 +7,18 @@ export function renderChatPage(): string {
     <title>best-brain chat</title>
     <style>
       :root {
-        --bg: #0d1117;
-        --bg-2: #121822;
-        --panel: #111823;
-        --panel-2: #0f151e;
-        --panel-3: #161f2d;
-        --ink: #e7edf6;
-        --muted: #93a1b6;
-        --line: #253245;
-        --line-soft: #1b2533;
-        --accent: #8ec5ff;
-        --accent-strong: #5ba7ff;
-        --accent-soft: rgba(91, 167, 255, 0.14);
+        --bg: #0b0f14;
+        --bg-2: #11161d;
+        --panel: #0f141b;
+        --panel-2: #131a22;
+        --panel-3: #1a2230;
+        --ink: #edf2fa;
+        --muted: #92a0b5;
+        --line: #222d3b;
+        --line-soft: #18202c;
+        --accent: #a9d0ff;
+        --accent-strong: #70b6ff;
+        --accent-soft: rgba(112, 182, 255, 0.14);
         --good: #7fd6a2;
         --warn: #ffca72;
         --bad: #ff8a7a;
@@ -31,51 +31,51 @@ export function renderChatPage(): string {
       body {
         margin: 0;
         min-height: 100vh;
-        padding: 18px 14px 108px;
+        padding: 10px 10px 96px;
         background:
-          radial-gradient(circle at top left, rgba(91, 167, 255, 0.14), transparent 24%),
-          radial-gradient(circle at top right, rgba(127, 214, 162, 0.08), transparent 18%),
+          radial-gradient(circle at top left, rgba(112, 182, 255, 0.12), transparent 24%),
+          radial-gradient(circle at top right, rgba(127, 214, 162, 0.06), transparent 18%),
           linear-gradient(180deg, var(--bg-2), var(--bg));
         color: var(--ink);
-        font-family: "Aptos", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+        font-family: "SF Pro Text", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
       }
 
       main {
-        max-width: 960px;
+        max-width: 760px;
         margin: 0 auto;
         display: grid;
-        gap: 12px;
+        gap: 10px;
       }
 
       .card {
         border: 1px solid var(--line);
-        border-radius: 18px;
+        border-radius: 16px;
         background: var(--panel);
-        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
+        box-shadow: 0 12px 26px rgba(0, 0, 0, 0.22);
       }
 
       .hero {
-        padding: 18px 18px 16px;
+        padding: 12px 14px;
         display: grid;
-        gap: 8px;
+        gap: 6px;
       }
 
       .eyebrow {
         display: inline-flex;
         align-items: center;
         width: fit-content;
-        padding: 5px 9px;
+        padding: 4px 8px;
         border-radius: 999px;
         background: var(--accent-soft);
         color: var(--accent);
         border: 1px solid rgba(142, 197, 255, 0.15);
-        font: 700 11px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        font: 700 10px/1 "SFMono-Regular", "Cascadia Code", Consolas, monospace;
         letter-spacing: 0.04em;
       }
 
       h1 {
         margin: 0;
-        font-size: 22px;
+        font-size: 18px;
         line-height: 1.1;
         letter-spacing: -0.02em;
       }
@@ -83,40 +83,40 @@ export function renderChatPage(): string {
       .hero p {
         margin: 0;
         color: var(--muted);
-        line-height: 1.55;
-        font-size: 14px;
+        line-height: 1.45;
+        font-size: 12px;
       }
 
       .hero a {
         color: var(--accent-strong);
         text-decoration: none;
         font-weight: 700;
-        font-size: 13px;
+        font-size: 12px;
       }
 
       .thread {
         display: grid;
-        gap: 10px;
+        gap: 8px;
       }
 
       .empty-state {
-        padding: 16px 18px;
+        padding: 14px 15px;
         color: var(--muted);
         border: 1px dashed var(--line);
-        border-radius: 16px;
+        border-radius: 14px;
         background: rgba(255, 255, 255, 0.02);
-        line-height: 1.6;
-        font-size: 14px;
+        line-height: 1.5;
+        font-size: 12px;
       }
 
       .message-card {
-        padding: 14px 16px;
+        padding: 12px 13px;
         display: grid;
-        gap: 10px;
+        gap: 8px;
       }
 
       .message-card.user {
-        background: linear-gradient(180deg, rgba(19, 28, 39, 0.98), rgba(16, 23, 33, 0.98));
+        background: linear-gradient(180deg, rgba(18, 25, 34, 0.98), rgba(14, 20, 28, 0.98));
       }
 
       .message-head {
@@ -129,17 +129,17 @@ export function renderChatPage(): string {
       .message-identity {
         display: flex;
         align-items: center;
-        gap: 9px;
+        gap: 8px;
       }
 
       .avatar {
-        width: 28px;
-        height: 28px;
-        border-radius: 8px;
+        width: 24px;
+        height: 24px;
+        border-radius: 7px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font: 700 10px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        font: 700 9px/1 "SFMono-Regular", "Cascadia Code", Consolas, monospace;
         text-transform: uppercase;
         border: 1px solid var(--line);
         background: var(--panel-2);
@@ -152,24 +152,24 @@ export function renderChatPage(): string {
       }
 
       .message-title strong {
-        font-size: 14px;
+        font-size: 13px;
       }
 
       .message-title small {
         color: var(--muted);
-        font-size: 12px;
+        font-size: 11px;
       }
 
       .state-pill {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 5px 10px;
+        padding: 4px 8px;
         border-radius: 999px;
         background: var(--panel-3);
         color: var(--muted);
         border: 1px solid rgba(255, 255, 255, 0.06);
-        font: 700 11px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        font: 700 10px/1 "SFMono-Regular", "Cascadia Code", Consolas, monospace;
       }
 
       .state-pill::before {
@@ -210,7 +210,7 @@ export function renderChatPage(): string {
       .message-body {
         white-space: pre-wrap;
         word-break: break-word;
-        line-height: 1.6;
+        line-height: 1.55;
         font-size: 14px;
       }
 
@@ -222,18 +222,18 @@ export function renderChatPage(): string {
       .link-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
       }
 
       .meta-chip {
         display: inline-flex;
         align-items: center;
-        padding: 5px 9px;
+        padding: 4px 8px;
         border-radius: 999px;
         background: var(--panel-3);
         border: 1px solid rgba(255, 255, 255, 0.05);
         color: var(--muted);
-        font: 700 11px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        font: 700 10px/1 "SFMono-Regular", "Cascadia Code", Consolas, monospace;
       }
 
       .meta-chip.good {
@@ -255,15 +255,14 @@ export function renderChatPage(): string {
         color: var(--accent-strong);
         text-decoration: none;
         font-weight: 700;
-        font-size: 13px;
+        font-size: 12px;
       }
 
       .activity-panel {
         display: none;
-        border: 1px solid var(--line);
-        border-radius: 14px;
-        background: var(--panel-2);
-        overflow: hidden;
+        margin-top: 2px;
+        padding-top: 8px;
+        border-top: 1px solid var(--line-soft);
       }
 
       .activity-panel.visible {
@@ -275,32 +274,26 @@ export function renderChatPage(): string {
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        padding: 9px 11px;
-        border-bottom: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.02);
+        padding: 0 0 8px;
         color: var(--muted);
-        font: 700 11px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        font: 700 10px/1 "SFMono-Regular", "Cascadia Code", Consolas, monospace;
         text-transform: uppercase;
         letter-spacing: 0.04em;
       }
 
       .activity-list {
         display: grid;
-        max-height: 240px;
+        gap: 2px;
+        max-height: 184px;
         overflow: auto;
       }
 
       .activity-entry {
         display: grid;
-        grid-template-columns: 78px 78px 1fr;
-        gap: 10px;
-        padding: 10px 11px;
-        border-top: 1px solid rgba(255, 255, 255, 0.04);
-        font: 12px/1.4 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
-      }
-
-      .activity-entry:first-child {
-        border-top: none;
+        grid-template-columns: 56px 64px 1fr;
+        gap: 8px;
+        padding: 5px 0;
+        font: 11px/1.45 "SFMono-Regular", "Cascadia Code", Consolas, monospace;
       }
 
       .activity-time {
@@ -314,11 +307,12 @@ export function renderChatPage(): string {
 
       .activity-copy {
         display: grid;
-        gap: 4px;
+        gap: 2px;
       }
 
       .activity-copy strong {
         color: var(--ink);
+        font-weight: 700;
       }
 
       .activity-copy span {
@@ -336,15 +330,15 @@ export function renderChatPage(): string {
 
       .composer {
         position: sticky;
-        bottom: 14px;
-        padding: 12px;
+        bottom: 10px;
+        padding: 10px;
         background: rgba(17, 24, 35, 0.94);
         backdrop-filter: blur(10px);
       }
 
       .composer-grid {
         display: grid;
-        gap: 12px;
+        gap: 10px;
       }
 
       textarea,
@@ -354,14 +348,15 @@ export function renderChatPage(): string {
       }
 
       textarea {
-        min-height: 88px;
-        padding: 13px 14px;
-        border-radius: 14px;
+        min-height: 76px;
+        padding: 11px 12px;
+        border-radius: 12px;
         border: 1px solid var(--line);
         background: rgba(255, 255, 255, 0.03);
         color: var(--ink);
         resize: vertical;
-        line-height: 1.55;
+        line-height: 1.5;
+        font-size: 14px;
       }
 
       textarea:focus {
@@ -372,12 +367,13 @@ export function renderChatPage(): string {
 
       button {
         border: none;
-        border-radius: 14px;
-        padding: 12px 16px;
+        border-radius: 12px;
+        padding: 11px 14px;
         background: linear-gradient(135deg, #4e98e9, #66b3ff);
         color: #07131f;
         font-weight: 700;
         cursor: pointer;
+        font-size: 14px;
       }
 
       button:disabled {
@@ -387,27 +383,57 @@ export function renderChatPage(): string {
 
       .composer-note {
         color: var(--muted);
-        font-size: 12px;
+        font-size: 11px;
       }
 
       @media (max-width: 720px) {
         body {
-          padding: 12px 10px 98px;
+          padding: 8px 8px 94px;
         }
 
         .card,
         .activity-panel {
-          border-radius: 16px;
+          border-radius: 14px;
         }
 
         .message-head {
           align-items: flex-start;
           flex-direction: column;
+          gap: 8px;
+        }
+
+        .activity-entry {
+          grid-template-columns: 52px 58px 1fr;
+          gap: 7px;
+        }
+
+        .hero {
+          padding: 10px 12px;
+        }
+
+        h1 {
+          font-size: 17px;
+        }
+
+        .message-card {
+          padding: 11px 12px;
+        }
+
+        .composer {
+          padding: 8px;
+        }
+      }
+
+      @media (max-width: 480px) {
+        .hero p,
+        .empty-state,
+        .composer-note {
+          font-size: 11px;
         }
 
         .activity-entry {
           grid-template-columns: 1fr;
-          gap: 4px;
+          gap: 2px;
         }
       }
     </style>
@@ -415,14 +441,14 @@ export function renderChatPage(): string {
   <body>
     <main>
       <section class="card hero">
-        <div class="eyebrow">best-brain / codex-style</div>
+        <div class="eyebrow">best-brain / mobile terminal</div>
         <h1>best-brain chat</h1>
         <p>Ask normally. The AI manager decides whether to answer directly, do light work, or turn the request into a mission internally.</p>
         <a href="/control-room">Open control room</a>
       </section>
 
       <section id="thread" class="thread">
-        <div id="emptyThread" class="empty-state">Type anything. If best-brain needs to consult memory, dispatch Claude, fall back, verify, or block on missing facts, you will see those steps here.</div>
+        <div id="emptyThread" class="empty-state">Type anything. best-brain will answer in one bubble and show its run log inline when it needs memory, workers, or verification.</div>
       </section>
 
       <section class="card composer">
@@ -584,7 +610,7 @@ export function renderChatPage(): string {
           + '<div class="message-head">'
           + '  <div class="message-identity">'
           + '    <div class="avatar">bb</div>'
-          + '    <div class="message-title"><strong>best-brain</strong><small>live manager activity</small></div>'
+          + '    <div class="message-title"><strong>best-brain</strong><small>manager log inline</small></div>'
           + '  </div>'
           + '  <div class="state-pill" data-role="state">working</div>'
           + '</div>'
