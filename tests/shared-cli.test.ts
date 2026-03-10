@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { isSpawnCommandMissing, resolveSpawnCommand } from '../src/manager/adapters/shared.ts';
+import { detectCodexProviderIssue, extractCodexStreamError, extractCodexStreamMessage, isSpawnCommandMissing, resolveSpawnCommand } from '../src/manager/adapters/shared.ts';
 
 describe('shared CLI adapter helpers', () => {
   test('detects command-not-found spawn errors', () => {
@@ -18,5 +18,25 @@ describe('shared CLI adapter helpers', () => {
       expect(resolved.command).toBe('claude');
       expect(resolved.argsPrefix).toHaveLength(0);
     }
+  });
+
+  test('extracts the last Codex agent message from JSONL output', () => {
+    const output = [
+      '{"provider":"openai"}',
+      '{"id":"0","msg":{"type":"agent_message","message":"first"}}',
+      '{"id":"0","msg":{"type":"agent_message","message":"{\\"summary\\":\\"done\\",\\"status\\":\\"success\\",\\"artifacts\\":[],\\"proposed_checks\\":[]}"}}',
+    ].join('\n');
+
+    expect(extractCodexStreamMessage(output)).toBe('{"summary":"done","status":"success","artifacts":[],"proposed_checks":[]}');
+  });
+
+  test('extracts Codex error messages and detects usage-limit provider failures', () => {
+    const output = [
+      '{"provider":"openai"}',
+      '{"id":"0","msg":{"type":"error","message":"You\\u0027ve hit your usage limit. Upgrade to Pro or try again later."}}',
+    ].join('\n');
+
+    expect(extractCodexStreamError(output)).toBe("You've hit your usage limit. Upgrade to Pro or try again later.");
+    expect(detectCodexProviderIssue(output)?.includes('usage limit')).toBe(true);
   });
 });

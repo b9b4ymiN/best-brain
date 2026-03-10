@@ -4,7 +4,15 @@ import path from 'path';
 import type { VerificationArtifact, VerificationCheck } from '../../types.ts';
 import type { WorkerAdapter } from './types.ts';
 import type { ExecutionRequest, WorkerExecutionResult } from '../types.ts';
-import { extractJsonText, isSpawnCommandMissing, runCommand, toEnvRecord } from './shared.ts';
+import {
+  detectCodexProviderIssue,
+  extractCodexStreamError,
+  extractCodexStreamMessage,
+  extractJsonText,
+  isSpawnCommandMissing,
+  runCommand,
+  toEnvRecord,
+} from './shared.ts';
 
 function normalizeArtifacts(value: unknown): VerificationArtifact[] {
   if (!Array.isArray(value)) {
@@ -106,8 +114,55 @@ function parseWorkerResult(output: string, request: ExecutionRequest, fallbackSu
   }
 }
 
+function tryParseStructuredWorkerResult(output: string, fallbackSummary: string): WorkerExecutionResult | null {
+  try {
+    const payload = JSON.parse(extractJsonText(output)) as {
+      summary?: string;
+      status?: WorkerExecutionResult['status'];
+      artifacts?: unknown;
+      proposed_checks?: unknown;
+    };
+
+    if (payload.status !== 'success' && payload.status !== 'needs_retry' && payload.status !== 'failed') {
+      return null;
+    }
+
+    return {
+      summary: payload.summary?.trim() || fallbackSummary,
+      status: payload.status,
+      artifacts: normalizeArtifacts(payload.artifacts),
+      proposed_checks: normalizeChecks(payload.proposed_checks),
+      raw_output: output,
+      invocation: null,
+      process_output: null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export class CodexCliAdapter implements WorkerAdapter {
   readonly name = 'codex' as const;
+
+  private buildProviderUnavailableResult(summary: string, rawOutput: string): WorkerExecutionResult {
+    return {
+      summary,
+      status: 'failed',
+      artifacts: [{
+        type: 'note',
+        ref: 'worker://codex/provider-unavailable',
+        description: summary,
+      }],
+      proposed_checks: [{
+        name: 'codex-provider-available',
+        passed: false,
+        detail: summary,
+      }],
+      raw_output: rawOutput,
+      invocation: null,
+      process_output: null,
+    };
+  }
 
   async execute(request: ExecutionRequest): Promise<WorkerExecutionResult> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'best-brain-codex-'));
@@ -125,7 +180,8 @@ export class CodexCliAdapter implements WorkerAdapter {
         result = await runCommand('codex', [
           'exec',
           '--json',
-          '--full-auto',
+          '--dangerously-bypass-approvals-and-sandbox',
+          '--sandbox', 'danger-full-access',
           '--skip-git-repo-check',
           '-c', 'model_reasoning_effort=high',
           '--output-last-message', lastMessageFile,
@@ -134,7 +190,7 @@ export class CodexCliAdapter implements WorkerAdapter {
         ], {
           cwd: request.cwd,
           env: toEnvRecord({}),
-          timeoutMs: 180000,
+          timeoutMs: 300000,
           stdin: prompt,
         });
       } catch (error) {
@@ -163,8 +219,76 @@ export class CodexCliAdapter implements WorkerAdapter {
       const lastMessage = fs.existsSync(lastMessageFile)
         ? fs.readFileSync(lastMessageFile, 'utf8')
         : result.stdout;
+      const streamMessage = extractCodexStreamMessage(result.stdout);
+      const streamError = extractCodexStreamError(result.stdout);
+      const providerIssue = detectCodexProviderIssue([result.stdout, result.stderr, streamError].filter(Boolean).join('\n'));
+      const preferredOutput = lastMessage.trim().length > 0
+        ? lastMessage
+        : streamMessage ?? result.stdout;
+
+      if (providerIssue) {
+        const unavailable = this.buildProviderUnavailableResult(
+          providerIssue,
+          [result.stdout, result.stderr, lastMessage, streamError].filter(Boolean).join('\n'),
+        );
+        unavailable.invocation = {
+          command: 'codex',
+          args: [
+            'exec',
+            '--json',
+            '--dangerously-bypass-approvals-and-sandbox',
+            '--sandbox', 'danger-full-access',
+            '--skip-git-repo-check',
+            '-c', 'model_reasoning_effort=high',
+            '--output-last-message', '[temp-file]',
+            '-C', request.cwd,
+            '[prompt]',
+          ],
+          cwd: request.cwd,
+          exit_code: result.exitCode,
+          timed_out: result.timedOut,
+          started_at: result.startedAt,
+          completed_at: result.completedAt,
+          transport: 'cli',
+        };
+        unavailable.process_output = {
+          stdout: result.stdout,
+          stderr: result.stderr,
+        };
+        return unavailable;
+      }
 
       if (result.exitCode !== 0) {
+        const parsedFromFailure = tryParseStructuredWorkerResult(preferredOutput, 'Codex worker completed without a structured summary.');
+        if (parsedFromFailure) {
+          parsedFromFailure.raw_output = [result.stdout, result.stderr, lastMessage].filter(Boolean).join('\n');
+          parsedFromFailure.invocation = {
+            command: 'codex',
+            args: [
+              'exec',
+              '--json',
+              '--dangerously-bypass-approvals-and-sandbox',
+              '--sandbox', 'danger-full-access',
+              '--skip-git-repo-check',
+              '-c', 'model_reasoning_effort=high',
+              '--output-last-message', '[temp-file]',
+              '-C', request.cwd,
+              '[prompt]',
+            ],
+            cwd: request.cwd,
+            exit_code: result.exitCode,
+            timed_out: result.timedOut,
+            started_at: result.startedAt,
+            completed_at: result.completedAt,
+            transport: 'cli',
+          };
+          parsedFromFailure.process_output = {
+            stdout: result.stdout,
+            stderr: result.stderr,
+          };
+          return parsedFromFailure;
+        }
+
         return {
           summary: `Codex worker exited with code ${String(result.exitCode)}.`,
           status: 'failed',
@@ -184,7 +308,8 @@ export class CodexCliAdapter implements WorkerAdapter {
             args: [
               'exec',
               '--json',
-              '--full-auto',
+              '--dangerously-bypass-approvals-and-sandbox',
+              '--sandbox', 'danger-full-access',
               '--skip-git-repo-check',
               '-c', 'model_reasoning_effort=high',
               '--output-last-message', '[temp-file]',
@@ -205,13 +330,14 @@ export class CodexCliAdapter implements WorkerAdapter {
         };
       }
 
-      const parsed = parseWorkerResult(lastMessage, request, 'Codex worker completed without a structured summary.');
+      const parsed = parseWorkerResult(preferredOutput, request, 'Codex worker completed without a structured summary.');
       parsed.invocation = {
         command: 'codex',
         args: [
           'exec',
           '--json',
-          '--full-auto',
+          '--dangerously-bypass-approvals-and-sandbox',
+          '--sandbox', 'danger-full-access',
           '--skip-git-repo-check',
           '-c', 'model_reasoning_effort=high',
           '--output-last-message', '[temp-file]',

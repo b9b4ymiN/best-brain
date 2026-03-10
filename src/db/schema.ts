@@ -1,4 +1,4 @@
-export const SCHEMA_STATEMENTS = [
+export const BASE_SCHEMA_STATEMENTS = [
   `CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT,
@@ -49,14 +49,10 @@ export const SCHEMA_STATEMENTS = [
     updated_at INTEGER NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_memory_type ON memory_items(memory_type)`,
-  `CREATE INDEX IF NOT EXISTS idx_memory_scope ON memory_items(memory_scope)`,
-  `CREATE INDEX IF NOT EXISTS idx_memory_layer ON memory_items(memory_layer)`,
-  `CREATE INDEX IF NOT EXISTS idx_memory_subtype ON memory_items(memory_subtype)`,
   `CREATE INDEX IF NOT EXISTS idx_memory_domain ON memory_items(domain)`,
   `CREATE INDEX IF NOT EXISTS idx_memory_mission ON memory_items(mission_id)`,
   `CREATE INDEX IF NOT EXISTS idx_memory_status ON memory_items(status)`,
   `CREATE INDEX IF NOT EXISTS idx_memory_updated ON memory_items(updated_at)`,
-  `CREATE INDEX IF NOT EXISTS idx_memory_reused ON memory_items(times_reused, last_reused_at DESC)`,
   `CREATE TABLE IF NOT EXISTS memory_versions (
     id TEXT PRIMARY KEY,
     memory_id TEXT NOT NULL,
@@ -214,3 +210,12 @@ export const SCHEMA_STATEMENTS = [
   )`,
   `CREATE INDEX IF NOT EXISTS idx_learning_events_created ON learning_events(created_at DESC)`,
 ];
+
+export const POST_MIGRATION_SCHEMA_STATEMENTS = [
+  `CREATE INDEX IF NOT EXISTS idx_memory_scope ON memory_items(memory_scope)`,
+  `CREATE INDEX IF NOT EXISTS idx_memory_layer ON memory_items(memory_layer)`,
+  `CREATE INDEX IF NOT EXISTS idx_memory_subtype ON memory_items(memory_subtype)`,
+  `CREATE INDEX IF NOT EXISTS idx_memory_reused ON memory_items(times_reused, last_reused_at DESC)`,
+];
+
+export const SCHEMA_STATEMENTS = [...BASE_SCHEMA_STATEMENTS, ...POST_MIGRATION_SCHEMA_STATEMENTS];

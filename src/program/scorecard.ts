@@ -52,6 +52,7 @@ export interface ManagerProofInput {
   thin_manager_pass: boolean;
   claude_primary_pass: boolean;
   codex_primary_pass: boolean;
+  codex_output_excerpt?: string;
   shell_primary_pass?: boolean;
   mission_brief_completeness?: number;
   goal_ambiguity_detection?: boolean;
@@ -656,6 +657,7 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     && input.manager_proof.thin_manager_pass
     && input.manager_proof.claude_primary_pass
     && input.manager_proof.codex_primary_pass;
+  const codexProviderLimited = (input.manager_proof?.codex_output_excerpt ?? '').toLowerCase().includes('usage limit');
   const managerRailsMeasured = input.manager_proof?.mission_brief_completeness === 100
     && input.manager_proof.goal_ambiguity_detection === true
     && input.manager_proof.false_complete_count === 0
@@ -710,14 +712,18 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
         ? managerRailsMeasured
           ? 'Manager paths pass, core safety rails are measured, and mission graph plus playbook execution are wired into the live path, but multi-step decomposition is still thin.'
           : 'Manager alpha proves the core one-worker path, but MissionBrief validation and ambiguity detection still need explicit proof coverage.'
-        : 'Manager proof capture is incomplete.',
+        : codexProviderLimited
+          ? 'Manager proof is blocked by an external Codex usage-limit condition on this machine; thin-manager, Claude, and Shell paths still pass.'
+          : 'Manager proof capture is incomplete.',
     },
     {
       phase: 'Phase2_WorkerFabricRuntimeSpine',
       status: runtimeEvidenceReady ? 'pass' : 'fail',
       note: runtimeEvidenceReady
         ? 'Worker fabric is formalized across Claude, Codex, Shell, and Verifier, with artifact lineage and multi-path checkpoint recovery proven in local evidence.'
-        : 'Runtime proof is incomplete.',
+        : codexProviderLimited
+          ? 'Runtime proof is locally blocked by a Codex provider usage-limit condition; Shell, Claude, verifier, artifact lineage, and checkpoint recovery still pass.'
+          : 'Runtime proof is incomplete.',
     },
     {
       phase: 'Phase3_ProvingMissionFramework',

@@ -1,17 +1,20 @@
 {
-  "answer": "Consult intent: preference_lookup.\n- [Preferences] Preferred report format: example-owner prefers concise, high-signal updates with clear status, proof, and next actions.\n- [Preferences] Quality bar: Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.\n- [Preferences] Communication style: example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
+  "answer": "Consult intent: preference_lookup.\n- [Preferences/principle] Preferred report format: example-owner prefers concise, high-signal updates with clear status, proof, and next actions.\n- [Preferences/principle] Quality bar: Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.\n- [Preferences/principle] Communication style: example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
   "memory_ids": [
-    "mem_c3ce4775-cbd5-4c38-a9d8-fe9bf1ac05c8",
-    "mem_f5e90d6b-0d05-407f-b2b2-65600f77f1a5",
-    "mem_53190152-c925-47ac-8ee1-854de2f79eae",
-    "mem_a27522fc-0202-4b7c-ae14-a10be28e892f",
-    "mem_1485a3a4-4bae-4321-bfb3-7c6f337704b2"
+    "mem_17841dd0-36d2-49ec-8ab0-e3e769adcb50",
+    "mem_4e23047f-c48b-45d9-970d-92d8d6d1f3ec",
+    "mem_cc63c16a-6ccd-479d-b7dc-3a4d388c91b2",
+    "mem_1299c7f2-67da-43c3-8ce7-f9cc05e3e7e4",
+    "mem_7a2a83c4-6fa8-45a1-af68-82d39fde6f1e"
   ],
   "citations": [
     {
-      "memory_id": "mem_c3ce4775-cbd5-4c38-a9d8-fe9bf1ac05c8",
+      "memory_id": "mem_17841dd0-36d2-49ec-8ab0-e3e769adcb50",
       "title": "Preferred report format",
       "memory_type": "Preferences",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "preference.report_format",
       "summary": "example-owner prefers concise, high-signal updates with clear status, proof, and next actions.",
       "source": "onboarding",
       "verified_by": "user",
@@ -24,12 +27,23 @@
           "type": "note",
           "ref": "onboarding://report-format"
         }
+      ],
+      "entity_keys": [
+        "preferred",
+        "preferred_report_format"
+      ],
+      "entity_aliases": [
+        "report format",
+        "preferred format"
       ]
     },
     {
-      "memory_id": "mem_f5e90d6b-0d05-407f-b2b2-65600f77f1a5",
+      "memory_id": "mem_4e23047f-c48b-45d9-970d-92d8d6d1f3ec",
       "title": "Quality bar",
       "memory_type": "Preferences",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "preference.workflow",
       "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
       "source": "onboarding",
       "verified_by": "user",
@@ -42,12 +56,19 @@
           "type": "note",
           "ref": "onboarding://quality-bar"
         }
-      ]
+      ],
+      "entity_keys": [
+        "bar"
+      ],
+      "entity_aliases": []
     },
     {
-      "memory_id": "mem_53190152-c925-47ac-8ee1-854de2f79eae",
+      "memory_id": "mem_cc63c16a-6ccd-479d-b7dc-3a4d388c91b2",
       "title": "Communication style",
       "memory_type": "Preferences",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "preference.communication_style",
       "summary": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
       "source": "onboarding",
       "verified_by": "user",
@@ -60,12 +81,19 @@
           "type": "note",
           "ref": "onboarding://communication-style"
         }
-      ]
+      ],
+      "entity_keys": [
+        "communication"
+      ],
+      "entity_aliases": []
     },
     {
-      "memory_id": "mem_a27522fc-0202-4b7c-ae14-a10be28e892f",
+      "memory_id": "mem_1299c7f2-67da-43c3-8ce7-f9cc05e3e7e4",
       "title": "Owner persona",
       "memory_type": "Persona",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "persona.identity",
       "summary": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
       "source": "onboarding",
       "verified_by": "user",
@@ -78,12 +106,23 @@
           "type": "note",
           "ref": "onboarding://persona"
         }
+      ],
+      "entity_keys": [
+        "owner_name",
+        "owner_identity"
+      ],
+      "entity_aliases": [
+        "my name",
+        "owner name"
       ]
     },
     {
-      "memory_id": "mem_1485a3a4-4bae-4321-bfb3-7c6f337704b2",
+      "memory_id": "mem_7a2a83c4-6fa8-45a1-af68-82d39fde6f1e",
       "title": "Verification loop",
       "memory_type": "Procedures",
+      "memory_scope": "cross_mission",
+      "memory_layer": "pattern",
+      "memory_subtype": "procedure.verification",
       "summary": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
       "source": "seed://default-procedures",
       "verified_by": "trusted_import",
@@ -92,26 +131,39 @@
           "type": "import",
           "ref": "seed://default-procedures"
         }
-      ]
+      ],
+      "entity_keys": [
+        "verification",
+        "loop",
+        "checklist",
+        "verification_playbook"
+      ],
+      "entity_aliases": []
     }
   ],
   "policy_path": "deterministic.preference_lookup.v1",
+  "query_profile": "balanced",
+  "retrieval_mode": "vector_unavailable_fallback",
   "confidence_band": "high",
   "followup_actions": [
     "Answer in the preferred format.",
     "Only update preferences after confirmation from the owner."
   ],
-  "trace_id": "trace_2f4e0cac-51c0-4c76-a92f-88d1bf102b4e",
+  "trace_id": "trace_46e60858-a8e0-43ba-928f-3f21c947507b",
   "selected_memories": [
     {
-      "id": "mem_c3ce4775-cbd5-4c38-a9d8-fe9bf1ac05c8",
+      "id": "mem_17841dd0-36d2-49ec-8ab0-e3e769adcb50",
       "title": "Preferred report format",
       "content": "example-owner prefers concise, high-signal updates with clear status, proof, and next actions.",
       "summary": "example-owner prefers concise, high-signal updates with clear status, proof, and next actions.",
       "memory_type": "Preferences",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "preference.report_format",
       "source": "onboarding",
       "confidence": 0.85,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -121,6 +173,20 @@
         "preference",
         "format"
       ],
+      "entity_keys": [
+        "preferred",
+        "preferred_report_format"
+      ],
+      "entity_aliases": [
+        "report format",
+        "preferred format"
+      ],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "user",
       "evidence_ref": [
@@ -139,18 +205,27 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754451,
-      "updated_at": 1773068754464
+      "last_validated_at": 1773145492362,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492362,
+      "updated_at": 1773145492382
     },
     {
-      "id": "mem_f5e90d6b-0d05-407f-b2b2-65600f77f1a5",
+      "id": "mem_4e23047f-c48b-45d9-970d-92d8d6d1f3ec",
       "title": "Quality bar",
       "content": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
       "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
       "memory_type": "Preferences",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "preference.workflow",
       "source": "onboarding",
       "confidence": 0.9,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -160,6 +235,16 @@
         "preference",
         "quality-bar"
       ],
+      "entity_keys": [
+        "bar"
+      ],
+      "entity_aliases": [],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "user",
       "evidence_ref": [
@@ -178,18 +263,27 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754455,
-      "updated_at": 1773068754467
+      "last_validated_at": 1773145492369,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492369,
+      "updated_at": 1773145492387
     },
     {
-      "id": "mem_53190152-c925-47ac-8ee1-854de2f79eae",
+      "id": "mem_cc63c16a-6ccd-479d-b7dc-3a4d388c91b2",
       "title": "Communication style",
       "content": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
       "summary": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
       "memory_type": "Preferences",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "preference.communication_style",
       "source": "onboarding",
       "confidence": 0.85,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -199,6 +293,16 @@
         "preference",
         "communication"
       ],
+      "entity_keys": [
+        "communication"
+      ],
+      "entity_aliases": [],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "user",
       "evidence_ref": [
@@ -217,18 +321,27 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754453,
-      "updated_at": 1773068754465
+      "last_validated_at": 1773145492365,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492365,
+      "updated_at": 1773145492385
     },
     {
-      "id": "mem_a27522fc-0202-4b7c-ae14-a10be28e892f",
+      "id": "mem_1299c7f2-67da-43c3-8ce7-f9cc05e3e7e4",
       "title": "Owner persona",
       "content": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
       "summary": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
       "memory_type": "Persona",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "persona.identity",
       "source": "onboarding",
       "confidence": 0.9,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -238,6 +351,20 @@
         "persona",
         "owner"
       ],
+      "entity_keys": [
+        "owner_name",
+        "owner_identity"
+      ],
+      "entity_aliases": [
+        "my name",
+        "owner name"
+      ],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "user",
       "evidence_ref": [
@@ -256,18 +383,27 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754449,
-      "updated_at": 1773068754462
+      "last_validated_at": 1773145492357,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492357,
+      "updated_at": 1773145492379
     },
     {
-      "id": "mem_1485a3a4-4bae-4321-bfb3-7c6f337704b2",
+      "id": "mem_7a2a83c4-6fa8-45a1-af68-82d39fde6f1e",
       "title": "Verification loop",
       "content": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
       "summary": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
       "memory_type": "Procedures",
+      "memory_scope": "cross_mission",
+      "memory_layer": "pattern",
+      "memory_subtype": "procedure.verification",
       "source": "seed://default-procedures",
       "confidence": 0.95,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -278,6 +414,19 @@
         "verification",
         "checklist"
       ],
+      "entity_keys": [
+        "verification",
+        "loop",
+        "checklist",
+        "verification_playbook"
+      ],
+      "entity_aliases": [],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "trusted_import",
       "evidence_ref": [
@@ -292,8 +441,14 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754456,
-      "updated_at": 1773068754456
+      "last_validated_at": 1773145492371,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492371,
+      "updated_at": 1773145492371
     }
-  ]
+  ],
+  "retrieval_bundle": null
 }

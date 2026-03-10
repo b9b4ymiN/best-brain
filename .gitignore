@@ -9,6 +9,7 @@ Thumbs.db
 .tmp/
 .best-brain/
 artifacts/
+docs/missions/
 brain/oracle-core/node_modules/
 brain/oracle-core/frontend/node_modules/
 brain/oracle-core/.git.vendored/

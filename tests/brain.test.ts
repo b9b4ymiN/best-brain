@@ -1,4 +1,9 @@
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
+import { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'bun:test';
+import { BestBrain } from '../src/services/brain.ts';
 import { createTestBrain } from './helpers.ts';
 
 describe('best-brain core', () => {
@@ -84,6 +89,131 @@ describe('best-brain core', () => {
       expect(response.retrieval_bundle?.blocked_exact_status).toBe('resolved');
     } finally {
       cleanup();
+    }
+  });
+
+  test('boots and migrates an existing local database before creating v3 indexes', async () => {
+    const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'best-brain-legacy-'));
+    const dbPath = path.join(dataDir, 'best-brain.db');
+    const sqlite = new Database(dbPath);
+
+    try {
+      sqlite.exec(`
+        CREATE TABLE settings (
+          key TEXT PRIMARY KEY,
+          value TEXT,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE memory_items (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          content TEXT NOT NULL,
+          summary TEXT NOT NULL,
+          memory_type TEXT NOT NULL,
+          source TEXT NOT NULL,
+          confidence REAL NOT NULL,
+          owner TEXT NOT NULL,
+          domain TEXT,
+          reusable INTEGER NOT NULL,
+          supersedes TEXT,
+          superseded_by TEXT,
+          mission_id TEXT,
+          tags TEXT NOT NULL,
+          status TEXT NOT NULL,
+          verified_by TEXT,
+          evidence_ref TEXT NOT NULL,
+          version INTEGER NOT NULL,
+          review_due_at INTEGER,
+          stale_after_at INTEGER,
+          archive_after_at INTEGER,
+          expires_at INTEGER,
+          archived_at INTEGER,
+          created_at INTEGER NOT NULL,
+          updated_at INTEGER NOT NULL
+        );
+        CREATE TABLE retrieval_traces (
+          id TEXT PRIMARY KEY,
+          query TEXT NOT NULL,
+          intent TEXT NOT NULL,
+          mission_id TEXT,
+          domain TEXT,
+          policy_path TEXT NOT NULL,
+          matched_candidates TEXT NOT NULL,
+          why_included TEXT NOT NULL,
+          why_excluded TEXT NOT NULL,
+          ranking_contribution TEXT NOT NULL,
+          final_selected_set TEXT NOT NULL,
+          created_at INTEGER NOT NULL
+        );
+      `);
+      sqlite
+        .prepare(
+          `INSERT INTO memory_items (
+            id, title, content, summary, memory_type, source, confidence, owner, domain, reusable,
+            supersedes, superseded_by, mission_id, tags, status, verified_by, evidence_ref, version,
+            review_due_at, stale_after_at, archive_after_at, expires_at, archived_at, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        )
+        .run(
+          'mem_legacy_owner',
+          'Owner name',
+          'The owner name is Beam.',
+          'Owner name is Beam.',
+          'Persona',
+          'legacy://seed',
+          1,
+          'test-owner',
+          null,
+          1,
+          null,
+          null,
+          null,
+          '["identity"]',
+          'active',
+          'user',
+          '[{"type":"note","ref":"legacy://owner"}]',
+          1,
+          null,
+          null,
+          null,
+          null,
+          null,
+          Date.now(),
+          Date.now(),
+        );
+    } finally {
+      sqlite.close();
+    }
+
+    const brain = await BestBrain.open({
+      owner: 'test-owner',
+      dataDir,
+      dbPath,
+      port: 0,
+      seedDefaults: false,
+    });
+
+    try {
+      const columns = brain.store.sqlite.prepare('PRAGMA table_info(memory_items)').all() as Array<{ name: string }>;
+      const retrievalColumns = brain.store.sqlite.prepare('PRAGMA table_info(retrieval_traces)').all() as Array<{ name: string }>;
+      const migrated = brain.store.getMemory('mem_legacy_owner');
+
+      expect(columns.some((column) => column.name === 'memory_scope')).toBe(true);
+      expect(columns.some((column) => column.name === 'memory_layer')).toBe(true);
+      expect(columns.some((column) => column.name === 'entity_aliases')).toBe(true);
+      expect(retrievalColumns.some((column) => column.name === 'query_profile')).toBe(true);
+      expect(retrievalColumns.some((column) => column.name === 'retrieval_mode')).toBe(true);
+      expect(migrated?.memory_scope).toBe('owner');
+      expect(migrated?.memory_layer).toBe('principle');
+      expect(migrated?.memory_subtype).toBe('persona.identity');
+      expect(migrated?.entity_keys).toContain('owner_name');
+    } finally {
+      brain.close();
+      try {
+        fs.rmSync(dataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
+      } catch {
+        // SQLite WAL cleanup can lag briefly on Windows.
+      }
     }
   });
 

@@ -66,6 +66,8 @@ for (const task of tasks) {
 
 const successRuns = [results.thin_manager, results.claude_primary, results.codex_primary, results.shell_primary]
   .filter((result) => result.parsed != null);
+const successfulExecutionRuns = [results.claude_primary, results.codex_primary, results.shell_primary]
+  .filter((result) => result.pass && result.parsed != null);
 const completenessScores = successRuns
   .map((result) => Number((result.parsed?.mission_brief_validation as { completeness_score?: number } | undefined)?.completeness_score))
   .filter((value) => Number.isFinite(value));
@@ -88,7 +90,7 @@ const falseCompleteCount = [results.thin_manager, results.claude_primary, result
     }
     return total;
   }, 0);
-const runtimeSessionCapture = successRuns.every((result) => {
+const runtimeSessionCapture = successfulExecutionRuns.every((result) => {
   const runtimeBundle = result.parsed?.runtime_bundle as {
     session?: { status?: string };
   } | null | undefined;

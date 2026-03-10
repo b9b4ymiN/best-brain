@@ -72,6 +72,63 @@ export function extractClaudeStreamAnswer(output: string): string | null {
   return assistantText;
 }
 
+export function extractCodexStreamMessage(output: string): string | null {
+  const lines = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  let lastMessage: string | null = null;
+
+  for (const line of lines) {
+    try {
+      const payload = JSON.parse(line) as { msg?: { type?: string; message?: string } };
+      if (payload.msg?.type === 'agent_message' && typeof payload.msg.message === 'string') {
+        lastMessage = payload.msg.message.trim();
+      }
+    } catch {
+      // Ignore non-JSON lines from Codex.
+    }
+  }
+
+  return lastMessage && lastMessage.length > 0 ? lastMessage : null;
+}
+
+export function extractCodexStreamError(output: string): string | null {
+  const lines = output
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  let lastError: string | null = null;
+
+  for (const line of lines) {
+    try {
+      const payload = JSON.parse(line) as { msg?: { type?: string; message?: string } };
+      if (payload.msg?.type === 'error' && typeof payload.msg.message === 'string') {
+        lastError = payload.msg.message.trim();
+      }
+    } catch {
+      // Ignore non-JSON lines from Codex.
+    }
+  }
+
+  return lastError && lastError.length > 0 ? lastError : null;
+}
+
+export function detectCodexProviderIssue(output: string): string | null {
+  const normalized = output.toLowerCase();
+  if (
+    normalized.includes("you've hit your usage limit")
+    || normalized.includes('you have hit your usage limit')
+    || normalized.includes('u0027ve hit your usage limit')
+    || normalized.includes('rate limit')
+    || normalized.includes('try again in')
+  ) {
+    return 'Codex provider is temporarily unavailable because the current account hit a usage limit.';
+  }
+
+  return null;
+}
+
 export function resolveNeutralAICwd(): string {
   const dir = path.join(os.tmpdir(), 'best-brain-ai-neutral');
   mkdirSync(dir, { recursive: true });

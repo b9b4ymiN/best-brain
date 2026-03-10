@@ -4,11 +4,13 @@ const runtime = new ManagerRuntime();
 
 try {
   const result = await runtime.run({
-    goal: 'Plan the next mission by reviewing the current project status and return one concrete next action. Keep the workspace unchanged.',
+    goal: 'Create a short verified report with one concrete next action using the latest verified mission proof and owner preferences. Keep the workspace unchanged.',
     worker_preference: 'codex',
     mission_id: `mission_codex_smoke_${Date.now()}`,
     output_mode: 'json',
   });
+
+  console.log(JSON.stringify(result, null, 2));
 
   if (result.worker_result?.status !== 'success') {
     throw new Error(`Codex manager smoke failed: ${result.worker_result?.summary ?? 'no worker result'}`);
@@ -38,7 +40,6 @@ try {
     throw new Error('Codex manager smoke expected a verifier worker task record.');
   }
 
-  console.log(JSON.stringify(result, null, 2));
 } finally {
   await runtime.dispose();
 }

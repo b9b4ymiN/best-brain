@@ -24,7 +24,7 @@ import {
 import { parseJson, toJson } from '../utils/json.ts';
 import { createId } from '../utils/id.ts';
 import { tokenize } from '../utils/text.ts';
-import { SCHEMA_STATEMENTS } from './schema.ts';
+import { BASE_SCHEMA_STATEMENTS, POST_MIGRATION_SCHEMA_STATEMENTS } from './schema.ts';
 
 type RawRow = Record<string, string | number | null>;
 const MEMORY_ITEM_INSERT_PLACEHOLDERS = Array.from({ length: 42 }, () => '?').join(', ');
@@ -159,11 +159,16 @@ export class BrainStore {
   }
 
   initialize(): void {
-    for (const statement of SCHEMA_STATEMENTS) {
+    for (const statement of BASE_SCHEMA_STATEMENTS) {
       this.sqlite.exec(statement);
     }
 
     this.migrateToSchemaV3();
+
+    for (const statement of POST_MIGRATION_SCHEMA_STATEMENTS) {
+      this.sqlite.exec(statement);
+    }
+
     this.setSetting('schema_version', '3');
     this.setSetting('vendor.oracle_core_commit', 'd355e31cb64bd8d5b296f9c3c1d325386cc79834');
   }
@@ -176,6 +181,9 @@ export class BrainStore {
   }
 
   private migrateToSchemaV3(): void {
+    const schemaVersion = Number(this.getSetting('schema_version') ?? '0');
+    const legacyBackfill = schemaVersion < 3;
+
     this.ensureColumn('memory_items', 'memory_scope', `memory_scope TEXT NOT NULL DEFAULT 'cross_mission'`);
     this.ensureColumn('memory_items', 'memory_layer', `memory_layer TEXT NOT NULL DEFAULT 'working'`);
     this.ensureColumn('memory_items', 'memory_subtype', `memory_subtype TEXT NOT NULL DEFAULT 'custom.general'`);
@@ -202,7 +210,18 @@ export class BrainStore {
     this.sqlite.exec(`CREATE INDEX IF NOT EXISTS idx_memory_reused ON memory_items(times_reused, last_reused_at DESC)`);
 
     for (const memory of this.listMemories()) {
-      const subtype = normalizeMemorySubtype(memory.memory_subtype, memory.memory_type, memory.title, memory.tags);
+      const normalizedSubtypeInput = legacyBackfill && memory.memory_subtype === 'custom.general'
+        ? null
+        : memory.memory_subtype;
+      const subtype = normalizeMemorySubtype(normalizedSubtypeInput, memory.memory_type, memory.title, memory.tags);
+      const expectedScope = defaultMemoryScope(memory.memory_type, memory.mission_id);
+      const expectedLayer = defaultMemoryLayer(memory.memory_type);
+      const normalizedScope = legacyBackfill && memory.memory_scope === 'cross_mission' && expectedScope !== 'cross_mission'
+        ? expectedScope
+        : memory.memory_scope;
+      const normalizedLayer = legacyBackfill && memory.memory_layer === 'working' && expectedLayer !== 'working'
+        ? expectedLayer
+        : memory.memory_layer;
       const entityKeys = memory.entity_keys.length > 0
         ? memory.entity_keys
         : deriveEntityKeys({
@@ -229,18 +248,22 @@ export class BrainStore {
            WHERE id = ?`,
         )
         .run(
-          memory.memory_scope,
-          memory.memory_layer,
+          normalizedScope,
+          normalizedLayer,
           subtype,
           toJson(entityKeys),
           toJson(entityAliases),
           memory.id,
         );
       this.syncMemoryFts({
-        ...memory,
+        id: memory.id,
+        title: memory.title,
+        summary: memory.summary,
+        content: memory.content,
         memory_subtype: subtype,
         entity_keys: entityKeys,
         entity_aliases: entityAliases,
+        tags: memory.tags,
       });
       this.upsertEmbeddingMetadata(memory.id, {
         embedding_provider: null,

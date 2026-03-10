@@ -2,26 +2,26 @@
   "mission_id": "manager-example-mission",
   "artifacts": [
     {
-      "id": "vart_b2225b41-233b-4f26-9d58-bdee9f45e1f9",
+      "id": "vart_b547f0ce-a96e-4095-b433-51366c4061c7",
       "mission_id": "manager-example-mission",
-      "verification_run_id": "vrun_3b218cc1-c72e-490d-a806-d5b030f958e3",
-      "memory_id": "mem_a1e64ae5-0d49-4d2e-b21f-fe1e5830412a",
+      "verification_run_id": "vrun_52468953-48b4-4d71-b7ed-7bacade689b6",
+      "memory_id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
       "artifact_type": "note",
       "artifact_ref": "example://mission-proof",
       "artifact_description": "Example proof note",
       "source_kind": "verification_complete",
-      "created_at": 1773068754481
+      "created_at": 1773145492410
     },
     {
-      "id": "vart_9a3a7ec9-dcdf-448e-85df-a956e12cdbaa",
+      "id": "vart_bbcca2e9-0bae-4814-a560-5ac361b2dd03",
       "mission_id": "manager-example-mission",
       "verification_run_id": null,
-      "memory_id": "mem_a1e64ae5-0d49-4d2e-b21f-fe1e5830412a",
+      "memory_id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
       "artifact_type": "note",
       "artifact_ref": "example://mission-proof",
       "artifact_description": "Example proof note",
       "source_kind": "mission_outcome",
-      "created_at": 1773068754476
+      "created_at": 1773145492406
     }
   ],
   "orphan_count": 0

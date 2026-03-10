@@ -10,22 +10,22 @@
     ],
     "preferred_format": "example-owner prefers concise, high-signal updates with clear status, proof, and next actions.",
     "verification_required": true,
-    "latest_outcome_memory_id": "mem_a1e64ae5-0d49-4d2e-b21f-fe1e5830412a",
-    "created_at": 1773068754473,
-    "updated_at": 1773068754480,
-    "started_at": 1773068754475,
-    "completed_at": 1773068754480,
+    "latest_outcome_memory_id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
+    "created_at": 1773145492401,
+    "updated_at": 1773145492409,
+    "started_at": 1773145492405,
+    "completed_at": 1773145492409,
     "rejected_reason": null
   },
   "history": [
     {
-      "id": "mevent_d293f48f-912d-44c8-9129-81325eafc035",
+      "id": "mevent_703a9c1c-2b65-4ffe-aaed-fe41223a6b0d",
       "mission_id": "manager-example-mission",
       "event_type": "verification_completed",
       "actor": "verifier",
       "detail": "Verification finished with status verified_complete.",
       "data": {
-        "verification_run_id": "vrun_3b218cc1-c72e-490d-a806-d5b030f958e3",
+        "verification_run_id": "vrun_52468953-48b4-4d71-b7ed-7bacade689b6",
         "evidence": [
           {
             "type": "note",
@@ -41,16 +41,16 @@
           }
         ]
       },
-      "created_at": 1773068754480
+      "created_at": 1773145492410
     },
     {
-      "id": "mevent_2ac0a183-38c7-4336-a75b-7303a3b94723",
+      "id": "mevent_94bc5ffa-8086-4c43-90fd-ac9a63ec3139",
       "mission_id": "manager-example-mission",
       "event_type": "verification_started",
       "actor": "manager-example",
       "detail": "Verification loop started.",
       "data": {
-        "verification_run_id": "vrun_3b218cc1-c72e-490d-a806-d5b030f958e3",
+        "verification_run_id": "vrun_52468953-48b4-4d71-b7ed-7bacade689b6",
         "checks": [
           {
             "name": "example-check",
@@ -59,16 +59,16 @@
           }
         ]
       },
-      "created_at": 1773068754479
+      "created_at": 1773145492408
     },
     {
-      "id": "mevent_f445c630-9ae1-4efb-8228-59f631b1408c",
+      "id": "mevent_b8ac9d9b-e835-4637-b410-44c6c6aab114",
       "mission_id": "manager-example-mission",
       "event_type": "outcome_saved",
       "actor": "brain",
       "detail": "Mission outcome recorded and mission moved to in_progress.",
       "data": {
-        "outcome_memory_id": "mem_a1e64ae5-0d49-4d2e-b21f-fe1e5830412a",
+        "outcome_memory_id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
         "checks": [
           {
             "name": "example-check",
@@ -82,21 +82,26 @@
             "ref": "example://mission-proof",
             "description": "Example proof note"
           }
-        ]
+        ],
+        "reused_memory_ids": []
       },
-      "created_at": 1773068754476
+      "created_at": 1773145492406
     }
   ],
   "working_memory": [
     {
-      "id": "mem_a1e64ae5-0d49-4d2e-b21f-fe1e5830412a",
+      "id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
       "title": "Mission outcome: Demonstrate manager-facing brain contracts",
       "content": "Objective: Demonstrate manager-facing brain contracts\nResult: The mission produced a grounded consult response and a verified outcome.\nEvidence: note:example://mission-proof\nVerification checks: example-check=pass",
       "summary": "Objective: Demonstrate manager-facing brain contracts Result: The mission produced a grounded consult response and a verified outcome. Evidence: note:example://mission-proof Ver...",
       "memory_type": "MissionMemory",
+      "memory_scope": "mission",
+      "memory_layer": "retro",
+      "memory_subtype": "mission.outcome",
       "source": "mission_outcome",
       "confidence": 0.95,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -106,6 +111,21 @@
         "mission",
         "outcome"
       ],
+      "entity_keys": [
+        "outcome",
+        "demonstrate",
+        "manager",
+        "facing",
+        "brain",
+        "contracts"
+      ],
+      "entity_aliases": [],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "verifier",
       "evidence_ref": [
@@ -118,23 +138,32 @@
       "version": 2,
       "review_due_at": null,
       "stale_after_at": null,
-      "archive_after_at": 1788620754474,
+      "archive_after_at": 1788697492402,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754474,
-      "updated_at": 1773068754482
+      "last_validated_at": null,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492402,
+      "updated_at": 1773145492411
     }
   ],
   "durable_memory": [
     {
-      "id": "mem_a1e64ae5-0d49-4d2e-b21f-fe1e5830412a",
+      "id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
       "title": "Mission outcome: Demonstrate manager-facing brain contracts",
       "content": "Objective: Demonstrate manager-facing brain contracts\nResult: The mission produced a grounded consult response and a verified outcome.\nEvidence: note:example://mission-proof\nVerification checks: example-check=pass",
       "summary": "Objective: Demonstrate manager-facing brain contracts Result: The mission produced a grounded consult response and a verified outcome. Evidence: note:example://mission-proof Ver...",
       "memory_type": "MissionMemory",
+      "memory_scope": "mission",
+      "memory_layer": "retro",
+      "memory_subtype": "mission.outcome",
       "source": "mission_outcome",
       "confidence": 0.95,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -144,6 +173,21 @@
         "mission",
         "outcome"
       ],
+      "entity_keys": [
+        "outcome",
+        "demonstrate",
+        "manager",
+        "facing",
+        "brain",
+        "contracts"
+      ],
+      "entity_aliases": [],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "verifier",
       "evidence_ref": [
@@ -156,21 +200,88 @@
       "version": 2,
       "review_due_at": null,
       "stale_after_at": null,
-      "archive_after_at": 1788620754474,
+      "archive_after_at": 1788697492402,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754474,
-      "updated_at": 1773068754482
+      "last_validated_at": null,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492402,
+      "updated_at": 1773145492411
     },
     {
-      "id": "mem_f5e90d6b-0d05-407f-b2b2-65600f77f1a5",
+      "id": "mem_7a2a83c4-6fa8-45a1-af68-82d39fde6f1e",
+      "title": "Verification loop",
+      "content": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
+      "summary": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
+      "memory_type": "Procedures",
+      "memory_scope": "cross_mission",
+      "memory_layer": "pattern",
+      "memory_subtype": "procedure.verification",
+      "source": "seed://default-procedures",
+      "confidence": 0.95,
+      "owner": "example-owner",
+      "owner_scope": "private",
+      "domain": "best-brain",
+      "reusable": true,
+      "supersedes": null,
+      "superseded_by": null,
+      "mission_id": null,
+      "tags": [
+        "procedure",
+        "verification",
+        "checklist"
+      ],
+      "entity_keys": [
+        "verification",
+        "loop",
+        "checklist",
+        "verification_playbook"
+      ],
+      "entity_aliases": [],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
+      "status": "active",
+      "verified_by": "trusted_import",
+      "evidence_ref": [
+        {
+          "type": "import",
+          "ref": "seed://default-procedures"
+        }
+      ],
+      "version": 1,
+      "review_due_at": null,
+      "stale_after_at": null,
+      "archive_after_at": null,
+      "expires_at": null,
+      "archived_at": null,
+      "last_validated_at": 1773145492371,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492371,
+      "updated_at": 1773145492371
+    },
+    {
+      "id": "mem_4e23047f-c48b-45d9-970d-92d8d6d1f3ec",
       "title": "Quality bar",
       "content": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
       "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
       "memory_type": "Preferences",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "preference.workflow",
       "source": "onboarding",
       "confidence": 0.9,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -180,6 +291,16 @@
         "preference",
         "quality-bar"
       ],
+      "entity_keys": [
+        "bar"
+      ],
+      "entity_aliases": [],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "user",
       "evidence_ref": [
@@ -198,54 +319,27 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754455,
-      "updated_at": 1773068754467
+      "last_validated_at": 1773145492369,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492369,
+      "updated_at": 1773145492387
     },
     {
-      "id": "mem_1485a3a4-4bae-4321-bfb3-7c6f337704b2",
-      "title": "Verification loop",
-      "content": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
-      "summary": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
-      "memory_type": "Procedures",
-      "source": "seed://default-procedures",
-      "confidence": 0.95,
-      "owner": "example-owner",
-      "domain": "best-brain",
-      "reusable": true,
-      "supersedes": null,
-      "superseded_by": null,
-      "mission_id": null,
-      "tags": [
-        "procedure",
-        "verification",
-        "checklist"
-      ],
-      "status": "active",
-      "verified_by": "trusted_import",
-      "evidence_ref": [
-        {
-          "type": "import",
-          "ref": "seed://default-procedures"
-        }
-      ],
-      "version": 1,
-      "review_due_at": null,
-      "stale_after_at": null,
-      "archive_after_at": null,
-      "expires_at": null,
-      "archived_at": null,
-      "created_at": 1773068754456,
-      "updated_at": 1773068754456
-    },
-    {
-      "id": "mem_c8c94331-6228-47bc-a498-40c5eeee2cb7",
+      "id": "mem_bfabd8eb-8c81-431a-8048-9a854fbe5181",
       "title": "Planning and verification playbook",
       "content": "Start by clarifying goal, constraints, current state, and proof of done. Split work into reversible steps and preserve retrieval traces for important decisions.",
       "summary": "Start by clarifying goal, constraints, current state, and proof of done. Split work into reversible steps and preserve retrieval traces for important decisions.",
       "memory_type": "Procedures",
+      "memory_scope": "cross_mission",
+      "memory_layer": "pattern",
+      "memory_subtype": "procedure.planning",
       "source": "onboarding",
       "confidence": 0.9,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
@@ -255,6 +349,17 @@
         "procedure",
         "planning"
       ],
+      "entity_keys": [
+        "planning",
+        "verification"
+      ],
+      "entity_aliases": [],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "user",
       "evidence_ref": [
@@ -273,37 +378,60 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754457,
-      "updated_at": 1773068754468
+      "last_validated_at": 1773145492374,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492374,
+      "updated_at": 1773145492390
     },
     {
-      "id": "mem_53190152-c925-47ac-8ee1-854de2f79eae",
-      "title": "Communication style",
-      "content": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
-      "summary": "example-owner prefers direct language, factual tradeoffs, and explicit assumptions without fluff.",
-      "memory_type": "Preferences",
+      "id": "mem_1299c7f2-67da-43c3-8ce7-f9cc05e3e7e4",
+      "title": "Owner persona",
+      "content": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
+      "summary": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
+      "memory_type": "Persona",
+      "memory_scope": "owner",
+      "memory_layer": "principle",
+      "memory_subtype": "persona.identity",
       "source": "onboarding",
-      "confidence": 0.85,
+      "confidence": 0.9,
       "owner": "example-owner",
+      "owner_scope": "private",
       "domain": "best-brain",
       "reusable": true,
       "supersedes": null,
       "superseded_by": null,
       "mission_id": null,
       "tags": [
-        "preference",
-        "communication"
+        "persona",
+        "owner"
       ],
+      "entity_keys": [
+        "owner_name",
+        "owner_identity"
+      ],
+      "entity_aliases": [
+        "my name",
+        "owner name"
+      ],
+      "written_by": "system",
+      "retrieval_weight": 1,
+      "promotion_state": "none",
+      "times_reused": 0,
+      "last_reused_at": null,
+      "success_rate_hint": null,
       "status": "active",
       "verified_by": "user",
       "evidence_ref": [
         {
           "type": "import",
-          "ref": "seed://default-communication-style"
+          "ref": "seed://default-persona"
         },
         {
           "type": "note",
-          "ref": "onboarding://communication-style"
+          "ref": "onboarding://persona"
         }
       ],
       "version": 2,
@@ -312,8 +440,13 @@
       "archive_after_at": null,
       "expires_at": null,
       "archived_at": null,
-      "created_at": 1773068754453,
-      "updated_at": 1773068754465
+      "last_validated_at": 1773145492357,
+      "valid_until": null,
+      "embedding_status": "disabled",
+      "embedding_updated_at": null,
+      "embedding_model_version": null,
+      "created_at": 1773145492357,
+      "updated_at": 1773145492379
     }
   ],
   "planning_hints": [
@@ -324,33 +457,180 @@
   "verification_state": {
     "mission_id": "manager-example-mission",
     "status": "verified_complete",
-    "verification_run_id": "vrun_3b218cc1-c72e-490d-a806-d5b030f958e3",
+    "verification_run_id": "vrun_52468953-48b4-4d71-b7ed-7bacade689b6",
     "evidence_count": 1,
     "checks_passed": 1,
     "checks_total": 1
   },
   "verification_artifacts": [
     {
-      "id": "vart_b2225b41-233b-4f26-9d58-bdee9f45e1f9",
+      "id": "vart_b547f0ce-a96e-4095-b433-51366c4061c7",
       "mission_id": "manager-example-mission",
-      "verification_run_id": "vrun_3b218cc1-c72e-490d-a806-d5b030f958e3",
-      "memory_id": "mem_a1e64ae5-0d49-4d2e-b21f-fe1e5830412a",
+      "verification_run_id": "vrun_52468953-48b4-4d71-b7ed-7bacade689b6",
+      "memory_id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
       "artifact_type": "note",
       "artifact_ref": "example://mission-proof",
       "artifact_description": "Example proof note",
       "source_kind": "verification_complete",
-      "created_at": 1773068754481
+      "created_at": 1773145492410
     },
     {
-      "id": "vart_9a3a7ec9-dcdf-448e-85df-a956e12cdbaa",
+      "id": "vart_bbcca2e9-0bae-4814-a560-5ac361b2dd03",
       "mission_id": "manager-example-mission",
       "verification_run_id": null,
-      "memory_id": "mem_a1e64ae5-0d49-4d2e-b21f-fe1e5830412a",
+      "memory_id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
       "artifact_type": "note",
       "artifact_ref": "example://mission-proof",
       "artifact_description": "Example proof note",
       "source_kind": "mission_outcome",
-      "created_at": 1773068754476
+      "created_at": 1773145492406
     }
-  ]
+  ],
+  "manager_bundle": {
+    "bundle_profile": "manager_plan",
+    "query_profile": "exact_entity",
+    "exact_hits": [],
+    "identity_bundle": [
+      {
+        "memory_id": "mem_4e23047f-c48b-45d9-970d-92d8d6d1f3ec",
+        "title": "Quality bar",
+        "memory_type": "Preferences",
+        "memory_scope": "owner",
+        "memory_layer": "principle",
+        "memory_subtype": "preference.workflow",
+        "summary": "Work is only complete when evidence exists, key checks pass, and the result matches the original mission objective.",
+        "source": "onboarding",
+        "verified_by": "user",
+        "evidence_ref": [
+          {
+            "type": "import",
+            "ref": "seed://default-quality-bar"
+          },
+          {
+            "type": "note",
+            "ref": "onboarding://quality-bar"
+          }
+        ],
+        "entity_keys": [
+          "bar"
+        ],
+        "entity_aliases": []
+      },
+      {
+        "memory_id": "mem_1299c7f2-67da-43c3-8ce7-f9cc05e3e7e4",
+        "title": "Owner persona",
+        "memory_type": "Persona",
+        "memory_scope": "owner",
+        "memory_layer": "principle",
+        "memory_subtype": "persona.identity",
+        "summary": "example-owner expects the system to think like the owner, protect focus, verify completion, and avoid claiming done without evidence.",
+        "source": "onboarding",
+        "verified_by": "user",
+        "evidence_ref": [
+          {
+            "type": "import",
+            "ref": "seed://default-persona"
+          },
+          {
+            "type": "note",
+            "ref": "onboarding://persona"
+          }
+        ],
+        "entity_keys": [
+          "owner_name",
+          "owner_identity"
+        ],
+        "entity_aliases": [
+          "my name",
+          "owner name"
+        ]
+      }
+    ],
+    "approach_bundle": [
+      {
+        "memory_id": "mem_7a2a83c4-6fa8-45a1-af68-82d39fde6f1e",
+        "title": "Verification loop",
+        "memory_type": "Procedures",
+        "memory_scope": "cross_mission",
+        "memory_layer": "pattern",
+        "memory_subtype": "procedure.verification",
+        "summary": "Large work must pass a verification loop: gather evidence, run checks, compare result to objective, and only then mark the mission complete.",
+        "source": "seed://default-procedures",
+        "verified_by": "trusted_import",
+        "evidence_ref": [
+          {
+            "type": "import",
+            "ref": "seed://default-procedures"
+          }
+        ],
+        "entity_keys": [
+          "verification",
+          "loop",
+          "checklist",
+          "verification_playbook"
+        ],
+        "entity_aliases": []
+      },
+      {
+        "memory_id": "mem_bfabd8eb-8c81-431a-8048-9a854fbe5181",
+        "title": "Planning and verification playbook",
+        "memory_type": "Procedures",
+        "memory_scope": "cross_mission",
+        "memory_layer": "pattern",
+        "memory_subtype": "procedure.planning",
+        "summary": "Start by clarifying goal, constraints, current state, and proof of done. Split work into reversible steps and preserve retrieval traces for important decisions.",
+        "source": "onboarding",
+        "verified_by": "user",
+        "evidence_ref": [
+          {
+            "type": "import",
+            "ref": "seed://default-planning"
+          },
+          {
+            "type": "note",
+            "ref": "onboarding://planning-playbook"
+          }
+        ],
+        "entity_keys": [
+          "planning",
+          "verification"
+        ],
+        "entity_aliases": []
+      }
+    ],
+    "proof_bundle": [
+      {
+        "memory_id": "mem_67b8a625-bc8e-4046-9a4a-2a2ec44439fd",
+        "title": "Mission outcome: Demonstrate manager-facing brain contracts",
+        "memory_type": "MissionMemory",
+        "memory_scope": "mission",
+        "memory_layer": "retro",
+        "memory_subtype": "mission.outcome",
+        "summary": "Objective: Demonstrate manager-facing brain contracts Result: The mission produced a grounded consult response and a verified outcome. Evidence: note:example://mission-proof Ver...",
+        "source": "mission_outcome",
+        "verified_by": "verifier",
+        "evidence_ref": [
+          {
+            "type": "note",
+            "ref": "example://mission-proof",
+            "description": "Example proof note"
+          }
+        ],
+        "entity_keys": [
+          "outcome",
+          "demonstrate",
+          "manager",
+          "facing",
+          "brain",
+          "contracts"
+        ],
+        "entity_aliases": []
+      }
+    ],
+    "working_bundle": [],
+    "suppressed_candidates": [],
+    "tension_signals": [],
+    "blocked_exact_status": "resolved",
+    "exact_requirements": []
+  }
 }

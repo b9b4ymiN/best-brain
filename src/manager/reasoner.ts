@@ -1,6 +1,6 @@
 import type { ConsultResponse, MissionContextBundle } from '../types.ts';
 import type { ManagerDecision, ManagerDecisionKind } from './types.ts';
-import { extractJsonText, isSpawnCommandMissing, resolveNeutralAICwd, runClaudeStreamResult, runCommand, toEnvRecord } from './adapters/shared.ts';
+import { extractCodexStreamMessage, extractJsonText, isSpawnCommandMissing, resolveNeutralAICwd, runClaudeStreamResult, runCommand, toEnvRecord } from './adapters/shared.ts';
 
 export interface ManagerTriageResult {
   kind: ManagerDecisionKind;
@@ -78,27 +78,6 @@ function parseTriage(output: string): ManagerTriageResult | null {
   }
 }
 
-function extractCodexMessage(output: string): string | null {
-  const lines = output
-    .split(/\r?\n/)
-    .map((line) => line.trim())
-    .filter(Boolean);
-  let lastMessage: string | null = null;
-
-  for (const line of lines) {
-    try {
-      const payload = JSON.parse(line) as { msg?: { type?: string; message?: string } };
-      if (payload.msg?.type === 'agent_message' && typeof payload.msg.message === 'string') {
-        lastMessage = payload.msg.message;
-      }
-    } catch {
-      // Ignore non-JSON lines from Codex.
-    }
-  }
-
-  return lastMessage;
-}
-
 async function runClaude(prompt: string, timeoutMs: number): Promise<ManagerTriageResult | null> {
   try {
     const result = await runClaudeStreamResult(prompt, {
@@ -121,7 +100,8 @@ async function runCodex(prompt: string, timeoutMs: number): Promise<ManagerTriag
     const result = await runCommand('codex', [
       'exec',
       '--json',
-      '--full-auto',
+      '--dangerously-bypass-approvals-and-sandbox',
+      '--sandbox', 'danger-full-access',
       '--skip-git-repo-check',
       '-c', 'model_reasoning_effort=high',
       '-C', resolveNeutralAICwd(),
@@ -136,7 +116,7 @@ async function runCodex(prompt: string, timeoutMs: number): Promise<ManagerTriag
       return null;
     }
 
-    return parseTriage(extractCodexMessage(result.stdout) ?? result.stdout);
+    return parseTriage(extractCodexStreamMessage(result.stdout) ?? result.stdout);
   } catch (error) {
     if (isSpawnCommandMissing(error)) {
       return null;

@@ -55,6 +55,11 @@ const managerProof = readJson<{
   thin_manager_pass: boolean;
   claude_primary_pass: boolean;
   codex_primary_pass: boolean;
+  runs?: {
+    codex_primary?: {
+      output_excerpt?: string;
+    };
+  };
   shell_primary_pass?: boolean;
   mission_brief_completeness?: number;
   goal_ambiguity_detection?: boolean;
@@ -155,7 +160,12 @@ const scorecard = buildProgramScorecard({
   seed_comparison: seedComparison?.summary,
   bootstrap_smoke: bootstrapSmoke?.startup,
   captured_bootstrap_proofs: capturedBootstrapProofs,
-  manager_proof: managerProof ?? undefined,
+  manager_proof: managerProof
+    ? {
+        ...managerProof,
+        codex_output_excerpt: managerProof.runs?.codex_primary?.output_excerpt,
+      }
+    : undefined,
   proving_harness: provingHarness?.summary,
   phase4_proof: phase4Proof ?? undefined,
   actual_mission_proof: phase5ActualProof ?? undefined,
