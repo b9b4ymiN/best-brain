@@ -3,7 +3,7 @@ import path from 'path';
 import { buildProgramScorecard } from '../src/program/scorecard.ts';
 import { resolveProvingMissionDefinition, selectInputAdapters } from '../src/proving/registry.ts';
 import { evaluateAcceptanceRun } from '../src/proving/harness.ts';
-import type { MissionConsoleView } from '../src/control-room/types.ts';
+import type { ControlRoomDashboardView, MissionConsoleView } from '../src/control-room/types.ts';
 import type { MissionTaskGraph } from '../src/manager/graph.ts';
 import type { RuntimeSessionBundle } from '../src/runtime/types.ts';
 import type { MissionPlaybook } from '../src/playbooks/types.ts';
@@ -441,6 +441,7 @@ const missionConsoleView: MissionConsoleView = {
   mission_id: workerTaskInput.mission_id,
   goal: 'Implement the proving-mission report contract for this repo.',
   status: 'verified_complete',
+  mission_graph: missionGraph,
   plan_overview: missionGraph.nodes.map((node) => `${node.id}: ${node.title}`),
   timeline: [
     {
@@ -481,6 +482,7 @@ const missionConsoleView: MissionConsoleView = {
     },
   ],
   artifacts: runtimeBundle.artifacts,
+  final_report_artifact: runtimeBundle.artifacts.find((artifact) => artifact.id === 'artifact_final_report') ?? null,
   verdict: {
     mission_id: workerTaskInput.mission_id,
     status: 'verified_complete',
@@ -489,7 +491,26 @@ const missionConsoleView: MissionConsoleView = {
     checks_passed: 2,
     checks_total: 2,
   },
+  operator_review: {
+    status: 'approved',
+    note: 'The control-room operator accepted the verified verdict.',
+    updated_at: now + 27_000,
+  },
   allowed_actions: ['retry_mission', 'approve_verdict', 'reject_verdict'],
+  updated_at: now + 27_000,
+};
+
+const dashboardView: ControlRoomDashboardView = {
+  latest_mission_id: workerTaskInput.mission_id,
+  missions: [{
+    mission_id: workerTaskInput.mission_id,
+    goal: missionConsoleView.goal,
+    status: missionConsoleView.status,
+    selected_worker: 'codex',
+    retryable: false,
+    final_message: 'The proving mission completed with a final report artifact.',
+    updated_at: now + 27_000,
+  }],
 };
 
 const programScorecard = buildProgramScorecard({
@@ -583,6 +604,13 @@ const programScorecard = buildProgramScorecard({
     false_complete_count: 0,
     no_hidden_human_steps: true,
   },
+  control_room_proof: {
+    control_room_launch_pass: true,
+    mission_console_visibility_completeness: 100,
+    control_room_retry_pass: true,
+    control_room_review_audit_pass: true,
+    kernel_rail_bypass_detected: false,
+  },
 });
 
 fs.mkdirSync(outputDir, { recursive: true });
@@ -595,6 +623,7 @@ fs.writeFileSync(path.join(outputDir, 'mission-playbook.json'), JSON.stringify(p
 fs.writeFileSync(path.join(outputDir, 'proving-mission-definition.json'), JSON.stringify(missionDefinition, null, 2));
 fs.writeFileSync(path.join(outputDir, 'acceptance-run-definition.json'), JSON.stringify(acceptanceRun, null, 2));
 fs.writeFileSync(path.join(outputDir, 'acceptance-run-result.json'), JSON.stringify(acceptanceRunResult, null, 2));
+fs.writeFileSync(path.join(outputDir, 'mission-console-dashboard.json'), JSON.stringify(dashboardView, null, 2));
 fs.writeFileSync(path.join(outputDir, 'mission-console-view.json'), JSON.stringify(missionConsoleView, null, 2));
 fs.writeFileSync(path.join(outputDir, 'program-scorecard.json'), JSON.stringify(programScorecard, null, 2));
 
@@ -610,6 +639,7 @@ console.log(JSON.stringify({
     'proving-mission-definition.json',
     'acceptance-run-definition.json',
     'acceptance-run-result.json',
+    'mission-console-dashboard.json',
     'mission-console-view.json',
     'program-scorecard.json',
   ],

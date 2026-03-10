@@ -20,7 +20,9 @@ The repo does not implement the whole target system yet. The current state is:
 - `Manager alpha`: implemented as a CLI-first, HTTP-backed manager with one primary worker at a time
 - `First demo / acceptance mission`: implemented and locally proven with the Thai equities stock-scanner mission
 - `Actual manager-led stock mission`: implemented and locally proven from one user goal through persona-memory recall, manager-derived planning, worker control, and proof-driven closeout
-- `Worker swarm`, `runtime OS`, and `control room UI`: only partially present or still planned
+- `Repeatable One-Mission`: implemented and locally proven over the acceptance run set
+- `First local mission console`: implemented and locally proven on top of real manager/runtime state
+- `Worker swarm` and full `runtime OS`: only partially present or still planned
 
 ## Final concept
 
@@ -57,7 +59,7 @@ What does not exist yet:
 
 - worker swarm orchestration
 - browser worker, mail worker, or full runtime operator layer
-- control room web UI
+- full control room maturity with live streaming and long-running mission steering
 - autonomous multi-step operator mode
 - full repair-loop maturity across multiple workers
 
@@ -108,6 +110,7 @@ bun run proof:manager
 bun run proof:phase4
 bun run proof:phase5
 bun run proof:phase6
+bun run proof:control-room
 bun run examples:program
 bun run proof:proving
 bun run scorecard:program
@@ -139,6 +142,14 @@ Brain MCP:
 Manager CLI:
 
 - `bun run manager -- "<goal>"`
+
+Control room:
+
+- `GET /control-room`
+- `GET /control-room/api/overview`
+- `POST /control-room/api/launch`
+- `GET /control-room/api/missions/:id`
+- `POST /control-room/api/missions/:id/actions`
 
 ## Normal usage
 
@@ -198,6 +209,33 @@ Manager alpha now also blocks materially ambiguous execution goals before dispat
 bun run smoke:manager:ambiguity
 ```
 
+### Control room flow
+
+Run the normal local server:
+
+```bash
+bun run server
+```
+
+Then open:
+
+```text
+http://localhost:47888/control-room
+```
+
+The current control room is the first local mission console. It can:
+
+- launch a mission from one goal
+- inspect mission graph, timeline, workers, artifacts, verdict, and final report
+- retry a mission through the manager path
+- record operator approve/reject audit without bypassing kernel rails
+
+For deterministic local proof, use:
+
+```bash
+bun run proof:control-room
+```
+
 ## Repo direction
 
 The target system architecture has five long-term pillars:
@@ -214,7 +252,7 @@ The current repo is strongest in the first two:
 - `Mission Manager`: alpha implementation
 - `Worker Swarm`: early adapters only
 - `Runtime OS`: still emerging
-- `Control Surface`: not built yet
+- `Control Surface`: first local mission console exists, but it is still early
 
 ## Program lock
 
@@ -224,7 +262,8 @@ The 90-day program is now frozen around:
 - first demo / acceptance mission: `Thai equities daily stock scanner`
 - actual manager-led mission: `implemented and locally proven from one user goal`
 - repeatability over the acceptance run set: `implemented and locally proven`
-- next concept-critical phase: `turn the repeatable mission core into an inspectable control surface and expand beyond the first mission`
+- first local mission console: `implemented and locally proven`
+- next concept-critical phase: `harden the control surface beyond the first local mission console and expand beyond the first mission`
 - execution style: `general engine + reusable playbooks`
 - data strategy: `live-data-first` through adapter selection, not hard-coded source logic
 - control surface target: `full mission console`

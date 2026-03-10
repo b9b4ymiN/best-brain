@@ -89,7 +89,8 @@ Target surfaces:
 Current status:
 
 - CLI paths exist
-- no control room UI exists yet
+- a first local mission console now exists on top of real manager/runtime state
+- full control room maturity and long-running mission steering do not exist yet
 
 ## Routing model
 
@@ -178,5 +179,6 @@ The repo should be read as:
 
 - `final concept`: full local AI work operating system
 - `current implementation`: brain-v1 plus manager alpha, with a proven demo / acceptance mission, a proven actual manager-led mission path, and proven repeatability over the acceptance set
-- `next concept-critical milestone`: expose the repeatable mission core through a real control surface and broaden the same rails to more mission types
+- `current control surface truth`: a first local mission console exists, but it is still an early slice rather than the final control room
+- `next concept-critical milestone`: harden the control surface beyond the first mission console and broaden the same rails to more mission types
 - `next growth path`: expand workers, runtime OS, and control surface without replacing the brain/manager core

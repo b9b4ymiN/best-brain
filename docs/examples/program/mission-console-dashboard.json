@@ -1,0 +1,14 @@
+{
+  "latest_mission_id": "mission_program_example",
+  "missions": [
+    {
+      "mission_id": "mission_program_example",
+      "goal": "Implement the proving-mission report contract for this repo.",
+      "status": "verified_complete",
+      "selected_worker": "codex",
+      "retryable": false,
+      "final_message": "The proving mission completed with a final report artifact.",
+      "updated_at": 1773114033974
+    }
+  ]
+}

@@ -1,10 +1,23 @@
+import { ControlRoomService } from './control-room/service.ts';
 import { BestBrain } from './services/brain.ts';
 import { createApp } from './http/app.ts';
+import { BrainHttpAdapter } from './manager/adapters/brain-http.ts';
+import { ManagerRuntime } from './manager/runtime.ts';
 
 const brain = await BestBrain.open();
-const app = createApp(brain);
+let server: ReturnType<typeof Bun.serve>;
+const controlRoom = new ControlRoomService({
+  dataDir: brain.config.dataDir,
+  managerFactory: () => new ManagerRuntime({
+    brain: new BrainHttpAdapter({
+      baseUrl: `http://127.0.0.1:${server.port}`,
+      autoStart: false,
+    }),
+  }),
+});
+const app = createApp(brain, { controlRoom });
 
-const server = Bun.serve({
+server = Bun.serve({
   port: brain.config.port,
   fetch: app.fetch,
 });

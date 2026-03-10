@@ -41,7 +41,10 @@ This document freezes the program-level contracts that later phases must build o
   - acceptance run result
 - `Control Surface`
   - mission launch request
+  - mission dashboard view
   - mission console view
+  - control-room action request
+  - control-room action result
   - timeline entry
   - worker status card
   - judge verdict view
@@ -56,6 +59,7 @@ This document freezes the program-level contracts that later phases must build o
 - no mission-specific stock-scanner glue code inside core contracts
 - proving mission behavior must come from playbooks, prompts, and adapter policy
 - manager and UI must not bypass kernel verification rails
+- operator approve/reject controls are audit actions unless a manager/kernel path explicitly handles them
 - runtime artifacts and verifier output must stay linkable
 - final report artifacts must be emitted only after verification resolves on proving mission runs
 - manager beta must ship a `MissionBrief` completeness validator before mission readiness claims are trusted

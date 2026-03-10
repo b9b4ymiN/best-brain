@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-03-10T03:09:27.297Z",
+  "generated_at": "2026-03-10T03:40:06.974Z",
   "success_bar": "Repeatable One-Mission",
   "proving_mission": "Thai equities daily stock scanner",
   "acceptance_run_set": "thai_equities_daily_controlled_acceptance_runs",
@@ -242,10 +242,46 @@
       "id": "mission_console_visibility",
       "label": "Mission console visibility completeness",
       "category": "console",
+      "target": "= 100",
+      "actual": 100,
+      "status": "pass",
+      "note": "The control-room proof should show that the mission console exposes graph, timeline, workers, artifacts, verdict, and final report state."
+    },
+    {
+      "id": "control_room_launch_path",
+      "label": "Control-room launch path pass",
+      "category": "console",
       "target": "= true",
-      "actual": null,
-      "status": "unavailable",
-      "note": "Unavailable until the control room exists."
+      "actual": true,
+      "status": "pass",
+      "note": "A mission must be launchable from the control room without bypassing manager/runtime rails."
+    },
+    {
+      "id": "control_room_retry_path",
+      "label": "Control-room retry path pass",
+      "category": "console",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "A retry from the control room should rerun the mission through the manager rather than mutating state in place."
+    },
+    {
+      "id": "control_room_review_audit",
+      "label": "Control-room operator review audit pass",
+      "category": "console",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "Approve/reject controls must be recorded as operator review, not hidden state changes."
+    },
+    {
+      "id": "control_room_kernel_rail_integrity",
+      "label": "Control-room kernel rail integrity",
+      "category": "console",
+      "target": "= true",
+      "actual": true,
+      "status": "pass",
+      "note": "The control room must not bypass manager kernel policy when launching, retrying, or reviewing a mission."
     },
     {
       "id": "proving_mission_definition_valid",

@@ -157,7 +157,8 @@ Key outputs:
 
 Status:
 
-- not started
+- first local mission console implemented and locally proven
+- not yet a full control room with live streaming and long-running steering
 
 ### Phase 9 - Control Room UI
 
@@ -219,7 +220,7 @@ Status:
 
 To stay aligned with the final concept, the next recommended order is:
 
-1. add the first control surface beyond CLI on top of the repeatable mission core
+1. harden the first local mission console into a fuller control room
 2. harden manager alpha toward manager beta across more than one mission pattern
 3. broaden task-mode quality for normal daily use
 4. expand beyond the first mission into browser, mail, and richer worker flows

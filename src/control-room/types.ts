@@ -1,4 +1,5 @@
 import type { MissionStatus } from '../types.ts';
+import type { MissionTaskGraph } from '../manager/graph.ts';
 import type { WorkerId } from '../workers/types.ts';
 import type { RuntimeArtifactRecord } from '../runtime/types.ts';
 
@@ -32,6 +33,17 @@ export interface ControlRoomLaunchRequest {
   mode: ControlRoomMode;
   worker_preference: 'auto' | WorkerId;
   dry_run: boolean;
+  no_execute?: boolean;
+}
+
+export interface ControlRoomMissionSummary {
+  mission_id: string;
+  goal: string;
+  status: MissionStatus;
+  selected_worker: WorkerId | null;
+  retryable: boolean;
+  final_message: string;
+  updated_at: number;
 }
 
 export interface MissionTimelineEntry {
@@ -62,14 +74,42 @@ export interface JudgeVerdictView {
   checks_total: number;
 }
 
+export interface OperatorReviewView {
+  status: 'pending' | 'approved' | 'rejected';
+  note: string | null;
+  updated_at: number | null;
+}
+
 export interface MissionConsoleView {
   mission_id: string;
   goal: string;
   status: MissionStatus;
+  mission_graph: MissionTaskGraph;
   plan_overview: string[];
   timeline: MissionTimelineEntry[];
   workers: WorkerStatusCard[];
   artifacts: RuntimeArtifactRecord[];
+  final_report_artifact: RuntimeArtifactRecord | null;
   verdict: JudgeVerdictView | null;
+  operator_review: OperatorReviewView;
   allowed_actions: ControlRoomAction[];
+  updated_at: number;
+}
+
+export interface ControlRoomDashboardView {
+  latest_mission_id: string | null;
+  missions: ControlRoomMissionSummary[];
+}
+
+export interface ControlRoomActionRequest {
+  action: ControlRoomAction;
+  note?: string;
+}
+
+export interface ControlRoomActionResult {
+  accepted: boolean;
+  mission_id: string;
+  action: ControlRoomAction;
+  message: string;
+  view: MissionConsoleView;
 }

@@ -93,6 +93,7 @@ Current local status:
 - demo / acceptance proof is complete
 - the actual manager-led mission from one user goal is also proven locally
 - repeatability over the named acceptance set is also proven locally
+- a first local mission console is also proven locally against the real manager/runtime path
 
 ## Next bar after the repeatability proof
 
@@ -100,7 +101,7 @@ The next concept-critical phase is not "more demo", not "just one successful act
 
 It is:
 
-- expose the repeatable mission core through an inspectable control surface
+- harden the first inspectable control surface into a fuller control room
 - keep manager/kernel policy as the only state-mutation path
 - broaden the same mission rails beyond the first stock-scanner proving mission
 - preserve memory reuse and zero false completes while the surface area grows

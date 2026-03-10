@@ -43,9 +43,16 @@ describe('program example library', () => {
       passed: boolean;
       report_contract_completeness: number;
     };
+    const dashboard = JSON.parse(fs.readFileSync(path.join(examplesDir, 'mission-console-dashboard.json'), 'utf8')) as {
+      latest_mission_id: string | null;
+      missions: Array<{ mission_id: string; status: string }>;
+    };
     const consoleView = JSON.parse(fs.readFileSync(path.join(examplesDir, 'mission-console-view.json'), 'utf8')) as {
+      mission_graph: { nodes: unknown[] };
       timeline: unknown[];
       workers: unknown[];
+      final_report_artifact: unknown;
+      operator_review: { status: string };
       allowed_actions: string[];
     };
     const scorecard = JSON.parse(fs.readFileSync(path.join(examplesDir, 'program-scorecard.json'), 'utf8')) as {
@@ -74,8 +81,13 @@ describe('program example library', () => {
     expect(acceptanceRun.expected_final_status).toBe('verified_complete');
     expect(acceptanceResult.passed).toBe(true);
     expect(acceptanceResult.report_contract_completeness).toBe(100);
+    expect(dashboard.latest_mission_id).toBe(workerTaskInput.mission_id);
+    expect(dashboard.missions.some((mission) => mission.mission_id === workerTaskInput.mission_id && mission.status === 'verified_complete')).toBe(true);
+    expect(consoleView.mission_graph.nodes.length).toBeGreaterThan(0);
     expect(consoleView.timeline.length).toBeGreaterThan(0);
     expect(consoleView.workers.length).toBeGreaterThan(0);
+    expect(consoleView.final_report_artifact).not.toBeNull();
+    expect(consoleView.operator_review.status).toBe('approved');
     expect(consoleView.allowed_actions.includes('retry_mission')).toBe(true);
     expect(scorecard.success_bar).toBe('Repeatable One-Mission');
     expect(scorecard.acceptance_run_set).toBe('thai_equities_daily_controlled_acceptance_runs');

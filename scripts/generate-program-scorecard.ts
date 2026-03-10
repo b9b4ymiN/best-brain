@@ -105,6 +105,15 @@ const phase6RepeatabilityProof = readJson<{
     no_hidden_human_steps: boolean;
   };
 }>(path.join(artifactsDir, 'phase6-repeatability.latest.json'));
+const controlRoomProof = readJson<{
+  payload: {
+    control_room_launch_pass: boolean;
+    mission_console_visibility_completeness: number;
+    control_room_retry_pass: boolean;
+    control_room_review_audit_pass: boolean;
+    kernel_rail_bypass_detected: boolean;
+  };
+}>(path.join(artifactsDir, 'control-room-proof.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 const capturedBootstrapProofs = fs.existsSync(bootstrapProofDir)
   ? fs.readdirSync(bootstrapProofDir)
@@ -151,6 +160,7 @@ const scorecard = buildProgramScorecard({
   phase4_proof: phase4Proof ?? undefined,
   actual_mission_proof: phase5ActualProof ?? undefined,
   phase6_repeatability_proof: phase6RepeatabilityProof?.payload,
+  control_room_proof: controlRoomProof?.payload,
 });
 
 fs.mkdirSync(artifactsDir, { recursive: true });

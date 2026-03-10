@@ -94,6 +94,13 @@ describe('program scorecard', () => {
         false_complete_count: 0,
         no_hidden_human_steps: true,
       },
+      control_room_proof: {
+        control_room_launch_pass: true,
+        mission_console_visibility_completeness: 100,
+        control_room_retry_pass: true,
+        control_room_review_audit_pass: true,
+        kernel_rail_bypass_detected: false,
+      },
     });
 
     expect(scorecard.success_bar).toBe('Repeatable One-Mission');
@@ -107,6 +114,8 @@ describe('program scorecard', () => {
     expect(scorecard.metric_values.some((metric) => metric.id === 'verifier_worker_path' && metric.status === 'pass')).toBe(true);
     expect(scorecard.metric_values.some((metric) => metric.id === 'runtime_session_capture' && metric.status === 'pass')).toBe(true);
     expect(scorecard.metric_values.some((metric) => metric.id === 'generic_acceptance_harness_pass_rate' && metric.status === 'pass')).toBe(true);
+    expect(scorecard.metric_values.some((metric) => metric.id === 'mission_console_visibility' && metric.status === 'pass')).toBe(true);
+    expect(scorecard.metric_values.some((metric) => metric.id === 'control_room_kernel_rail_integrity' && metric.status === 'pass')).toBe(true);
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase0_ProgramLock')?.status).toBe('pass');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase1_ManagerBeta')?.status).toBe('partial');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase2_WorkerFabricRuntimeSpine')?.status).toBe('pass');

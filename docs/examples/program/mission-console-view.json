@@ -2,6 +2,95 @@
   "mission_id": "mission_program_example",
   "goal": "Implement the proving-mission report contract for this repo.",
   "status": "verified_complete",
+  "mission_graph": {
+    "mission_id": "mission_program_example",
+    "mission_kind": "repo_change_mission",
+    "playbook_id": "playbook_repo_change_mission",
+    "created_at": 1773114006974,
+    "updated_at": 1773114006974,
+    "nodes": [
+      {
+        "id": "context_review",
+        "title": "Review consult and context",
+        "objective": "Ground the mission in persona and current context.",
+        "node_type": "analysis",
+        "assigned_worker": null,
+        "depends_on": [],
+        "status": "completed",
+        "verification_gate": false,
+        "retry_count": 0,
+        "artifact_ids": [
+          "memory_context_review"
+        ]
+      },
+      {
+        "id": "data_selection",
+        "title": "Resolve mission inputs and data adapters",
+        "objective": "Select the local workspace input adapter.",
+        "node_type": "data_selection",
+        "assigned_worker": null,
+        "depends_on": [
+          "context_review"
+        ],
+        "status": "completed",
+        "verification_gate": false,
+        "retry_count": 0,
+        "artifact_ids": [
+          "adapter_workspace_scan"
+        ]
+      },
+      {
+        "id": "primary_work",
+        "title": "Execute the primary worker",
+        "objective": "Run codex against the proving mission brief.",
+        "node_type": "implementation",
+        "assigned_worker": "codex",
+        "depends_on": [
+          "data_selection"
+        ],
+        "status": "completed",
+        "verification_gate": false,
+        "retry_count": 0,
+        "artifact_ids": [
+          "proof://repo-change-note",
+          "file://repo-change.ts"
+        ]
+      },
+      {
+        "id": "verification_gate",
+        "title": "Run verification gate",
+        "objective": "Verify the result against the checklist.",
+        "node_type": "verification",
+        "assigned_worker": "verifier",
+        "depends_on": [
+          "primary_work"
+        ],
+        "status": "completed",
+        "verification_gate": true,
+        "retry_count": 0,
+        "artifact_ids": [
+          "proof://repo-change-note",
+          "file://repo-change.ts"
+        ]
+      },
+      {
+        "id": "final_report",
+        "title": "Prepare final owner report",
+        "objective": "Emit the final proving-mission report artifact.",
+        "node_type": "report",
+        "assigned_worker": null,
+        "depends_on": [
+          "verification_gate"
+        ],
+        "status": "completed",
+        "verification_gate": false,
+        "retry_count": 0,
+        "artifact_ids": [
+          "report://repo-change/final"
+        ]
+      }
+    ]
+  },
   "plan_overview": [
     "context_review: Review consult and context",
     "data_selection: Resolve mission inputs and data adapters",
@@ -18,7 +107,7 @@
       "title": "Mission launched",
       "detail": "Manager compiled the mission brief and task graph.",
       "artifact_ids": [],
-      "created_at": 1773112167297
+      "created_at": 1773114006974
     },
     {
       "id": "timeline_verification",
@@ -30,7 +119,7 @@
       "artifact_ids": [
         "artifact_final_report"
       ],
-      "created_at": 1773112193297
+      "created_at": 1773114032974
     }
   ],
   "workers": [
@@ -39,14 +128,14 @@
       "status": "completed",
       "current_task_id": null,
       "current_task_title": null,
-      "last_update_at": 1773112187297
+      "last_update_at": 1773114026974
     },
     {
       "worker": "verifier",
       "status": "completed",
       "current_task_id": null,
       "current_task_title": null,
-      "last_update_at": 1773112192297
+      "last_update_at": 1773114031974
     }
   ],
   "artifacts": [
@@ -61,7 +150,7 @@
       "description": "Owner-facing summary.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773112185297
+      "created_at": 1773114024974
     },
     {
       "id": "artifact_file",
@@ -74,7 +163,7 @@
       "description": "Implementation artifact.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773112185797
+      "created_at": 1773114025474
     },
     {
       "id": "artifact_stdout",
@@ -87,7 +176,7 @@
       "description": "Structured worker stdout.",
       "checksum": null,
       "source": "codex",
-      "created_at": 1773112187297
+      "created_at": 1773114026974
     },
     {
       "id": "artifact_final_report",
@@ -100,9 +189,22 @@
       "description": "Final mission report emitted after verification.",
       "checksum": null,
       "source": "manager",
-      "created_at": 1773112193297
+      "created_at": 1773114032974
     }
   ],
+  "final_report_artifact": {
+    "id": "artifact_final_report",
+    "session_id": "session_program_example",
+    "mission_id": "mission_program_example",
+    "acceptance_run_id": "acceptance_repo-change-mission:mission_program_example",
+    "task_id": "final_report",
+    "kind": "report",
+    "uri": "report://repo-change/final",
+    "description": "Final mission report emitted after verification.",
+    "checksum": null,
+    "source": "manager",
+    "created_at": 1773114032974
+  },
   "verdict": {
     "mission_id": "mission_program_example",
     "status": "verified_complete",
@@ -111,9 +213,15 @@
     "checks_passed": 2,
     "checks_total": 2
   },
+  "operator_review": {
+    "status": "approved",
+    "note": "The control-room operator accepted the verified verdict.",
+    "updated_at": 1773114033974
+  },
   "allowed_actions": [
     "retry_mission",
     "approve_verdict",
     "reject_verdict"
-  ]
+  ],
+  "updated_at": 1773114033974
 }

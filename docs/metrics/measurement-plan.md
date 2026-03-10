@@ -69,6 +69,7 @@ Current local source:
 - `artifacts/phase4-proof.latest.json`
 - `artifacts/phase5-actual.latest.json`
 - `artifacts/phase6-repeatability.latest.json`
+- `artifacts/control-room-proof.latest.json`
 - manager tests and HTTP integration tests
 
 ## Runtime metrics
@@ -94,10 +95,15 @@ Current local source:
 - verdict visibility completeness
 - operator action latency
 - zero direct state mutation outside manager kernel rails
+- control-room launch path pass
+- control-room retry path pass
+- control-room operator review audit pass
+- control-room kernel rail integrity
 
 Current local source:
 
-- unavailable until control room exists
+- `artifacts/control-room-proof.latest.json`
+- control-room HTTP integration tests
 
 ## Acceptance run set
 
@@ -161,3 +167,8 @@ The scorecard should also track these plan-critical signals even before they are
 - `actual_manager_generated_plan`
 - `actual_manager_worker_control`
 - `actual_manager_no_demo_shortcut`
+- `mission_console_visibility`
+- `control_room_launch_path`
+- `control_room_retry_path`
+- `control_room_review_audit`
+- `control_room_kernel_rail_integrity`

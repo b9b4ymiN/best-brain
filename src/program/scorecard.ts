@@ -103,6 +103,14 @@ export interface Phase6RepeatabilityProofInput {
   no_hidden_human_steps: boolean;
 }
 
+export interface ControlRoomProofInput {
+  control_room_launch_pass: boolean;
+  mission_console_visibility_completeness: number;
+  control_room_retry_pass: boolean;
+  control_room_review_audit_pass: boolean;
+  kernel_rail_bypass_detected: boolean;
+}
+
 export interface ProgramScorecardInput {
   generated_at: string;
   contract_snapshot: ProgramContractSnapshot;
@@ -115,6 +123,7 @@ export interface ProgramScorecardInput {
   phase4_proof?: Phase4ProofInput;
   actual_mission_proof?: ActualMissionProofInput;
   phase6_repeatability_proof?: Phase6RepeatabilityProofInput;
+  control_room_proof?: ControlRoomProofInput;
 }
 
 export interface ProgramMetricValue {
@@ -415,9 +424,43 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     'mission_console_visibility',
     'Mission console visibility completeness',
     'console',
-    null,
+    input.control_room_proof?.mission_console_visibility_completeness,
+    100,
+    'The control-room proof should show that the mission console exposes graph, timeline, workers, artifacts, verdict, and final report state.',
+  ));
+  metricValues.push(equalityMetric(
+    'control_room_launch_path',
+    'Control-room launch path pass',
+    'console',
+    input.control_room_proof?.control_room_launch_pass,
     true,
-    'Unavailable until the control room exists.',
+    'A mission must be launchable from the control room without bypassing manager/runtime rails.',
+  ));
+  metricValues.push(equalityMetric(
+    'control_room_retry_path',
+    'Control-room retry path pass',
+    'console',
+    input.control_room_proof?.control_room_retry_pass,
+    true,
+    'A retry from the control room should rerun the mission through the manager rather than mutating state in place.',
+  ));
+  metricValues.push(equalityMetric(
+    'control_room_review_audit',
+    'Control-room operator review audit pass',
+    'console',
+    input.control_room_proof?.control_room_review_audit_pass,
+    true,
+    'Approve/reject controls must be recorded as operator review, not hidden state changes.',
+  ));
+  metricValues.push(equalityMetric(
+    'control_room_kernel_rail_integrity',
+    'Control-room kernel rail integrity',
+    'console',
+    typeof input.control_room_proof?.kernel_rail_bypass_detected === 'boolean'
+      ? !input.control_room_proof.kernel_rail_bypass_detected
+      : null,
+    true,
+    'The control room must not bypass manager kernel policy when launching, retrying, or reviewing a mission.',
   ));
   metricValues.push(equalityMetric(
     'proving_mission_definition_valid',
