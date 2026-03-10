@@ -7,17 +7,21 @@ export function renderChatPage(): string {
     <title>best-brain chat</title>
     <style>
       :root {
-        --bg: #f3efe7;
-        --panel: #fdfaf4;
-        --panel-2: #f7f2e9;
-        --ink: #181510;
-        --muted: #6e6558;
-        --line: #d6c8b1;
-        --accent: #b15c1b;
-        --accent-soft: rgba(177, 92, 27, 0.11);
-        --good: #2e6b41;
-        --warn: #8f5b14;
-        --bad: #9b3322;
+        --bg: #0d1117;
+        --bg-2: #121822;
+        --panel: #111823;
+        --panel-2: #0f151e;
+        --panel-3: #161f2d;
+        --ink: #e7edf6;
+        --muted: #93a1b6;
+        --line: #253245;
+        --line-soft: #1b2533;
+        --accent: #8ec5ff;
+        --accent-strong: #5ba7ff;
+        --accent-soft: rgba(91, 167, 255, 0.14);
+        --good: #7fd6a2;
+        --warn: #ffca72;
+        --bad: #ff8a7a;
       }
 
       * {
@@ -27,81 +31,92 @@ export function renderChatPage(): string {
       body {
         margin: 0;
         min-height: 100vh;
-        padding: 20px 16px 112px;
+        padding: 18px 14px 108px;
         background:
-          radial-gradient(circle at top left, rgba(177, 92, 27, 0.08), transparent 28%),
-          linear-gradient(180deg, #f8f4ed, var(--bg));
+          radial-gradient(circle at top left, rgba(91, 167, 255, 0.14), transparent 24%),
+          radial-gradient(circle at top right, rgba(127, 214, 162, 0.08), transparent 18%),
+          linear-gradient(180deg, var(--bg-2), var(--bg));
         color: var(--ink);
-        font-family: "Segoe UI", system-ui, sans-serif;
+        font-family: "Aptos", "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
       }
 
       main {
-        max-width: 980px;
+        max-width: 960px;
         margin: 0 auto;
         display: grid;
-        gap: 16px;
+        gap: 12px;
       }
 
       .card {
         border: 1px solid var(--line);
-        border-radius: 22px;
+        border-radius: 18px;
         background: var(--panel);
-        box-shadow: 0 12px 26px rgba(31, 27, 22, 0.05);
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.24);
       }
 
       .hero {
-        padding: 22px;
+        padding: 18px 18px 16px;
         display: grid;
-        gap: 10px;
+        gap: 8px;
       }
 
       .eyebrow {
         display: inline-flex;
         align-items: center;
         width: fit-content;
-        padding: 6px 10px;
+        padding: 5px 9px;
         border-radius: 999px;
         background: var(--accent-soft);
         color: var(--accent);
-        font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+        border: 1px solid rgba(142, 197, 255, 0.15);
+        font: 700 11px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
         letter-spacing: 0.04em;
       }
 
       h1 {
         margin: 0;
-        font-size: 28px;
-        line-height: 1.05;
+        font-size: 22px;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
       }
 
       .hero p {
         margin: 0;
         color: var(--muted);
-        line-height: 1.7;
+        line-height: 1.55;
+        font-size: 14px;
       }
 
       .hero a {
-        color: var(--accent);
+        color: var(--accent-strong);
         text-decoration: none;
         font-weight: 700;
+        font-size: 13px;
       }
 
       .thread {
         display: grid;
-        gap: 14px;
+        gap: 10px;
       }
 
       .empty-state {
-        padding: 18px 20px;
+        padding: 16px 18px;
         color: var(--muted);
         border: 1px dashed var(--line);
-        border-radius: 18px;
-        background: rgba(255, 255, 255, 0.45);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.02);
+        line-height: 1.6;
+        font-size: 14px;
       }
 
       .message-card {
-        padding: 16px 18px;
+        padding: 14px 16px;
         display: grid;
-        gap: 12px;
+        gap: 10px;
+      }
+
+      .message-card.user {
+        background: linear-gradient(180deg, rgba(19, 28, 39, 0.98), rgba(16, 23, 33, 0.98));
       }
 
       .message-head {
@@ -114,17 +129,17 @@ export function renderChatPage(): string {
       .message-identity {
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 9px;
       }
 
       .avatar {
-        width: 32px;
-        height: 32px;
-        border-radius: 10px;
+        width: 28px;
+        height: 28px;
+        border-radius: 8px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        font: 700 11px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+        font: 700 10px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
         text-transform: uppercase;
         border: 1px solid var(--line);
         background: var(--panel-2);
@@ -137,35 +152,37 @@ export function renderChatPage(): string {
       }
 
       .message-title strong {
-        font-size: 15px;
+        font-size: 14px;
       }
 
       .message-title small {
         color: var(--muted);
+        font-size: 12px;
       }
 
       .state-pill {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 6px 11px;
+        padding: 5px 10px;
         border-radius: 999px;
-        background: #efe7d9;
+        background: var(--panel-3);
         color: var(--muted);
-        font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        font: 700 11px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
       }
 
       .state-pill::before {
         content: "";
-        width: 8px;
-        height: 8px;
+        width: 7px;
+        height: 7px;
         border-radius: 50%;
         background: var(--accent);
       }
 
       .state-pill.done {
         color: var(--good);
-        background: rgba(46, 107, 65, 0.1);
+        background: rgba(127, 214, 162, 0.1);
       }
 
       .state-pill.done::before {
@@ -174,7 +191,7 @@ export function renderChatPage(): string {
 
       .state-pill.warn {
         color: var(--warn);
-        background: rgba(143, 91, 20, 0.1);
+        background: rgba(255, 202, 114, 0.1);
       }
 
       .state-pill.warn::before {
@@ -183,7 +200,7 @@ export function renderChatPage(): string {
 
       .state-pill.bad {
         color: var(--bad);
-        background: rgba(155, 51, 34, 0.1);
+        background: rgba(255, 138, 122, 0.1);
       }
 
       .state-pill.bad::before {
@@ -193,8 +210,8 @@ export function renderChatPage(): string {
       .message-body {
         white-space: pre-wrap;
         word-break: break-word;
-        line-height: 1.7;
-        font-size: 15px;
+        line-height: 1.6;
+        font-size: 14px;
       }
 
       .message-body.pending {
@@ -211,39 +228,41 @@ export function renderChatPage(): string {
       .meta-chip {
         display: inline-flex;
         align-items: center;
-        padding: 6px 10px;
+        padding: 5px 9px;
         border-radius: 999px;
-        background: #efe7d9;
+        background: var(--panel-3);
+        border: 1px solid rgba(255, 255, 255, 0.05);
         color: var(--muted);
-        font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+        font: 700 11px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
       }
 
       .meta-chip.good {
         color: var(--good);
-        background: rgba(46, 107, 65, 0.1);
+        background: rgba(127, 214, 162, 0.1);
       }
 
       .meta-chip.warn {
         color: var(--warn);
-        background: rgba(143, 91, 20, 0.1);
+        background: rgba(255, 202, 114, 0.1);
       }
 
       .meta-chip.bad {
         color: var(--bad);
-        background: rgba(155, 51, 34, 0.1);
+        background: rgba(255, 138, 122, 0.1);
       }
 
       .link-row a {
-        color: var(--accent);
+        color: var(--accent-strong);
         text-decoration: none;
         font-weight: 700;
+        font-size: 13px;
       }
 
       .activity-panel {
         display: none;
         border: 1px solid var(--line);
-        border-radius: 16px;
-        background: #fbf7ef;
+        border-radius: 14px;
+        background: var(--panel-2);
         overflow: hidden;
       }
 
@@ -256,11 +275,13 @@ export function renderChatPage(): string {
         align-items: center;
         justify-content: space-between;
         gap: 10px;
-        padding: 10px 12px;
+        padding: 9px 11px;
         border-bottom: 1px solid var(--line);
-        background: rgba(0, 0, 0, 0.02);
+        background: rgba(255, 255, 255, 0.02);
         color: var(--muted);
-        font: 700 12px/1 ui-monospace, SFMono-Regular, Consolas, monospace;
+        font: 700 11px/1 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
       }
 
       .activity-list {
@@ -271,11 +292,11 @@ export function renderChatPage(): string {
 
       .activity-entry {
         display: grid;
-        grid-template-columns: 92px 92px 1fr;
-        gap: 12px;
-        padding: 11px 12px;
-        border-top: 1px solid rgba(0, 0, 0, 0.05);
-        font: 13px/1.45 ui-monospace, SFMono-Regular, Consolas, monospace;
+        grid-template-columns: 78px 78px 1fr;
+        gap: 10px;
+        padding: 10px 11px;
+        border-top: 1px solid rgba(255, 255, 255, 0.04);
+        font: 12px/1.4 "Cascadia Code", "SFMono-Regular", Consolas, monospace;
       }
 
       .activity-entry:first-child {
@@ -283,11 +304,12 @@ export function renderChatPage(): string {
       }
 
       .activity-time {
-        color: #8a7d69;
+        color: #718099;
       }
 
       .activity-actor {
-        color: var(--accent);
+        color: var(--accent-strong);
+        text-transform: lowercase;
       }
 
       .activity-copy {
@@ -315,8 +337,8 @@ export function renderChatPage(): string {
       .composer {
         position: sticky;
         bottom: 14px;
-        padding: 14px;
-        background: rgba(253, 250, 244, 0.94);
+        padding: 12px;
+        background: rgba(17, 24, 35, 0.94);
         backdrop-filter: blur(10px);
       }
 
@@ -332,27 +354,28 @@ export function renderChatPage(): string {
       }
 
       textarea {
-        min-height: 98px;
-        padding: 14px;
-        border-radius: 16px;
+        min-height: 88px;
+        padding: 13px 14px;
+        border-radius: 14px;
         border: 1px solid var(--line);
-        background: #fffdf8;
+        background: rgba(255, 255, 255, 0.03);
         color: var(--ink);
         resize: vertical;
+        line-height: 1.55;
       }
 
       textarea:focus {
         outline: none;
-        border-color: rgba(177, 92, 27, 0.55);
-        box-shadow: 0 0 0 4px rgba(177, 92, 27, 0.12);
+        border-color: rgba(91, 167, 255, 0.55);
+        box-shadow: 0 0 0 4px rgba(91, 167, 255, 0.12);
       }
 
       button {
         border: none;
-        border-radius: 16px;
-        padding: 13px 16px;
-        background: var(--accent);
-        color: white;
+        border-radius: 14px;
+        padding: 12px 16px;
+        background: linear-gradient(135deg, #4e98e9, #66b3ff);
+        color: #07131f;
         font-weight: 700;
         cursor: pointer;
       }
@@ -364,17 +387,17 @@ export function renderChatPage(): string {
 
       .composer-note {
         color: var(--muted);
-        font-size: 13px;
+        font-size: 12px;
       }
 
       @media (max-width: 720px) {
         body {
-          padding: 14px 10px 104px;
+          padding: 12px 10px 98px;
         }
 
         .card,
         .activity-panel {
-          border-radius: 18px;
+          border-radius: 16px;
         }
 
         .message-head {
@@ -392,7 +415,7 @@ export function renderChatPage(): string {
   <body>
     <main>
       <section class="card hero">
-        <div class="eyebrow">manager-led chat</div>
+        <div class="eyebrow">best-brain / codex-style</div>
         <h1>best-brain chat</h1>
         <p>Ask normally. The AI manager decides whether to answer directly, do light work, or turn the request into a mission internally.</p>
         <a href="/control-room">Open control room</a>
