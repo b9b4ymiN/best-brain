@@ -94,6 +94,8 @@ export interface WorkerDispatchResult {
   task_result: WorkerTaskResult;
   manager_result: WorkerExecutionResult;
   chain: Array<ExecutionRequest['selected_worker']>;
+  requested_worker: ExecutionRequest['selected_worker'];
+  executed_worker: ExecutionRequest['selected_worker'];
 }
 
 export interface VerifierDispatchResult {
@@ -121,6 +123,12 @@ function synthesizeInvocation(request: ExecutionRequest, result: WorkerExecution
 function normalizeManagerResult(request: ExecutionRequest, result: WorkerExecutionResult): WorkerExecutionResult {
   return {
     ...result,
+    requested_worker: result.requested_worker ?? request.selected_worker,
+    executed_worker: result.executed_worker ?? request.selected_worker,
+    attempted_workers: result.attempted_workers ?? [request.selected_worker],
+    fallback_from: result.fallback_from ?? null,
+    fallback_reason: result.fallback_reason ?? null,
+    failure_kind: result.failure_kind ?? null,
     invocation: result.invocation ?? synthesizeInvocation(request, result),
     process_output: result.process_output ?? {
       stdout: result.status === 'success' ? result.raw_output : '',
@@ -164,6 +172,7 @@ function buildMissingAdapterResult(worker: ExecutionRequest['selected_worker'], 
   return {
     summary: `No worker adapter is registered for ${worker}.`,
     status: 'failed',
+    failure_kind: 'missing_adapter',
     artifacts: [{
       type: 'note',
       ref: `worker://${worker}/missing-adapter`,
@@ -185,6 +194,7 @@ function buildRuntimeErrorResult(worker: ExecutionRequest['selected_worker'], er
   return {
     summary: `Worker execution failed before producing a verifiable result: ${detail}`,
     status: 'failed',
+    failure_kind: 'runtime_error',
     artifacts: [{
       type: 'note',
       ref: `worker://${worker}/runtime-error`,
@@ -253,6 +263,56 @@ function toVerifierTaskResult(request: ExecutionRequest, verificationRequest: Ve
   });
 }
 
+function fallbackOrderFor(requested: ExecutionRequest['selected_worker']): Array<ExecutionRequest['selected_worker']> {
+  switch (requested) {
+    case 'codex':
+      return ['claude'];
+    case 'claude':
+      return ['codex'];
+    default:
+      return [];
+  }
+}
+
+function canFallback(result: WorkerExecutionResult): boolean {
+  if (result.status !== 'failed') {
+    return false;
+  }
+
+  return result.failure_kind === 'missing_adapter'
+    || result.failure_kind === 'worker_unavailable'
+    || result.failure_kind === 'provider_unavailable';
+}
+
+function buildFallbackReason(worker: ExecutionRequest['selected_worker'], result: WorkerExecutionResult): string {
+  return result.summary || `Worker ${worker} was unavailable.`;
+}
+
+function annotateManagerResult(
+  request: ExecutionRequest,
+  result: WorkerExecutionResult,
+  executedWorker: ExecutionRequest['selected_worker'],
+  attemptedWorkers: Array<ExecutionRequest['selected_worker']>,
+  fallbackReason: string | null,
+): WorkerExecutionResult {
+  const normalized = normalizeManagerResult(
+    {
+      ...request,
+      selected_worker: executedWorker,
+    },
+    result,
+  );
+
+  return {
+    ...normalized,
+    requested_worker: request.selected_worker,
+    executed_worker: executedWorker,
+    attempted_workers: [...attemptedWorkers],
+    fallback_from: executedWorker !== request.selected_worker ? request.selected_worker : null,
+    fallback_reason: executedWorker !== request.selected_worker ? fallbackReason : null,
+  };
+}
+
 export class WorkerFabric {
   readonly definitions: Record<WorkerId, WorkerDefinition>;
   readonly workers: Partial<Record<ExecutionRequest['selected_worker'], WorkerAdapter>>;
@@ -290,37 +350,80 @@ export class WorkerFabric {
         (worker): worker is ExecutionRequest['selected_worker'] =>
           worker === 'claude' || worker === 'codex' || worker === 'shell',
       ),
+      ...fallbackOrderFor(request.selected_worker),
     ]));
   }
 
   async dispatchPrimary(request: ExecutionRequest): Promise<WorkerDispatchResult> {
     const chain = this.primaryWorkerChain(request);
-    const definition = this.definitions[request.selected_worker];
-    const taskInput = buildTaskInput(
-      request.selected_worker,
+    const attemptedWorkers: Array<ExecutionRequest['selected_worker']> = [];
+    const fallbackReasons: string[] = [];
+    let executedWorker = request.selected_worker;
+    let managerResult: WorkerExecutionResult | null = null;
+
+    for (const worker of chain) {
+      attemptedWorkers.push(worker);
+      const adapter = this.workers[worker];
+      const rawResult = await (async () => {
+        if (!adapter) {
+          return buildMissingAdapterResult(worker, chain);
+        }
+        try {
+          return await adapter.execute({
+            ...request,
+            selected_worker: worker,
+          });
+        } catch (error) {
+          return buildRuntimeErrorResult(worker, error);
+        }
+      })();
+
+      managerResult = annotateManagerResult(
+        request,
+        rawResult,
+        worker,
+        attemptedWorkers,
+        fallbackReasons.length > 0 ? fallbackReasons.join(' | ') : null,
+      );
+      executedWorker = worker;
+
+      if (!canFallback(managerResult) || worker === chain[chain.length - 1]) {
+        break;
+      }
+
+      fallbackReasons.push(buildFallbackReason(worker, managerResult));
+    }
+
+    const finalManagerResult = managerResult ?? annotateManagerResult(
       request,
+      buildMissingAdapterResult(request.selected_worker, chain),
+      request.selected_worker,
+      attemptedWorkers.length > 0 ? attemptedWorkers : [request.selected_worker],
+      null,
+    );
+    const definition = this.definitions[executedWorker];
+    const taskInput = buildTaskInput(
+      executedWorker,
+      {
+        ...request,
+        selected_worker: executedWorker,
+      },
       request.prompt,
       request.expected_artifacts,
     );
-    const adapter = this.workers[request.selected_worker];
-    const managerResult = normalizeManagerResult(request, await (async () => {
-      if (!adapter) {
-        return buildMissingAdapterResult(request.selected_worker, chain);
-      }
-      try {
-        return await adapter.execute(request);
-      } catch (error) {
-        return buildRuntimeErrorResult(request.selected_worker, error);
-      }
-    })());
-    const taskResult = toTaskResult(request.selected_worker, request, managerResult);
+    const taskResult = toTaskResult(executedWorker, {
+      ...request,
+      selected_worker: executedWorker,
+    }, finalManagerResult);
 
     return {
       definition,
       task_input: taskInput,
       task_result: taskResult,
-      manager_result: managerResult,
+      manager_result: finalManagerResult,
       chain,
+      requested_worker: request.selected_worker,
+      executed_worker: executedWorker,
     };
   }
 

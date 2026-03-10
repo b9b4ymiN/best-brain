@@ -253,6 +253,8 @@ export class LocalRuntimeSpine {
   startWorkerTask(input: {
     task_id: string;
     worker: string;
+    requested_worker?: string | null;
+    fallback_from?: string | null;
     execution_mode: string;
     objective: string;
     playbook_id: string | null;
@@ -266,6 +268,8 @@ export class LocalRuntimeSpine {
       mission_id: bundle.session.mission_id,
       task_id: input.task_id,
       worker: input.worker,
+      requested_worker: input.requested_worker ?? input.worker,
+      fallback_from: input.fallback_from ?? null,
       execution_mode: input.execution_mode,
       objective: input.objective,
       playbook_id: input.playbook_id,
@@ -292,6 +296,8 @@ export class LocalRuntimeSpine {
         execution_mode: input.execution_mode,
         playbook_id: input.playbook_id,
         verifier_owned: input.verifier_owned,
+        requested_worker: workerTask.requested_worker,
+        fallback_from: workerTask.fallback_from,
       },
     });
     return workerTask;

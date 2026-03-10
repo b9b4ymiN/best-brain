@@ -755,6 +755,57 @@ describe('manager alpha unit flow', () => {
     }
   });
 
+  test('falls back from codex to claude when codex is unavailable and still closes the proof chain', async () => {
+    const brain = new FakeBrainAdapter();
+    const codex = new FakeWorkerAdapter('codex', {
+      summary: 'Codex provider is temporarily unavailable because the current account hit a usage limit.',
+      status: 'failed',
+      failure_kind: 'provider_unavailable',
+      artifacts: [{ type: 'note', ref: 'worker://codex/provider-unavailable', description: 'usage limit' }],
+      proposed_checks: [{ name: 'codex-provider-available', passed: false }],
+      raw_output: 'usage limit',
+    });
+    const claude = new FakeWorkerAdapter('claude', {
+      summary: 'Claude completed the requested manager path after fallback.',
+      status: 'success',
+      artifacts: [{ type: 'note', ref: 'worker://claude/fallback-success', description: 'Structured worker result.' }],
+      proposed_checks: [{ name: 'worker-produced-proof', passed: true }],
+      raw_output: '{}',
+    });
+    const verifier = new FakeVerifierAdapter({
+      mission_id: 'mission_fallback',
+      summary: 'Verifier accepted the fallback worker result.',
+      evidence: [{ type: 'note', ref: 'worker://claude/fallback-success', description: 'Structured worker result.' }],
+      verification_checks: [{ name: 'worker-produced-proof', passed: true }],
+      status: 'verified_complete',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      workers: { codex, claude },
+      verifier,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Implement a manager runtime for this repo.',
+        worker_preference: 'codex',
+        mission_id: 'mission_fallback',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.selected_worker).toBe('codex');
+      expect(result.worker_result?.executed_worker).toBe('claude');
+      expect(result.worker_result?.fallback_from).toBe('codex');
+      expect(result.worker_result?.attempted_workers).toEqual(['codex', 'claude']);
+      expect(result.verification_result?.status).toBe('verified_complete');
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.requested_worker === 'codex' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'worker_fallback_applied')).toBe(true);
+      expect(result.runtime_bundle?.processes[0]?.actor).toBe('claude');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   test('failed verification writes a failure lesson and keeps the mission retryable', async () => {
     const brain = new FakeBrainAdapter();
     const worker = new FakeWorkerAdapter('claude', {

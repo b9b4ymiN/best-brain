@@ -92,6 +92,7 @@ export class ShellCliAdapter implements WorkerAdapter {
       return {
         summary: 'Shell worker requires an explicit command, preferably in backticks.',
         status: 'failed',
+        failure_kind: 'task_failed',
         artifacts: [{
           type: 'note',
           ref: 'worker://shell/missing-command',
@@ -138,6 +139,9 @@ export class ShellCliAdapter implements WorkerAdapter {
       status: result.exit_code === 0 && !result.timed_out
         ? (structured?.status ?? 'success')
         : 'failed',
+      failure_kind: result.exit_code === 0 && !result.timed_out
+        ? (structured?.status === 'failed' ? 'task_failed' : null)
+        : 'task_failed',
       artifacts: structured?.artifacts.length
         ? structured.artifacts
         : [noteArtifact, machineArtifact],

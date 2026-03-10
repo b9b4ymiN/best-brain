@@ -137,6 +137,12 @@ export interface WorkerExecutionResult {
   proposed_checks: VerificationCheck[];
   raw_output: string;
   status: 'success' | 'needs_retry' | 'failed';
+  requested_worker?: ManagerWorker;
+  executed_worker?: ManagerWorker;
+  attempted_workers?: ManagerWorker[];
+  fallback_from?: ManagerWorker | null;
+  fallback_reason?: string | null;
+  failure_kind?: 'missing_adapter' | 'worker_unavailable' | 'provider_unavailable' | 'runtime_error' | 'task_failed' | null;
   invocation?: {
     command: string;
     args: string[];

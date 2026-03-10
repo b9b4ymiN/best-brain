@@ -71,6 +71,8 @@ export interface RuntimeWorkerTaskRun {
   mission_id: string;
   task_id: string;
   worker: string;
+  requested_worker: string | null;
+  fallback_from: string | null;
   execution_mode: string;
   objective: string;
   playbook_id: string | null;

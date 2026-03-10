@@ -424,16 +424,6 @@ export class ManagerRuntime {
 
     missionGraph = updateTaskStatus(missionGraph, 'primary_work', 'running');
     brief.mission_graph = missionGraph;
-    const primaryWorkerTask = runtimeBundle
-      ? runtimeSpine.startWorkerTask({
-          task_id: executionRequest.task_id,
-          worker: executionRequest.selected_worker,
-          execution_mode: this.fabric.definitions[executionRequest.selected_worker].execution_mode,
-          objective: executionRequest.task_title,
-          playbook_id: executionRequest.playbook_id,
-          verifier_owned: false,
-        })
-      : null;
     if (runtimeBundle) {
       runtimeSpine.recordEvent({
         task_id: executionRequest.task_id,
@@ -444,6 +434,8 @@ export class ManagerRuntime {
           task_title: executionRequest.task_title,
           playbook_id: executionRequest.playbook_id,
           expected_artifacts: executionRequest.expected_artifacts,
+          requested_worker: executionRequest.selected_worker,
+          worker_chain: this.fabric.primaryWorkerChain(executionRequest),
         },
       });
       runtimeBundle = runtimeSpine.snapshot();
@@ -452,6 +444,20 @@ export class ManagerRuntime {
     const brainWrites: BrainWriteRecord[] = [];
     const primaryDispatch = await this.fabric.dispatchPrimary(executionRequest);
     const workerResult = primaryDispatch.manager_result;
+    const primaryWorkerTask = runtimeBundle
+      ? runtimeSpine.startWorkerTask({
+          task_id: executionRequest.task_id,
+          worker: primaryDispatch.executed_worker,
+          requested_worker: primaryDispatch.requested_worker,
+          fallback_from: primaryDispatch.executed_worker !== primaryDispatch.requested_worker
+            ? primaryDispatch.requested_worker
+            : null,
+          execution_mode: this.fabric.definitions[primaryDispatch.executed_worker].execution_mode,
+          objective: executionRequest.task_title,
+          playbook_id: executionRequest.playbook_id,
+          verifier_owned: false,
+        })
+      : null;
     missionGraph = updateTaskStatus(
       missionGraph,
       'primary_work',
@@ -460,14 +466,28 @@ export class ManagerRuntime {
     );
     brief.mission_graph = missionGraph;
     if (runtimeBundle) {
+      if (primaryDispatch.executed_worker !== primaryDispatch.requested_worker) {
+        runtimeSpine.recordEvent({
+          task_id: executionRequest.task_id,
+          event_type: 'worker_fallback_applied',
+          actor: 'manager',
+          detail: `Fell back from ${primaryDispatch.requested_worker} to ${primaryDispatch.executed_worker}.`,
+          data: {
+            requested_worker: primaryDispatch.requested_worker,
+            executed_worker: primaryDispatch.executed_worker,
+            attempted_workers: workerResult.attempted_workers ?? primaryDispatch.chain,
+            fallback_reason: workerResult.fallback_reason,
+          },
+        });
+      }
       const runtimeArtifacts = runtimeSpine.recordVerificationArtifacts(
         executionRequest.task_id,
-        executionRequest.selected_worker,
+        primaryDispatch.executed_worker,
         workerResult.artifacts,
       );
       if (workerResult.invocation) {
         runtimeSpine.recordCompletedProcess({
-          actor: executionRequest.selected_worker,
+          actor: primaryDispatch.executed_worker,
           command: workerResult.invocation.command,
           args: workerResult.invocation.args,
           cwd: workerResult.invocation.cwd ?? executionRequest.cwd,
@@ -501,10 +521,12 @@ export class ManagerRuntime {
       runtimeSpine.recordEvent({
         task_id: executionRequest.task_id,
         event_type: 'worker_completed',
-        actor: executionRequest.selected_worker,
+        actor: primaryDispatch.executed_worker,
         detail: `Primary worker completed with status ${workerResult.status}.`,
         data: {
           proposed_checks: workerResult.proposed_checks.length,
+          requested_worker: primaryDispatch.requested_worker,
+          executed_worker: primaryDispatch.executed_worker,
         },
       });
       runtimeBundle = runtimeSpine.snapshot();

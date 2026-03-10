@@ -52,6 +52,7 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
     return {
       summary: fallbackSummary,
       status: 'failed',
+      failure_kind: 'task_failed',
       artifacts: [{
         type: 'note',
         ref: 'worker://codex/raw-output',
@@ -71,6 +72,7 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
   return {
     summary: trimmed.split(/\r?\n/).find(Boolean)?.slice(0, 240) || fallbackSummary,
     status: 'success',
+    failure_kind: null,
     artifacts: [{
       type: 'note',
       ref: `worker://codex/freeform/${request.mission_id}`,
@@ -103,6 +105,7 @@ function parseWorkerResult(output: string, request: ExecutionRequest, fallbackSu
     return {
       summary: payload.summary?.trim() || fallbackSummary,
       status,
+      failure_kind: status === 'failed' ? 'task_failed' : null,
       artifacts: normalizeArtifacts(payload.artifacts),
       proposed_checks: normalizeChecks(payload.proposed_checks),
       raw_output: output,
@@ -130,6 +133,7 @@ function tryParseStructuredWorkerResult(output: string, fallbackSummary: string)
     return {
       summary: payload.summary?.trim() || fallbackSummary,
       status: payload.status,
+      failure_kind: payload.status === 'failed' ? 'task_failed' : null,
       artifacts: normalizeArtifacts(payload.artifacts),
       proposed_checks: normalizeChecks(payload.proposed_checks),
       raw_output: output,
@@ -148,6 +152,7 @@ export class CodexCliAdapter implements WorkerAdapter {
     return {
       summary,
       status: 'failed',
+      failure_kind: 'provider_unavailable',
       artifacts: [{
         type: 'note',
         ref: 'worker://codex/provider-unavailable',
@@ -198,6 +203,7 @@ export class CodexCliAdapter implements WorkerAdapter {
           return {
             summary: 'Codex worker is not available on this machine.',
             status: 'failed',
+            failure_kind: 'worker_unavailable',
             artifacts: [{
               type: 'note',
               ref: 'worker://codex/not-available',
@@ -292,6 +298,7 @@ export class CodexCliAdapter implements WorkerAdapter {
         return {
           summary: `Codex worker exited with code ${String(result.exitCode)}.`,
           status: 'failed',
+          failure_kind: 'task_failed',
           artifacts: [{
             type: 'note',
             ref: 'worker://codex/exit-code',

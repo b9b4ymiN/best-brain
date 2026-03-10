@@ -113,6 +113,64 @@ describe('manager alpha via brain HTTP', () => {
     }
   });
 
+  test('falls back from codex to claude over the real brain HTTP contract when codex is unavailable', async () => {
+    const { brain, cleanup } = await createTestBrain();
+    const app = createApp(brain);
+    const server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    const runtime = new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+      workers: {
+        codex: new StaticWorkerAdapter('codex', {
+          summary: 'Codex provider is temporarily unavailable because the current account hit a usage limit.',
+          status: 'failed',
+          failure_kind: 'provider_unavailable',
+          artifacts: [{ type: 'note', ref: 'worker://manager-http/codex-unavailable', description: 'usage limit' }],
+          proposed_checks: [{ name: 'codex-provider-available', passed: false }],
+          raw_output: 'usage limit',
+        }),
+        claude: new StaticWorkerAdapter('claude', {
+          summary: 'Claude completed the requested mission after fallback.',
+          status: 'success',
+          artifacts: [
+            { type: 'note', ref: 'worker://manager-http/claude-fallback', description: 'Fallback proof note.' },
+            { type: 'file', ref: 'file://manager-http/fallback.ts', description: 'Fallback implementation artifact.' },
+          ],
+          proposed_checks: [{ name: 'worker-proof-note', passed: true }],
+          raw_output: '{}',
+        }),
+      },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Implement the manager proof chain for this repo.',
+        worker_preference: 'codex',
+        mission_id: 'mission_http_fallback',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.selected_worker).toBe('codex');
+      expect(result.worker_result?.executed_worker).toBe('claude');
+      expect(result.worker_result?.fallback_from).toBe('codex');
+      expect(result.verification_result?.status).toBe('verified_complete');
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.requested_worker === 'codex' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.events.some((event) => event.event_type === 'worker_fallback_applied')).toBe(true);
+      expect(result.runtime_bundle?.processes[0]?.actor).toBe('claude');
+    } finally {
+      await runtime.dispose();
+      server.stop(true);
+      cleanup();
+    }
+  });
+
   test('reuses the latest verified mission in a follow-up brief', async () => {
     const { brain, cleanup } = await createTestBrain();
     const app = createApp(brain);
