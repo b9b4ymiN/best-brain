@@ -11,7 +11,8 @@ import type { AcceptanceRunDefinition } from '../src/proving/types.ts';
 import type { WorkerTaskInput, WorkerTaskResult } from '../src/workers/types.ts';
 
 const outputDir = path.resolve(process.cwd(), 'docs/examples/program');
-const now = Date.now();
+const EXAMPLE_GENERATED_AT = '2026-03-10T03:40:06.974Z';
+const now = Date.parse(EXAMPLE_GENERATED_AT);
 
 const playbook: MissionPlaybook = {
   id: 'playbook_repo_change_mission',
@@ -514,7 +515,7 @@ const dashboardView: ControlRoomDashboardView = {
 };
 
 const programScorecard = buildProgramScorecard({
-  generated_at: new Date(now).toISOString(),
+  generated_at: EXAMPLE_GENERATED_AT,
   contract_snapshot: {
     docs_locked: true,
     frozen_contracts: {
