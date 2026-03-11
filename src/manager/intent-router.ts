@@ -112,11 +112,19 @@ export function routeIntent(input: ManagerInput): ManagerDecision {
     || input.goal.trim().endsWith('？')
     || includesAny(tokens, CHAT_HINTS)
     || includesAnyText(goalText, THAI_CHAT_HINTS);
+  const hasOwnerSelfFact =
+    /(?:^|\b)(?:my name is|call me|remember that my name is|remember i am|i am|i prefer|i like|my investing style|my style|my preference)/i.test(input.goal)
+    || /ฉันชื่อ|เรียกฉันว่า|จำไว้ว่าฉันชื่อ|ฉันเป็น|ฉันชอบ|ฉันอยากลงทุนแบบ|แนวลงทุนของฉัน|สไตล์ของฉัน|ความชอบของฉัน/.test(input.goal);
 
   let kind: ManagerDecision['kind'] = 'task';
   let reason = 'defaulted to task because the goal implies real work with a bounded scope.';
+  let chatMode: ManagerDecision['chat_mode'] = null;
 
-  if (isActualThaiEquitiesMission) {
+  if (hasOwnerSelfFact && !hasSystemGoal) {
+    kind = 'chat';
+    chatMode = 'chat_memory_update';
+    reason = 'classified as chat_memory_update because the user is stating or correcting owner facts that should be handled through brain memory, not mission execution.';
+  } else if (isActualThaiEquitiesMission) {
     kind = 'mission';
     reason = 'classified as mission because a stock-scanner system goal requires manager-led planning, worker control, and proof.';
   } else if (hasSystemGoal && (hasExecution || hasMission || ownerWantsAnOutcome)) {
@@ -135,6 +143,7 @@ export function routeIntent(input: ManagerInput): ManagerDecision {
 
   return {
     kind,
+    chat_mode: kind === 'chat' ? (chatMode ?? 'direct_chat') : null,
     should_execute: kind !== 'chat' && !input.dry_run && !input.no_execute,
     selected_worker: kind === 'chat' ? null : selectWorker(input.goal, input.worker_preference),
     reason,

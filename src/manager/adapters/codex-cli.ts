@@ -169,7 +169,10 @@ export class CodexCliAdapter implements WorkerAdapter {
     };
   }
 
-  async execute(request: ExecutionRequest): Promise<WorkerExecutionResult> {
+  async execute(
+    request: ExecutionRequest,
+    observer?: { onTrace?: (event: import('../types.ts').ManagerProgressEvent) => void | Promise<void> },
+  ): Promise<WorkerExecutionResult> {
     const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'best-brain-codex-'));
     const lastMessageFile = path.join(tempDir, 'last-message.txt');
     const prompt = [
@@ -182,6 +185,22 @@ export class CodexCliAdapter implements WorkerAdapter {
     try {
       let result;
       try {
+        await observer?.onTrace?.({
+          stage: 'worker_codex_command_start',
+          actor: 'codex',
+          kind: 'command_start',
+          status: 'started',
+          title: 'Codex worker started',
+          detail: request.task_title,
+          timestamp: Date.now(),
+          mission_id: request.mission_id,
+          task_id: request.task_id,
+          decision_kind: 'mission',
+          requested_worker: request.selected_worker,
+          executed_worker: 'codex',
+          blocked_reason_code: null,
+          worker: 'codex',
+        });
         result = await runCommand('codex', [
           'exec',
           '--json',
@@ -197,6 +216,65 @@ export class CodexCliAdapter implements WorkerAdapter {
           env: toEnvRecord({}),
           timeoutMs: 300000,
           stdin: prompt,
+          onStdoutLine: async (line) => {
+            try {
+              const payload = JSON.parse(line) as { msg?: { type?: string; message?: string } };
+              if (payload.msg?.type === 'task_started') {
+                await observer?.onTrace?.({
+                  stage: 'worker_codex_task_started',
+                  actor: 'codex',
+                  kind: 'status',
+                  status: 'started',
+                  title: 'Codex task started',
+                  detail: 'Codex accepted the worker task.',
+                  timestamp: Date.now(),
+                  mission_id: request.mission_id,
+                  task_id: request.task_id,
+                  decision_kind: 'mission',
+                  requested_worker: request.selected_worker,
+                  executed_worker: 'codex',
+                  blocked_reason_code: null,
+                  worker: 'codex',
+                });
+              } else if (payload.msg?.type === 'agent_message' && typeof payload.msg.message === 'string' && payload.msg.message.trim()) {
+                await observer?.onTrace?.({
+                  stage: 'worker_codex_update',
+                  actor: 'codex',
+                  kind: 'status',
+                  status: 'started',
+                  title: 'Codex update',
+                  detail: payload.msg.message.trim().slice(0, 220),
+                  timestamp: Date.now(),
+                  mission_id: request.mission_id,
+                  task_id: request.task_id,
+                  decision_kind: 'mission',
+                  requested_worker: request.selected_worker,
+                  executed_worker: 'codex',
+                  blocked_reason_code: null,
+                  worker: 'codex',
+                });
+              } else if (payload.msg?.type === 'error' && typeof payload.msg.message === 'string') {
+                await observer?.onTrace?.({
+                  stage: 'worker_codex_error',
+                  actor: 'codex',
+                  kind: 'error',
+                  status: 'failed',
+                  title: 'Codex error',
+                  detail: payload.msg.message.trim().slice(0, 220),
+                  timestamp: Date.now(),
+                  mission_id: request.mission_id,
+                  task_id: request.task_id,
+                  decision_kind: 'mission',
+                  requested_worker: request.selected_worker,
+                  executed_worker: 'codex',
+                  blocked_reason_code: null,
+                  worker: 'codex',
+                });
+              }
+            } catch {
+              // Ignore non-JSON lines.
+            }
+          },
         });
       } catch (error) {
         if (isSpawnCommandMissing(error)) {
@@ -261,12 +339,46 @@ export class CodexCliAdapter implements WorkerAdapter {
           stdout: result.stdout,
           stderr: result.stderr,
         };
+        await observer?.onTrace?.({
+          stage: 'worker_codex_command_end',
+          actor: 'codex',
+          kind: 'command_end',
+          status: 'failed',
+          title: 'Codex worker unavailable',
+          detail: unavailable.summary,
+          timestamp: Date.now(),
+          mission_id: request.mission_id,
+          task_id: request.task_id,
+          decision_kind: 'mission',
+          requested_worker: request.selected_worker,
+          executed_worker: 'codex',
+          blocked_reason_code: null,
+          worker: 'codex',
+          exit_code: result.exitCode,
+        });
         return unavailable;
       }
 
       if (result.exitCode !== 0) {
         const parsedFromFailure = tryParseStructuredWorkerResult(preferredOutput, 'Codex worker completed without a structured summary.');
         if (parsedFromFailure) {
+          await observer?.onTrace?.({
+            stage: 'worker_codex_command_end',
+            actor: 'codex',
+            kind: 'command_end',
+            status: parsedFromFailure.status === 'success' ? 'completed' : 'failed',
+            title: parsedFromFailure.status === 'success' ? 'Codex worker completed' : 'Codex worker finished with issues',
+            detail: parsedFromFailure.summary.slice(0, 220),
+            timestamp: Date.now(),
+            mission_id: request.mission_id,
+            task_id: request.task_id,
+            decision_kind: 'mission',
+            requested_worker: request.selected_worker,
+            executed_worker: 'codex',
+            blocked_reason_code: null,
+            worker: 'codex',
+            exit_code: result.exitCode,
+          });
           parsedFromFailure.raw_output = [result.stdout, result.stderr, lastMessage].filter(Boolean).join('\n');
           parsedFromFailure.invocation = {
             command: 'codex',
@@ -294,6 +406,24 @@ export class CodexCliAdapter implements WorkerAdapter {
           };
           return parsedFromFailure;
         }
+
+        await observer?.onTrace?.({
+          stage: 'worker_codex_command_end',
+          actor: 'codex',
+          kind: 'command_end',
+          status: 'failed',
+          title: 'Codex worker failed',
+          detail: `Codex exited with code ${String(result.exitCode)}.`,
+          timestamp: Date.now(),
+          mission_id: request.mission_id,
+          task_id: request.task_id,
+          decision_kind: 'mission',
+          requested_worker: request.selected_worker,
+          executed_worker: 'codex',
+          blocked_reason_code: null,
+          worker: 'codex',
+          exit_code: result.exitCode,
+        });
 
         return {
           summary: `Codex worker exited with code ${String(result.exitCode)}.`,
@@ -338,6 +468,23 @@ export class CodexCliAdapter implements WorkerAdapter {
       }
 
       const parsed = parseWorkerResult(preferredOutput, request, 'Codex worker completed without a structured summary.');
+      await observer?.onTrace?.({
+        stage: 'worker_codex_command_end',
+        actor: 'codex',
+        kind: 'command_end',
+        status: parsed.status === 'success' ? 'completed' : 'failed',
+        title: parsed.status === 'success' ? 'Codex worker completed' : 'Codex worker finished with issues',
+        detail: parsed.summary.slice(0, 220),
+        timestamp: Date.now(),
+        mission_id: request.mission_id,
+        task_id: request.task_id,
+        decision_kind: 'mission',
+        requested_worker: request.selected_worker,
+        executed_worker: 'codex',
+        blocked_reason_code: null,
+        worker: 'codex',
+        exit_code: result.exitCode,
+      });
       parsed.invocation = {
         command: 'codex',
         args: [

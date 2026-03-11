@@ -617,7 +617,7 @@ export function renderChatPage(): string {
           + '<div class="message-body pending" data-role="answer">Waiting for the next step...</div>'
           + '<div class="meta-row" data-role="meta"></div>'
           + '<div class="activity-panel" data-role="activity-panel">'
-          + '  <div class="activity-head"><span>Live activity</span><span data-role="activity-count">0 events</span></div>'
+          + '  <div class="activity-head"><span>Run trace</span><span data-role="activity-count">0 events</span></div>'
           + '  <div class="activity-list" data-role="activity-list"></div>'
           + '</div>'
           + '<div class="link-row" data-role="links"></div>';
@@ -637,8 +637,33 @@ export function renderChatPage(): string {
         };
       }
 
+      function isLowSignalManagerEvent(event) {
+        return event.actor === 'manager'
+          && ['chat_receive', 'manager_receive', 'triage', 'chat_response'].includes(event.stage)
+          && ['Received your message', 'Manager received the request', 'Deciding how to handle the request', 'Preparing a direct answer'].includes(event.title);
+      }
+
+      function isLowSignalBrainEvent(event) {
+        return (event.actor === 'brain' && event.title === 'Brain connection is ready')
+          || (event.actor === 'brain' && event.stage === 'brain_consult' && event.status === 'started')
+          || (event.actor === 'brain' && event.stage === 'brain_context' && event.status === 'started');
+      }
+
+      function shouldRenderTraceEvent(event) {
+        if (!event) {
+          return false;
+        }
+        if (event.kind === 'status' && event.actor === 'claude' && /^Claude session initialized$/i.test(event.title || '')) {
+          return false;
+        }
+        if (isLowSignalManagerEvent(event) || isLowSignalBrainEvent(event)) {
+          return false;
+        }
+        return true;
+      }
+
       function appendProgress(view, event) {
-        if (!event || !view.activityListEl) {
+        if (!event || !view.activityListEl || !shouldRenderTraceEvent(event)) {
           return;
         }
 
@@ -714,6 +739,12 @@ export function renderChatPage(): string {
         if (payload.blocked_reason) {
           view.metaEl.appendChild(createMetaChip('blocked', 'bad'));
         }
+        const activity = Array.isArray(payload.activity_log) ? payload.activity_log : [];
+        if (activity.some((event) => event.kind === 'memory_write' && event.status === 'completed')) {
+          view.metaEl.appendChild(createMetaChip('memory updated', 'good'));
+        } else if (activity.some((event) => event.kind === 'memory_read')) {
+          view.metaEl.appendChild(createMetaChip('brain read', 'warn'));
+        }
       }
 
       function renderLinks(view, payload) {
@@ -769,75 +800,64 @@ export function renderChatPage(): string {
         }
       }
 
-      async function sendWithFallback(message, view) {
-        const response = await fetch('/chat/api/message', {
+      function renderAssistantSnapshot(view, snapshot) {
+        if (Array.isArray(snapshot.trace_events)) {
+          snapshot.trace_events.forEach((event) => appendProgress(view, event));
+        }
+
+        if (snapshot.run_status === 'completed' && snapshot.response) {
+          renderAssistantResult(view, snapshot.response);
+          return;
+        }
+
+        if (snapshot.run_status === 'failed') {
+          renderAssistantError(view, snapshot.error || 'Request failed.');
+          return;
+        }
+
+        if (view.answerEl) {
+          view.answerEl.className = 'message-body pending';
+          view.answerEl.textContent = 'กำลังทำงาน...';
+        }
+        if (view.stateEl) {
+          view.stateEl.className = 'state-pill';
+          view.stateEl.textContent = snapshot.run_status === 'running' ? 'working' : snapshot.run_status;
+        }
+      }
+
+      async function startRun(message) {
+        const response = await fetch('/chat/api/message/run', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ message: message }),
         });
         const payload = await response.json();
         if (!response.ok) {
-          renderAssistantError(view, payload.error || 'Request failed.');
-          return;
+          throw new Error(payload.error || 'Request failed.');
         }
-        renderAssistantResult(view, payload);
+        return payload;
       }
 
-      function startPendingActivity(view) {
-        const placeholders = [
-          {
-            actor: 'manager',
-            title: 'Received your message',
-            detail: 'best-brain is deciding whether to answer directly or run a mission.',
-          },
-          {
-            actor: 'brain',
-            title: 'Consulting memory',
-            detail: 'Checking owner context, preferences, procedures, and recent mission history.',
-          },
-          {
-            actor: 'manager',
-            title: 'Planning the next step',
-            detail: 'The manager is deciding whether to answer directly, do light work, or run a mission.',
-          },
-          {
-            actor: 'runtime',
-            title: 'Still working',
-            detail: 'If a worker is needed, best-brain is waiting for that run to finish before answering.',
-          },
-          {
-            actor: 'verifier',
-            title: 'Preparing verification',
-            detail: 'If this becomes a mission, proof and verification will be checked before marking it done.',
-          },
-        ];
+      async function fetchRunSnapshot(runId) {
+        const response = await fetch('/chat/api/runs/' + encodeURIComponent(runId), {
+          headers: { 'cache-control': 'no-store' },
+        });
+        const payload = await response.json();
+        if (!response.ok) {
+          throw new Error(payload.error || 'Failed to load chat run.');
+        }
+        return payload;
+      }
 
-        let index = 0;
-        const emitNext = () => {
-          if (index >= placeholders.length) {
+      async function followRun(runId, view) {
+        while (true) {
+          const snapshot = await fetchRunSnapshot(runId);
+          renderAssistantSnapshot(view, snapshot);
+          if (snapshot.run_status === 'completed' || snapshot.run_status === 'failed') {
             return;
           }
-          const item = placeholders[index];
-          index += 1;
-          appendProgress(view, {
-            stage: 'pending_' + index,
-            status: 'started',
-            actor: item.actor,
-            title: item.title,
-            detail: item.detail,
-            timestamp: Date.now(),
-            mission_id: null,
-            task_id: null,
-            decision_kind: null,
-            requested_worker: null,
-            executed_worker: null,
-            blocked_reason_code: null,
-          });
-        };
-
-        emitNext();
-        const timer = setInterval(emitNext, 900);
-        return () => clearInterval(timer);
+          await new Promise((resolve) => setTimeout(resolve, 500));
+        }
       }
 
       async function sendMessage() {
@@ -850,17 +870,17 @@ export function renderChatPage(): string {
         const assistantView = createAssistantBubble();
         messageEl.value = '';
         sendButton.disabled = true;
-        const stopPendingActivity = startPendingActivity(assistantView);
 
         try {
-          await sendWithFallback(message, assistantView);
+          const run = await startRun(message);
+          renderAssistantSnapshot(assistantView, run);
+          await followRun(run.run_id, assistantView);
         } catch (error) {
           renderAssistantError(
             assistantView,
             error instanceof Error ? error.message : 'Request failed.',
           );
         } finally {
-          stopPendingActivity();
           sendButton.disabled = false;
           messageEl.focus();
         }

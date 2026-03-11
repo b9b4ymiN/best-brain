@@ -4,6 +4,7 @@ import path from 'path';
 import { Database } from 'bun:sqlite';
 import { describe, expect, test } from 'bun:test';
 import { BestBrain } from '../src/services/brain.ts';
+import { validateLearnRequestInput } from '../src/validation.ts';
 import { createTestBrain } from './helpers.ts';
 
 describe('best-brain core', () => {
@@ -253,6 +254,31 @@ describe('best-brain core', () => {
     } finally {
       cleanup();
     }
+  });
+
+  test('normalizes AI-friendly learn mode aliases for persona memory updates', () => {
+    const request = validateLearnRequestInput({
+      mode: 'update',
+      title: 'Owner identity',
+      content: 'The owner name is Boat.',
+      memory_subtype: 'persona.identity',
+      confirmed_by_user: true,
+      written_by: 'chat',
+    });
+    const createRequest = validateLearnRequestInput({
+      mode: 'create',
+      title: 'Owner investment style',
+      content: 'The owner invests as a VI quality-growth investor.',
+      memory_subtype: 'persona.investor_style',
+      confirmed_by_user: true,
+      written_by: 'chat',
+    });
+
+    expect(request.mode).toBe('persona');
+    expect(request.memory_subtype).toBe('persona.identity');
+    expect(request.written_by).toBe('chat');
+    expect(createRequest.mode).toBe('persona');
+    expect(createRequest.memory_subtype).toBe('persona.investor_style');
   });
 
   test('reused memories increment only after verified completion', async () => {

@@ -3,6 +3,16 @@ import { existsSync, mkdirSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+export interface CliObservableEvent {
+  source: 'claude' | 'codex' | 'mcp';
+  kind: 'status' | 'tool_call' | 'tool_result' | 'command_start' | 'command_end' | 'result' | 'error';
+  title: string;
+  detail: string;
+  toolName?: string | null;
+  serverName?: string | null;
+  exitCode?: number | null;
+}
+
 export function toEnvRecord(overrides: Record<string, string | undefined>): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [key, value] of Object.entries(process.env)) {
@@ -238,6 +248,8 @@ export function runCommand(
     env?: Record<string, string>;
     timeoutMs?: number;
     stdin?: string | Buffer;
+    onStdoutLine?: (line: string) => void | Promise<void>;
+    onStderrLine?: (line: string) => void | Promise<void>;
   },
 ): Promise<{
   stdout: string;
@@ -258,12 +270,45 @@ export function runCommand(
     let stdout = '';
     let stderr = '';
     let timedOut = false;
+    let stdoutBuffer = '';
+    let stderrBuffer = '';
 
-    child.stdout.on('data', (chunk) => {
+    const flushBuffer = async (
+      bufferValue: string,
+      onLine: ((line: string) => void | Promise<void>) | undefined,
+      keepRemainder: (value: string) => void,
+      flushAll = false,
+    ): Promise<void> => {
+      let working = bufferValue;
+      let newlineIndex = working.indexOf('\n');
+      while (newlineIndex >= 0) {
+        const line = working.slice(0, newlineIndex).replace(/\r$/, '');
+        working = working.slice(newlineIndex + 1);
+        if (line.trim().length > 0) {
+          await onLine?.(line);
+        }
+        newlineIndex = working.indexOf('\n');
+      }
+      if (flushAll && working.trim().length > 0) {
+        await onLine?.(working.replace(/\r$/, ''));
+        working = '';
+      }
+      keepRemainder(working);
+    };
+
+    child.stdout.on('data', async (chunk) => {
       stdout += String(chunk);
+      stdoutBuffer += String(chunk);
+      await flushBuffer(stdoutBuffer, options.onStdoutLine, (value) => {
+        stdoutBuffer = value;
+      });
     });
-    child.stderr.on('data', (chunk) => {
+    child.stderr.on('data', async (chunk) => {
       stderr += String(chunk);
+      stderrBuffer += String(chunk);
+      await flushBuffer(stderrBuffer, options.onStderrLine, (value) => {
+        stderrBuffer = value;
+      });
     });
     if (typeof options.stdin === 'string' || options.stdin instanceof Buffer) {
       child.stdin.end(typeof options.stdin === 'string' ? Buffer.from(options.stdin, 'utf8') : options.stdin);
@@ -279,14 +324,22 @@ export function runCommand(
     }, timeoutMs);
     child.on('close', (exitCode) => {
       clearTimeout(timer);
-      resolve({
-        stdout,
-        stderr,
-        exitCode,
-        timedOut,
-        startedAt,
-        completedAt: Date.now(),
-      });
+      void (async () => {
+        await flushBuffer(stdoutBuffer, options.onStdoutLine, (value) => {
+          stdoutBuffer = value;
+        }, true);
+        await flushBuffer(stderrBuffer, options.onStderrLine, (value) => {
+          stderrBuffer = value;
+        }, true);
+        resolve({
+          stdout,
+          stderr,
+          exitCode,
+          timedOut,
+          startedAt,
+          completedAt: Date.now(),
+        });
+      })();
     });
   });
 }
@@ -301,6 +354,7 @@ export function runClaudeStreamResult(
     maxTurns?: number;
     bypassPermissions?: boolean;
     extraArgs?: string[];
+    onEvent?: (event: CliObservableEvent) => void | Promise<void>;
   },
 ): Promise<{
   result: string | null;
@@ -370,9 +424,86 @@ export function runClaudeStreamResult(
         buffer = buffer.slice(newlineIndex + 1);
         if (line) {
           try {
-            const payload = JSON.parse(line) as { type?: string; result?: string; subtype?: string; message?: { content?: Array<{ text?: string }> } };
+            const payload = JSON.parse(line) as {
+              type?: string;
+              result?: string;
+              subtype?: string;
+              model?: string;
+              mcp_servers?: Array<{ name?: string; status?: string }>;
+              error?: string;
+              message?: {
+                content?: Array<{
+                  type?: string;
+                  text?: string;
+                  name?: string;
+                  id?: string;
+                  result?: string;
+                  content?: string;
+                }>;
+              };
+            };
+            if (payload.type === 'system' && payload.subtype === 'init') {
+              const connectedServers = Array.isArray(payload.mcp_servers)
+                ? payload.mcp_servers
+                    .filter((server) => server.status === 'connected' && typeof server.name === 'string')
+                    .map((server) => server.name as string)
+                : [];
+              void options.onEvent?.({
+                source: 'claude',
+                kind: 'status',
+                title: 'Claude session initialized',
+                detail: connectedServers.length > 0
+                  ? `Connected MCP: ${connectedServers.join(', ')}`
+                  : `Model ready${payload.model ? `: ${payload.model}` : ''}.`,
+              });
+            }
+            if (payload.type === 'assistant' && Array.isArray(payload.message?.content)) {
+              for (const entry of payload.message.content) {
+                if (entry.type === 'tool_use' && typeof entry.name === 'string') {
+                  const match = entry.name.match(/^mcp__([^_]+(?:-[^_]+)*)__([^_]+.*)$/);
+                  const serverName = match ? match[1] : null;
+                  const toolName = match ? match[2] : entry.name;
+                  void options.onEvent?.({
+                    source: match ? 'mcp' : 'claude',
+                    kind: 'tool_call',
+                    title: `Calling ${toolName}`,
+                    detail: serverName ? `Using ${serverName} MCP` : 'Claude is calling a tool.',
+                    toolName,
+                    serverName,
+                  });
+                } else if (entry.type === 'tool_result') {
+                  const detail = typeof entry.result === 'string'
+                    ? entry.result.trim().slice(0, 180)
+                    : typeof entry.content === 'string'
+                      ? entry.content.trim().slice(0, 180)
+                      : 'Tool call completed.';
+                  void options.onEvent?.({
+                    source: 'mcp',
+                    kind: 'tool_result',
+                    title: 'Tool result received',
+                    detail: detail || 'Tool call completed.',
+                  });
+                } else if (entry.type === 'text' && typeof entry.text === 'string') {
+                  const text = entry.text.trim();
+                  if (text) {
+                    void options.onEvent?.({
+                      source: 'claude',
+                      kind: 'status',
+                      title: 'Claude update',
+                      detail: text.slice(0, 220),
+                    });
+                  }
+                }
+              }
+            }
             if (payload.type === 'result' && typeof payload.result === 'string' && payload.result.trim().length > 0) {
               resultText = payload.result.trim();
+              void options.onEvent?.({
+                source: 'claude',
+                kind: 'result',
+                title: 'Claude completed',
+                detail: resultText.slice(0, 220),
+              });
               forceKill(child);
               finish(child.exitCode);
             }
@@ -384,6 +515,14 @@ export function runClaudeStreamResult(
               if (text) {
                 resultText = text;
               }
+            }
+            if (payload.type === 'error') {
+              void options.onEvent?.({
+                source: 'claude',
+                kind: 'error',
+                title: 'Claude error',
+                detail: typeof payload.error === 'string' ? payload.error : 'Claude reported an error.',
+              });
             }
           } catch {
             // Ignore non-JSON lines from the CLI stream.

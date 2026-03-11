@@ -18,6 +18,20 @@ export interface ChatMessageResponse {
   activity_log: ManagerProgressEvent[];
 }
 
+export type ChatRunStatus = 'pending' | 'running' | 'completed' | 'failed';
+
+export interface ChatRunSnapshot {
+  run_id: string;
+  run_status: ChatRunStatus;
+  request: ChatMessageRequest;
+  response: ChatMessageResponse | null;
+  trace_events: ManagerProgressEvent[];
+  final_answer: string | null;
+  error: string | null;
+  created_at: number;
+  updated_at: number;
+}
+
 export interface ChatStreamStatusEnvelope {
   type: 'status';
   event: ManagerProgressEvent;

@@ -109,7 +109,10 @@ function parseWorkerResult(output: string, request: ExecutionRequest, fallbackSu
 export class ClaudeCliAdapter implements WorkerAdapter {
   readonly name = 'claude' as const;
 
-  async execute(request: ExecutionRequest): Promise<WorkerExecutionResult> {
+  async execute(
+    request: ExecutionRequest,
+    observer?: { onTrace?: (event: import('../types.ts').ManagerProgressEvent) => void | Promise<void> },
+  ): Promise<WorkerExecutionResult> {
     const prompt = [
       request.prompt,
       `Working directory: ${request.cwd}`,
@@ -119,6 +122,22 @@ export class ClaudeCliAdapter implements WorkerAdapter {
 
     let result;
     try {
+      await observer?.onTrace?.({
+        stage: 'worker_claude_command_start',
+        actor: 'claude',
+        kind: 'command_start',
+        status: 'started',
+        title: 'Claude worker started',
+        detail: request.task_title,
+        timestamp: Date.now(),
+        mission_id: request.mission_id,
+        task_id: request.task_id,
+        decision_kind: 'mission',
+        requested_worker: request.selected_worker,
+        executed_worker: 'claude',
+        blocked_reason_code: null,
+        worker: 'claude',
+      });
       result = await runCommand('claude', [
         '-p',
         '--no-session-persistence',
@@ -157,6 +176,23 @@ export class ClaudeCliAdapter implements WorkerAdapter {
     }
 
     if (result.exitCode !== 0) {
+      await observer?.onTrace?.({
+        stage: 'worker_claude_command_end',
+        actor: 'claude',
+        kind: 'command_end',
+        status: 'failed',
+        title: 'Claude worker failed',
+        detail: `Claude exited with code ${String(result.exitCode)}.`,
+        timestamp: Date.now(),
+        mission_id: request.mission_id,
+        task_id: request.task_id,
+        decision_kind: 'mission',
+        requested_worker: request.selected_worker,
+        executed_worker: 'claude',
+        blocked_reason_code: null,
+        worker: 'claude',
+        exit_code: result.exitCode,
+      });
       return {
         summary: `Claude worker exited with code ${String(result.exitCode)}.`,
         status: 'failed',
@@ -199,6 +235,23 @@ export class ClaudeCliAdapter implements WorkerAdapter {
     try {
       const envelope = JSON.parse(result.stdout) as { result?: string };
       const parsed = parseWorkerResult(envelope.result ?? result.stdout, request, 'Claude worker completed without a structured summary.');
+      await observer?.onTrace?.({
+        stage: 'worker_claude_command_end',
+        actor: 'claude',
+        kind: 'command_end',
+        status: parsed.status === 'success' ? 'completed' : 'failed',
+        title: parsed.status === 'success' ? 'Claude worker completed' : 'Claude worker finished with issues',
+        detail: parsed.summary.slice(0, 220),
+        timestamp: Date.now(),
+        mission_id: request.mission_id,
+        task_id: request.task_id,
+        decision_kind: 'mission',
+        requested_worker: request.selected_worker,
+        executed_worker: 'claude',
+        blocked_reason_code: null,
+        worker: 'claude',
+        exit_code: result.exitCode,
+      });
       parsed.invocation = {
         command: 'claude',
         args: [
@@ -223,6 +276,23 @@ export class ClaudeCliAdapter implements WorkerAdapter {
       return parsed;
     } catch {
       const parsed = parseWorkerResult(result.stdout, request, 'Claude worker completed without a structured summary.');
+      await observer?.onTrace?.({
+        stage: 'worker_claude_command_end',
+        actor: 'claude',
+        kind: 'command_end',
+        status: parsed.status === 'success' ? 'completed' : 'failed',
+        title: parsed.status === 'success' ? 'Claude worker completed' : 'Claude worker finished with issues',
+        detail: parsed.summary.slice(0, 220),
+        timestamp: Date.now(),
+        mission_id: request.mission_id,
+        task_id: request.task_id,
+        decision_kind: 'mission',
+        requested_worker: request.selected_worker,
+        executed_worker: 'claude',
+        blocked_reason_code: null,
+        worker: 'claude',
+        exit_code: result.exitCode,
+      });
       parsed.invocation = {
         command: 'claude',
         args: [

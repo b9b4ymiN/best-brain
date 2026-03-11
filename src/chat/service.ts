@@ -2,7 +2,13 @@ import type { ControlRoomService } from '../control-room/service.ts';
 import type { ManagerRuntime } from '../manager/runtime.ts';
 import { normalizeChatDisplayAnswer } from './format.ts';
 import type { ManagerProgressEvent } from '../manager/types.ts';
-import type { ChatMessageRequest, ChatMessageResponse, ChatStreamEnvelope } from './types.ts';
+import { createId } from '../utils/id.ts';
+import type {
+  ChatMessageRequest,
+  ChatMessageResponse,
+  ChatRunSnapshot,
+  ChatStreamEnvelope,
+} from './types.ts';
 
 export interface ChatServiceOptions {
   managerFactory: () => Promise<ManagerRuntime> | ManagerRuntime;
@@ -12,6 +18,8 @@ export interface ChatServiceOptions {
 export class ChatService {
   private readonly managerFactory: ChatServiceOptions['managerFactory'];
   private readonly controlRoom: ControlRoomService | null;
+  private readonly runs = new Map<string, ChatRunSnapshot>();
+  private readonly runTtlMs = 15 * 60 * 1000;
 
   constructor(options: ChatServiceOptions) {
     this.managerFactory = options.managerFactory;
@@ -28,15 +36,23 @@ export class ChatService {
     }
 
     const activityLog: ManagerProgressEvent[] = [];
+    let nextSeq = 1;
     const recordProgress = async (event: ManagerProgressEvent): Promise<void> => {
-      activityLog.push(event);
-      await onProgress?.(event);
+      const seq = event.seq ?? nextSeq;
+      const normalizedEvent: ManagerProgressEvent = {
+        ...event,
+        seq,
+      };
+      nextSeq = seq + 1;
+      activityLog.push(normalizedEvent);
+      await onProgress?.(normalizedEvent);
     };
 
     const manager = await this.managerFactory();
     try {
       await recordProgress({
         stage: 'chat_receive',
+        kind: 'status',
         status: 'started',
         actor: 'manager',
         title: 'Received your message',
@@ -67,6 +83,7 @@ export class ChatService {
         controlRoomPath = `/control-room?mission_id=${encodeURIComponent(view.mission_id)}`;
         await recordProgress({
           stage: 'control_room',
+          kind: 'result',
           status: 'completed',
           actor: 'control_room',
           title: 'Mission recorded in control room',
@@ -100,6 +117,87 @@ export class ChatService {
 
   async sendMessage(request: ChatMessageRequest): Promise<ChatMessageResponse> {
     return await this.processMessage(request);
+  }
+
+  startMessageRun(request: ChatMessageRequest): ChatRunSnapshot {
+    const now = Date.now();
+    this.pruneRuns(now);
+    const runId = createId('chatrun');
+    const snapshot: ChatRunSnapshot = {
+      run_id: runId,
+      run_status: 'pending',
+      request,
+      response: null,
+      trace_events: [],
+      final_answer: null,
+      error: null,
+      created_at: now,
+      updated_at: now,
+    };
+    this.runs.set(runId, snapshot);
+
+    void this.processRun(runId, request);
+    return this.getRunSnapshot(runId)!;
+  }
+
+  getRunSnapshot(runId: string): ChatRunSnapshot | null {
+    const snapshot = this.runs.get(runId);
+    return snapshot ? {
+      ...snapshot,
+      request: { ...snapshot.request },
+      response: snapshot.response ? {
+        ...snapshot.response,
+        citations: [...snapshot.response.citations],
+        activity_log: [...snapshot.response.activity_log],
+      } : null,
+      trace_events: [...snapshot.trace_events],
+    } : null;
+  }
+
+  private async processRun(runId: string, request: ChatMessageRequest): Promise<void> {
+    const snapshot = this.runs.get(runId);
+    if (!snapshot) {
+      return;
+    }
+
+    snapshot.run_status = 'running';
+    snapshot.updated_at = Date.now();
+
+    try {
+      const response = await this.processMessage(request, async (event) => {
+        const active = this.runs.get(runId);
+        if (!active) {
+          return;
+        }
+        active.trace_events.push(event);
+        active.updated_at = Date.now();
+      });
+      const active = this.runs.get(runId);
+      if (!active) {
+        return;
+      }
+      active.response = response;
+      active.final_answer = response.answer;
+      active.trace_events = [...response.activity_log];
+      active.run_status = 'completed';
+      active.updated_at = Date.now();
+    } catch (error) {
+      const active = this.runs.get(runId);
+      if (!active) {
+        return;
+      }
+      active.error = error instanceof Error ? error.message : String(error);
+      active.run_status = 'failed';
+      active.updated_at = Date.now();
+    }
+  }
+
+  private pruneRuns(now: number): void {
+    for (const [runId, snapshot] of this.runs.entries()) {
+      if (now - snapshot.updated_at > this.runTtlMs) {
+        this.runs.delete(runId);
+      }
+    }
   }
 
   async streamMessage(

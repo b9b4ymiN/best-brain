@@ -313,6 +313,67 @@ describe('chat HTTP', () => {
     }
   });
 
+  test('creates a chat run and exposes pollable snapshots with actual trace events', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'chat-owner' });
+    let server: ReturnType<typeof Bun.serve>;
+    const managerFactory = () => new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+      chatResponder: new StaticChatResponder('Hello from the polled responder.'),
+    });
+    const controlRoom = new ControlRoomService({
+      dataDir: brain.config.dataDir,
+      managerFactory,
+    });
+    const chat = new ChatService({
+      managerFactory,
+      controlRoom,
+    });
+    const app = createApp(brain, { chat, controlRoom });
+    server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    try {
+      const baseUrl = `http://127.0.0.1:${server.port}`;
+      const startResponse = await fetch(`${baseUrl}/chat/api/message/run`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          message: 'hello there',
+        }),
+      });
+      expect(startResponse.status).toBe(200);
+      const started = await startResponse.json() as { run_id: string; run_status: string };
+      expect(started.run_id).toContain('chatrun_');
+      expect(['pending', 'running']).toContain(started.run_status);
+
+      let snapshot = await (await fetch(`${baseUrl}/chat/api/runs/${started.run_id}`)).json() as {
+        run_status: string;
+        final_answer: string | null;
+        trace_events: Array<{ title?: string; kind?: string }>;
+      };
+      let attempts = 0;
+      while (snapshot.run_status !== 'completed' && snapshot.run_status !== 'failed' && attempts < 20) {
+        await Bun.sleep(50);
+        snapshot = await (await fetch(`${baseUrl}/chat/api/runs/${started.run_id}`)).json() as typeof snapshot;
+        attempts += 1;
+      }
+
+      expect(snapshot.run_status).toBe('completed');
+      expect(snapshot.final_answer).toBe('Hello from the polled responder.');
+      expect(snapshot.trace_events.length).toBeGreaterThan(0);
+      expect(snapshot.trace_events.some((event) => event.title === 'Received your message')).toBe(true);
+    } finally {
+      server.stop(true);
+      cleanup();
+    }
+  });
+
   test('escalates a stock-scanner goal from chat into a persisted mission automatically', async () => {
     const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'chat-owner' });
     await runOnboarding(brain, {

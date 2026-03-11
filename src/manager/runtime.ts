@@ -26,6 +26,15 @@ import { ClaudeCliAdapter } from './adapters/claude-cli.ts';
 import { CodexCliAdapter } from './adapters/codex-cli.ts';
 import { ShellCliAdapter } from './adapters/shell-cli.ts';
 import { ManagerVerifierAdapter } from './adapters/verifier.ts';
+import {
+  buildMemoryUpdateAnswer,
+  buildOwnerRecallAnswer,
+  classifyOwnerRecall,
+  extractChatMemoryFacts,
+  shouldAttemptDirectOwnerRecall,
+  shouldPreferLocalMemoryUpdate,
+  summarizeOwnerRecall,
+} from './chat-memory.ts';
 import type {
   BrainWriteRecord,
   ManagerInput,
@@ -157,6 +166,13 @@ function shouldUseBrainAwareChat(goal: string): boolean {
   return /remember|my name|who am i|what do you know about me|what have you remembered|owner|persona|preference|\u0e08\u0e33\u0e44\u0e27\u0e49|\u0e09\u0e31\u0e19\u0e0a\u0e37\u0e48\u0e2d|\u0e09\u0e31\u0e19\u0e0a\u0e37\u0e48\u0e2d\u0e2d\u0e30\u0e44\u0e23|\u0e40\u0e23\u0e35\u0e22\u0e01\u0e09\u0e31\u0e19|\u0e04\u0e38\u0e13\u0e08\u0e33\u0e2d\u0e30\u0e44\u0e23\u0e40\u0e01\u0e35\u0e48\u0e22\u0e27\u0e01\u0e31\u0e1a\u0e09\u0e31\u0e19|\u0e15\u0e31\u0e27\u0e09\u0e31\u0e19/i.test(goal);
 }
 
+function looksLikeUnusableChatAnswer(answer: string | null): boolean {
+  if (!answer) {
+    return true;
+  }
+  return /help a bit more specific|please make the question|ช่วยพิมพ์คำถามให้ครบอีกนิด|ยังไม่ทราบชื่อของคุณ|i do not know your name|i do not have your investing style|ยังไม่มีข้อมูลแนวลงทุน/u.test(answer);
+}
+
 export class ManagerRuntime {
   readonly brain: BrainAdapter;
   readonly workers: Partial<Record<ManagerWorker, WorkerAdapter>>;
@@ -181,6 +197,156 @@ export class ManagerRuntime {
     this.chatResponder = options.chatResponder ?? null;
   }
 
+  private async emitChatBrainEvent(
+    observer: ManagerRunObserver,
+    missionId: string,
+    title: string,
+    detail: string,
+    kind: ManagerProgressEvent['kind'],
+    status: ManagerProgressEvent['status'],
+    toolName: string | null = null,
+  ): Promise<void> {
+    await observer.onProgress?.({
+      stage: `chat_brain_${kind}_${status}`,
+      actor: toolName ? 'mcp' : 'brain',
+      kind,
+      status,
+      title,
+      detail,
+      timestamp: this.now().getTime(),
+      mission_id: missionId,
+      task_id: null,
+      decision_kind: 'chat',
+      requested_worker: null,
+      executed_worker: null,
+      blocked_reason_code: null,
+      tool_name: toolName,
+      server_name: toolName ? 'best-brain' : null,
+    });
+  }
+
+  private async recallOwnerFacts(
+    goal: string,
+    missionId: string,
+    observer: ManagerRunObserver,
+    force: Partial<ReturnType<typeof classifyOwnerRecall>> = {},
+  ): Promise<ReturnType<typeof summarizeOwnerRecall>> {
+    const recall = {
+      ...classifyOwnerRecall(goal),
+      ...force,
+    };
+    const consults = [];
+
+    if (recall.asksName) {
+      await this.emitChatBrainEvent(
+        observer,
+        missionId,
+        'Reading from brain memory',
+        'Resolving the owner name from brain memory.',
+        'memory_read',
+        'started',
+        'brain_consult',
+      );
+      const response = await this.brain.consult({
+        query: 'owner name',
+        domain: 'best-brain',
+        consumer: 'chat',
+        bundle_profile: 'chat_direct',
+        limit: 5,
+      });
+      consults.push(response);
+      await this.emitChatBrainEvent(
+        observer,
+        missionId,
+        'Brain memory read completed',
+        `Resolved ${response.citations.length} candidate memories for the owner name.`,
+        'memory_read',
+        'completed',
+        'brain_consult',
+      );
+    }
+
+    if (recall.asksInvestorStyle) {
+      await this.emitChatBrainEvent(
+        observer,
+        missionId,
+        'Reading from brain memory',
+        'Resolving the owner investing style from brain memory.',
+        'memory_read',
+        'started',
+        'brain_consult',
+      );
+      const response = await this.brain.consult({
+        query: 'owner investor style',
+        domain: 'best-brain',
+        consumer: 'chat',
+        bundle_profile: 'chat_direct',
+        limit: 5,
+      });
+      consults.push(response);
+      await this.emitChatBrainEvent(
+        observer,
+        missionId,
+        'Brain memory read completed',
+        `Resolved ${response.citations.length} candidate memories for the owner investing style.`,
+        'memory_read',
+        'completed',
+        'brain_consult',
+      );
+    }
+
+    return summarizeOwnerRecall(consults);
+  }
+
+  private async handleChatMemoryUpdate(
+    goal: string,
+    missionId: string,
+    observer: ManagerRunObserver,
+  ): Promise<string | null> {
+    const extraction = extractChatMemoryFacts(goal);
+    if (extraction.clarificationQuestion) {
+      return extraction.clarificationQuestion;
+    }
+    if (extraction.facts.length === 0) {
+      return null;
+    }
+
+    for (const fact of extraction.facts) {
+      await this.emitChatBrainEvent(
+        observer,
+        missionId,
+        'Writing to brain memory',
+        `Saving ${fact.kind === 'owner_name' ? 'owner identity' : 'owner investing style'} to brain memory.`,
+        'memory_write',
+        'started',
+        'brain_learn',
+      );
+      const result = await this.brain.learn(fact.learnRequest);
+      await this.emitChatBrainEvent(
+        observer,
+        missionId,
+        result.accepted ? 'Brain memory updated' : 'Brain memory update rejected',
+        result.reason,
+        'memory_write',
+        result.accepted ? 'completed' : 'failed',
+        'brain_learn',
+      );
+    }
+
+    const recalled = await this.recallOwnerFacts(goal, missionId, observer, {
+      asksName: extraction.facts.some((fact) => fact.kind === 'owner_name'),
+      asksInvestorStyle: extraction.facts.some((fact) => fact.kind === 'investor_style'),
+    });
+
+    const fallbackName = extraction.facts.find((fact) => fact.kind === 'owner_name')?.value ?? null;
+    const fallbackInvestorStyle = extraction.facts.find((fact) => fact.kind === 'investor_style')?.value ?? null;
+
+    return buildMemoryUpdateAnswer(goal, {
+      name: recalled.name ?? fallbackName,
+      investorStyle: recalled.investorStyle ?? fallbackInvestorStyle,
+    });
+  }
+
   private shouldInvokeReasoner(
     input: ManagerInput,
     _decision: ManagerDecision,
@@ -202,15 +368,25 @@ export class ManagerRuntime {
     const existingMissionId = input.mission_id;
     const missionId = existingMissionId ?? createId('mission');
     const emitProgress = async (
-      event: Omit<ManagerProgressEvent, 'timestamp' | 'mission_id' | 'task_id' | 'decision_kind' | 'requested_worker' | 'executed_worker' | 'blocked_reason_code'>
+      event: Omit<ManagerProgressEvent, 'timestamp' | 'mission_id' | 'task_id' | 'decision_kind' | 'requested_worker' | 'executed_worker' | 'blocked_reason_code' | 'kind'>
       & Partial<Pick<ManagerProgressEvent, 'mission_id' | 'task_id' | 'decision_kind' | 'requested_worker' | 'executed_worker' | 'blocked_reason_code'>>,
     ): Promise<void> => {
       if (!observer.onProgress) {
         return;
       }
 
+      const inferredKind: ManagerProgressEvent['kind'] =
+        event.stage.startsWith('verification')
+          ? 'verification'
+          : event.status === 'failed'
+            ? 'error'
+            : event.status === 'completed'
+              ? 'result'
+              : 'status';
+
       await observer.onProgress({
         timestamp: this.now().getTime(),
+        kind: inferredKind,
         mission_id: event.mission_id ?? missionId,
         task_id: event.task_id ?? null,
         decision_kind: event.decision_kind ?? null,
@@ -240,6 +416,7 @@ export class ManagerRuntime {
     });
     const startedBrainServer = this.brain.wasStartedByAdapter();
     let decision = routeIntent(input);
+    const heuristicDecision = decision;
     let aiTriage: ManagerTriageResult | null = null;
     await emitProgress({
       stage: 'brain_consult',
@@ -330,17 +507,26 @@ export class ManagerRuntime {
         heuristic: decision,
         consult,
         context,
+      }, {
+        onTrace: observer.onProgress,
       });
       if (aiTriage) {
-        decision = {
-          kind: aiTriage.kind,
-          should_execute: aiTriage.kind !== 'chat' && !input.dry_run && !input.no_execute,
-          selected_worker: aiTriage.kind === 'chat' ? null : selectWorker(input.goal, input.worker_preference),
-          reason: aiTriage.reason,
-          verification_required: aiTriage.kind !== 'chat',
-          blocked_reason: null,
-          blocked_reason_code: null,
-        };
+        const preserveChatMemoryHeuristic =
+          heuristicDecision.kind === 'chat'
+          && heuristicDecision.chat_mode === 'chat_memory_update'
+          && aiTriage.kind !== 'chat';
+        decision = preserveChatMemoryHeuristic
+          ? heuristicDecision
+          : {
+              kind: aiTriage.kind,
+              chat_mode: aiTriage.kind === 'chat' ? aiTriage.chat_mode : null,
+              should_execute: aiTriage.kind !== 'chat' && !input.dry_run && !input.no_execute,
+              selected_worker: aiTriage.kind === 'chat' ? null : selectWorker(input.goal, input.worker_preference),
+              reason: aiTriage.reason,
+              verification_required: aiTriage.kind !== 'chat',
+              blocked_reason: null,
+              blocked_reason_code: null,
+            };
       }
       await emitProgress({
         stage: 'triage',
@@ -519,7 +705,10 @@ export class ManagerRuntime {
     }
 
     if (!decision.should_execute) {
-      const forceBrainAwareChat = decision.kind === 'chat' && shouldUseBrainAwareChat(input.goal);
+      const forceBrainAwareChat = decision.kind === 'chat'
+        && (decision.chat_mode === 'chat_memory_update' || shouldUseBrainAwareChat(input.goal));
+      let directMemoryUpdateResponse: string | null = null;
+      let directOwnerRecallResponse: string | null = null;
       if (decision.kind === 'chat') {
         await emitProgress({
           stage: 'chat_response',
@@ -527,21 +716,51 @@ export class ManagerRuntime {
           actor: 'manager',
           title: 'Preparing a direct answer',
           detail: forceBrainAwareChat
-            ? 'Using brain-aware chat so the response can read or write memory when needed.'
+            ? (decision.chat_mode === 'chat_memory_update'
+              ? 'Using brain-aware chat to update or correct owner memory before answering.'
+              : 'Using brain-aware chat so the response can read or write memory when needed.')
             : 'Answering directly without escalating to a mission.',
           decision_kind: decision.kind,
         });
+
+        if (shouldPreferLocalMemoryUpdate(input.goal, decision.chat_mode)) {
+          directMemoryUpdateResponse = await this.handleChatMemoryUpdate(input.goal, missionId, observer);
+        }
       }
-      const directChatResponse = decision.kind === 'chat' && (forceBrainAwareChat || aiTriage?.direct_answer == null) && this.chatResponder
+      const directChatResponse = decision.kind === 'chat'
+        && directMemoryUpdateResponse == null
+        && (forceBrainAwareChat || aiTriage?.direct_answer == null)
+        && this.chatResponder
         ? await this.chatResponder.answer({
             goal: input.goal,
             cwd: input.cwd,
             consult,
             context,
+            chatMode: decision.chat_mode,
+          }, {
+            onTrace: observer.onProgress,
           })
         : null;
+      if (
+        decision.kind === 'chat'
+        && directMemoryUpdateResponse == null
+        && shouldAttemptDirectOwnerRecall(input.goal)
+      ) {
+        const recalled = await this.recallOwnerFacts(input.goal, missionId, observer);
+        const recallAnswer = buildOwnerRecallAnswer(input.goal, {
+          name: recalled.name,
+          investorStyle: recalled.investorStyle,
+        });
+        if (recallAnswer && (looksLikeUnusableChatAnswer(directChatResponse) || directChatResponse == null)) {
+          directOwnerRecallResponse = recallAnswer;
+        }
+      }
       const ownerResponse = decision.kind === 'chat'
-        ? (directChatResponse ?? aiTriage?.direct_answer ?? buildChatOwnerResponse(input.goal, consult, context))
+        ? (directMemoryUpdateResponse
+          ?? directOwnerRecallResponse
+          ?? directChatResponse
+          ?? aiTriage?.direct_answer
+          ?? buildChatOwnerResponse(input.goal, consult, context))
         : decision.blocked_reason
           ? decision.blocked_reason
           : `Planned ${brief.kind} path. Next: ${brief.execution_plan[0] ?? 'Review the mission brief.'}`;
@@ -645,7 +864,9 @@ export class ManagerRuntime {
     });
 
     const brainWrites: BrainWriteRecord[] = [];
-    const primaryDispatch = await this.fabric.dispatchPrimary(executionRequest);
+    const primaryDispatch = await this.fabric.dispatchPrimary(executionRequest, {
+      onTrace: observer.onProgress,
+    });
     const workerResult = primaryDispatch.manager_result;
     const primaryWorkerTask = runtimeBundle
       ? runtimeSpine.startWorkerTask({

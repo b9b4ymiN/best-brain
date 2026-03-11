@@ -87,7 +87,10 @@ export class ShellCliAdapter implements WorkerAdapter {
   readonly name = 'shell' as const;
   readonly processManager = new LocalProcessManager();
 
-  async execute(request: ExecutionRequest): Promise<WorkerExecutionResult> {
+  async execute(
+    request: ExecutionRequest,
+    observer?: { onTrace?: (event: import('../types.ts').ManagerProgressEvent) => void | Promise<void> },
+  ): Promise<WorkerExecutionResult> {
     if (!request.shell_command) {
       return {
         summary: 'Shell worker requires an explicit command, preferably in backticks.',
@@ -109,6 +112,22 @@ export class ShellCliAdapter implements WorkerAdapter {
       };
     }
 
+    await observer?.onTrace?.({
+      stage: 'worker_shell_command_start',
+      actor: 'shell',
+      kind: 'command_start',
+      status: 'started',
+      title: 'Shell worker started',
+      detail: request.shell_command.raw,
+      timestamp: Date.now(),
+      mission_id: request.mission_id,
+      task_id: request.task_id,
+      decision_kind: 'mission',
+      requested_worker: request.selected_worker,
+      executed_worker: 'shell',
+      blocked_reason_code: null,
+      worker: 'shell',
+    });
     const result = await this.processManager.run({
       command: request.shell_command.command,
       args: request.shell_command.args,
@@ -133,6 +152,23 @@ export class ShellCliAdapter implements WorkerAdapter {
       ref: commandRef,
       description: `Shell command ${result.exit_code === 0 && !result.timed_out ? 'completed successfully' : 'failed'} with exit code ${String(result.exit_code)}.`,
     };
+    await observer?.onTrace?.({
+      stage: 'worker_shell_command_end',
+      actor: 'shell',
+      kind: 'command_end',
+      status: result.exit_code === 0 && !result.timed_out ? 'completed' : 'failed',
+      title: result.exit_code === 0 && !result.timed_out ? 'Shell worker completed' : 'Shell worker failed',
+      detail: summary,
+      timestamp: Date.now(),
+      mission_id: request.mission_id,
+      task_id: request.task_id,
+      decision_kind: 'mission',
+      requested_worker: request.selected_worker,
+      executed_worker: 'shell',
+      blocked_reason_code: null,
+      worker: 'shell',
+      exit_code: result.exit_code,
+    });
 
     return {
       summary: structured?.summary ?? summary,

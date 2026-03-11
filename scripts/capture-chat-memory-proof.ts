@@ -26,8 +26,13 @@ const managerFactory = () => new ManagerRuntime({
     baseUrl: `http://127.0.0.1:${server.port}`,
     autoStart: false,
   }),
-  reasoner: new LocalCliManagerReasoner(),
+  reasoner: new LocalCliManagerReasoner({
+    claudeTimeoutMs: 10000,
+    codexTimeoutMs: 8000,
+  }),
   chatResponder: new LocalCliChatResponder({
+    claudeTimeoutMs: 12000,
+    codexTimeoutMs: 8000,
     executionCwd: process.cwd(),
     mcpServerEnv: {
       BEST_BRAIN_DATA_DIR: brain.config.dataDir,
@@ -69,7 +74,7 @@ async function sendMessage(message: string) {
 
 async function recallWithRetry(message: string, expectedFragment: string) {
   const attempts: Array<{ attempt: number; answer: string; matched: boolean }> = [];
-  for (let attempt = 1; attempt <= 4; attempt += 1) {
+  for (let attempt = 1; attempt <= 1; attempt += 1) {
     const result = await sendMessage(message);
     const matched = result.answer.toLowerCase().includes(expectedFragment.toLowerCase());
     attempts.push({
@@ -83,7 +88,7 @@ async function recallWithRetry(message: string, expectedFragment: string) {
         attempts,
       };
     }
-    await Bun.sleep(1000);
+    await Bun.sleep(600);
   }
 
   return {
@@ -93,31 +98,70 @@ async function recallWithRetry(message: string, expectedFragment: string) {
 }
 
 try {
-  const remember = await sendMessage('Please remember that my name is Beam.');
-  const recall = await recallWithRetry('What is my name?', 'beam');
+  const remember = await sendMessage('ฉันชื่อ โบ๊ท อยากลงทุนแบบ VI เน้นหุ้น Quality Growth');
+  const recall = await recallWithRetry('ฉันชื่ออะไร และแนวลงทุนของฉันคืออะไร', 'โบ๊ท');
+  const thaiMultiIntent = remember;
+  const thaiRecall = recall;
+  const correction = await sendMessage('แก้ไขใหม่ฉันชื่อ โบ๊ท Both');
+  const correctionRecall = await recallWithRetry('ฉันชื่ออะไร', 'โบ๊ท');
   const storedMemory = brain.store
     .listMemories()
-    .find((memory) => memory.source === 'chat://mcp-memory-write' && /beam/i.test(memory.content));
+    .find((memory) => memory.source === 'chat://mcp-memory-write' && /โบ๊ท|both/i.test(memory.content));
+  const activeOwnerIdentity = brain.store
+    .listActiveMemories()
+    .find((memory) => memory.memory_subtype === 'persona.identity' && /โบ๊ท|both/i.test(memory.content));
+  const investorStyleMemory = brain.store
+    .listActiveMemories()
+    .find((memory) => memory.memory_subtype === 'persona.investor_style' && /vi|quality growth/i.test(memory.content));
+  const supersededBeamIdentity = brain.store
+    .listMemories()
+    .find((memory) => memory.memory_subtype === 'persona.identity' && /โบ๊ท(?!.*both)|boat/i.test(memory.content) && memory.superseded_by);
   const brainConsult = await brain.consult({
-    query: 'What is the owner name?',
+    query: 'เจ้าของชื่ออะไร และแนวลงทุนคืออะไร',
     domain: 'best-brain',
     limit: 10,
   });
-  const personaCitation = brainConsult.citations.find((citation) => citation.memory_type === 'Persona' && /beam/i.test(citation.summary));
+  const personaCitation = brainConsult.citations.find((citation) => citation.memory_type === 'Persona' && /โบ๊ท|both/i.test(citation.summary));
   const payload = {
     generated_at: new Date().toISOString(),
     remember_via_chat_pass: remember.decision_kind === 'chat'
-      && /beam/i.test(remember.answer)
+      && /โบ๊ท|both/i.test(remember.answer)
+      && /vi|quality growth/i.test(remember.answer)
       && remember.blocked_reason == null,
     recall_via_chat_pass: recall.result.decision_kind === 'chat'
-      && /beam/i.test(recall.result.answer)
+      && /โบ๊ท|both/i.test(recall.result.answer)
+      && /vi|quality growth/i.test(recall.result.answer)
       && recall.result.blocked_reason == null,
     brain_memory_written_via_mcp: storedMemory?.source === 'chat://mcp-memory-write'
-      && storedMemory.verified_by === 'user',
-    brain_memory_readable: personaCitation?.summary?.toLowerCase().includes('beam') ?? false,
+      && storedMemory.verified_by === 'user'
+      && storedMemory.written_by === 'chat',
+    brain_memory_readable: /โบ๊ท|both/i.test(personaCitation?.summary ?? ''),
+    thai_multi_intent_memory_update_pass: thaiMultiIntent.decision_kind === 'chat'
+      && thaiMultiIntent.blocked_reason == null
+      && /โบ๊ท|both/i.test(thaiMultiIntent.answer)
+      && /vi|quality growth/i.test(thaiMultiIntent.answer),
+    thai_recall_pass: thaiRecall.result.decision_kind === 'chat'
+      && thaiRecall.result.blocked_reason == null
+      && /โบ๊ท|both/i.test(thaiRecall.result.answer)
+      && /vi|quality growth/i.test(thaiRecall.result.answer),
+    thai_identity_correction_pass: correction.decision_kind === 'chat'
+      && correction.blocked_reason == null
+      && /โบ๊ท|both/i.test(correction.answer)
+      && correctionRecall.result.decision_kind === 'chat'
+      && /โบ๊ท|both/i.test(correctionRecall.result.answer)
+      && !!activeOwnerIdentity
+      && !!supersededBeamIdentity,
+    thai_investor_style_written: !!investorStyleMemory,
     remember,
     recall,
+    thai_multi_intent: thaiMultiIntent,
+    thai_recall: thaiRecall,
+    correction,
+    correction_recall: correctionRecall,
     stored_memory: storedMemory ?? null,
+    active_owner_identity: activeOwnerIdentity ?? null,
+    investor_style_memory: investorStyleMemory ?? null,
+    superseded_beam_identity: supersededBeamIdentity ?? null,
     brain_consult: {
       trace_id: brainConsult.trace_id,
       answer: brainConsult.answer,

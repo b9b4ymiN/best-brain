@@ -307,6 +307,7 @@ describe('manager alpha unit flow', () => {
     const brain = new FakeBrainAdapter();
     const reasoner = new FakeReasoner({
       kind: 'chat',
+      chat_mode: 'direct_chat',
       reason: 'The user is asking a direct factual question.',
       direct_answer: '\u0e40\u0e14\u0e37\u0e2d\u0e19\u0e19\u0e35\u0e49\u0e04\u0e37\u0e2d \u0e21\u0e35\u0e19\u0e32\u0e04\u0e21 2569',
     });
@@ -337,6 +338,7 @@ describe('manager alpha unit flow', () => {
     const brain = new FakeBrainAdapter();
     const reasoner = new FakeReasoner({
       kind: 'chat',
+      chat_mode: 'direct_chat',
       reason: 'The message is a normal chat question.',
       direct_answer: null,
     });
@@ -366,6 +368,7 @@ describe('manager alpha unit flow', () => {
     const brain = new FakeBrainAdapter();
     const reasoner = new FakeReasoner({
       kind: 'chat',
+      chat_mode: 'direct_chat',
       reason: 'The message is a normal chat question.',
       direct_answer: 'I do not know your name.',
     });
@@ -391,10 +394,11 @@ describe('manager alpha unit flow', () => {
     }
   });
 
-  test('memory-write chat bypasses direct-answer shortcuts and uses the brain-aware chat responder', async () => {
+  test('memory-write chat persists owner facts directly through the brain and stays in chat mode', async () => {
     const brain = new FakeBrainAdapter();
     const reasoner = new FakeReasoner({
       kind: 'chat',
+      chat_mode: 'chat_memory_update',
       reason: 'The message is a normal chat question.',
       direct_answer: 'Okay, I will remember that.',
     });
@@ -412,9 +416,46 @@ describe('manager alpha unit flow', () => {
       });
 
       expect(result.decision.kind).toBe('chat');
-      expect(result.owner_response).toBe('Saved. Your name is Beam.');
+      expect(result.owner_response).toContain('Beam');
       expect(reasoner.calls).toBe(1);
-      expect(chatResponder.calls).toBe(1);
+      expect(chatResponder.calls).toBe(0);
+      expect(brain.calls.learn).toHaveLength(1);
+      expect(brain.calls.learn[0]?.memory_subtype).toBe('persona.identity');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('owner self-fact updates stay in chat_memory_update even if AI triage tries to escalate them', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'task',
+      chat_mode: null,
+      reason: 'The message asks for real work.',
+      direct_answer: null,
+    });
+    const chatResponder = new FakeChatResponder('Saved. Your name is Both and your investing style is VI Quality Growth.');
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+      chatResponder,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'ฉันชื่อ โบ๊ท Both อยากลงทุนแบบ VI เน้นหุ้น Quality Growth',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('chat');
+      expect(result.decision.chat_mode).toBe('chat_memory_update');
+      expect(result.worker_result).toBeNull();
+      expect(result.verification_result).toBeNull();
+      expect(result.decision.blocked_reason).toBeNull();
+      expect(chatResponder.calls).toBe(0);
+      expect(result.owner_response).toContain('Both');
+      expect(brain.calls.learn.some((request) => request.memory_subtype === 'persona.identity')).toBe(true);
+      expect(brain.calls.learn.some((request) => request.memory_subtype === 'persona.investor_style')).toBe(true);
     } finally {
       await runtime.dispose();
     }
@@ -424,6 +465,7 @@ describe('manager alpha unit flow', () => {
     const brain = new FakeBrainAdapter();
     const reasoner = new FakeReasoner({
       kind: 'mission',
+      chat_mode: null,
       reason: 'This goal needs a verified system outcome.',
       direct_answer: null,
     });

@@ -77,6 +77,50 @@ function readOptionalNumber(value: Record<string, unknown>, key: string): number
   return candidate;
 }
 
+function normalizeLearnMode(body: Record<string, unknown>): LearnRequest['mode'] {
+  const rawMode = readRequiredString(body, 'mode').toLowerCase();
+  if (
+    rawMode === 'persona'
+    || rawMode === 'preference'
+    || rawMode === 'procedure'
+    || rawMode === 'mission_outcome'
+    || rawMode === 'failure_lesson'
+    || rawMode === 'working_memory'
+  ) {
+    return rawMode;
+  }
+
+  if (rawMode === 'working' || rawMode === 'note' || rawMode === 'temporary') {
+    return 'working_memory';
+  }
+
+  if (rawMode === 'update' || rawMode === 'remember' || rawMode === 'correction' || rawMode === 'correct' || rawMode === 'write' || rawMode === 'create') {
+    const subtype = (readOptionalString(body, 'memory_subtype') ?? '').toLowerCase();
+    const title = typeof body.title === 'string' ? body.title.toLowerCase() : '';
+    const content = typeof body.content === 'string' ? body.content.toLowerCase() : '';
+    const text = `${title} ${content}`;
+
+    if (subtype.startsWith('persona.')) {
+      return 'persona';
+    }
+    if (subtype.startsWith('preference.')) {
+      return 'preference';
+    }
+    if (subtype.startsWith('procedure.')) {
+      return 'procedure';
+    }
+    if (/name|identity|persona|owner|investor|vi|quality growth|ฉันชื่อ|เรียกฉัน|ลงทุนแบบ|แนวลงทุน/.test(text)) {
+      return 'persona';
+    }
+    if (/prefer|preference|format|workflow|style|ชอบ|รายงาน|สไตล์/.test(text)) {
+      return 'preference';
+    }
+    return 'working_memory';
+  }
+
+  throw new Error('mode is invalid');
+}
+
 function assertUniqueStrings(values: string[], label: string): void {
   const seen = new Set<string>();
   for (const value of values) {
@@ -123,7 +167,7 @@ export function validateContextInput(value: unknown): {
 export function validateLearnRequestInput(value: unknown): LearnRequest {
   const body = assertObject(value);
   return {
-    mode: readRequiredString(body, 'mode') as LearnRequest['mode'],
+    mode: normalizeLearnMode(body),
     title: readRequiredString(body, 'title'),
     content: readRequiredString(body, 'content'),
     source: readOptionalString(body, 'source') ?? undefined,

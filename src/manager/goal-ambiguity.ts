@@ -86,6 +86,15 @@ function includesAnyText(value: string, hints: readonly string[]): boolean {
 }
 
 export function detectGoalAmbiguity(input: ManagerInput, decision: ManagerDecision): GoalAmbiguityAssessment {
+  if (decision.kind === 'chat' && decision.chat_mode === 'chat_memory_update') {
+    return {
+      is_ambiguous: false,
+      reason: 'Owner self-facts and conversational memory updates are handled in chat mode.',
+      missing_clarifications: [],
+      confidence: 'low',
+    };
+  }
+
   const tokens = tokenize(input.goal);
   const goalText = input.goal.trim().toLowerCase();
   const missingClarifications: string[] = [];

@@ -354,7 +354,10 @@ export class WorkerFabric {
     ]));
   }
 
-  async dispatchPrimary(request: ExecutionRequest): Promise<WorkerDispatchResult> {
+  async dispatchPrimary(
+    request: ExecutionRequest,
+    observer?: { onTrace?: (event: import('../manager/types.ts').ManagerProgressEvent) => void | Promise<void> },
+  ): Promise<WorkerDispatchResult> {
     const chain = this.primaryWorkerChain(request);
     const attemptedWorkers: Array<ExecutionRequest['selected_worker']> = [];
     const fallbackReasons: string[] = [];
@@ -372,7 +375,7 @@ export class WorkerFabric {
           return await adapter.execute({
             ...request,
             selected_worker: worker,
-          });
+          }, observer);
         } catch (error) {
           return buildRuntimeErrorResult(worker, error);
         }

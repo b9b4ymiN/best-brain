@@ -1,12 +1,33 @@
 import type { ConsultIntent, MemoryType } from '../types.ts';
 
 const INTENT_HINTS: Array<{ intent: ConsultIntent; keywords: string[] }> = [
-  { intent: 'persona_guidance', keywords: ['owner', 'persona', 'think like', 'as the owner', 'identity', 'who am i', 'my name', 'name', 'about me'] },
-  { intent: 'preference_lookup', keywords: ['prefer', 'format', 'style', 'report', 'output'] },
-  { intent: 'procedure_lookup', keywords: ['how', 'steps', 'procedure', 'checklist', 'process'] },
-  { intent: 'recent_mission', keywords: ['latest', 'recent', 'last mission', 'last task', 'recent work'] },
-  { intent: 'failure_lesson', keywords: ['failed', 'mistake', 'lesson', 'avoid', 'incident'] },
-  { intent: 'working_context', keywords: ['working', 'current', 'context', 'in progress', 'active task'] },
+  {
+    intent: 'persona_guidance',
+    keywords: [
+      'owner', 'persona', 'think like', 'as the owner', 'identity', 'who am i', 'my name', 'name', 'about me',
+      'ฉันชื่อ', 'ชื่อฉัน', 'เจ้าของชื่อ', 'แนวลงทุนของฉัน', 'ตัวฉัน', 'เกี่ยวกับฉัน',
+    ],
+  },
+  {
+    intent: 'preference_lookup',
+    keywords: ['prefer', 'format', 'style', 'report', 'output', 'ชอบ', 'สไตล์', 'รายงาน', 'รูปแบบ'],
+  },
+  {
+    intent: 'procedure_lookup',
+    keywords: ['how', 'steps', 'procedure', 'checklist', 'process', 'อย่างไร', 'ขั้นตอน', 'วิธี', 'เช็กลิสต์'],
+  },
+  {
+    intent: 'recent_mission',
+    keywords: ['latest', 'recent', 'last mission', 'last task', 'recent work', 'ล่าสุด', 'งานล่าสุด', 'ภารกิจล่าสุด'],
+  },
+  {
+    intent: 'failure_lesson',
+    keywords: ['failed', 'mistake', 'lesson', 'avoid', 'incident', 'ล้มเหลว', 'บทเรียน', 'ผิดพลาด', 'หลีกเลี่ยง'],
+  },
+  {
+    intent: 'working_context',
+    keywords: ['working', 'current', 'context', 'in progress', 'active task', 'ตอนนี้', 'บริบท', 'งานที่ทำอยู่'],
+  },
 ];
 
 const PREFERRED_TYPES: Record<ConsultIntent, MemoryType[]> = {

@@ -12,6 +12,7 @@ import type {
 } from '../../types.ts';
 import type {
   ExecutionRequest,
+  ManagerProgressEvent,
   VerificationRequest,
   WorkerExecutionResult,
 } from '../types.ts';
@@ -42,7 +43,10 @@ export interface BrainAdapter {
 
 export interface WorkerAdapter {
   readonly name: ExecutionRequest['selected_worker'];
-  execute(request: ExecutionRequest): Promise<WorkerExecutionResult>;
+  execute(
+    request: ExecutionRequest,
+    observer?: { onTrace?: (event: ManagerProgressEvent) => void | Promise<void> },
+  ): Promise<WorkerExecutionResult>;
 }
 
 export interface VerifierAdapter {

@@ -93,6 +93,17 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   if (services.chat) {
     app.get('/', (c) => c.html(renderChatPage(), 200, NO_STORE_HEADERS));
     app.get('/chat', (c) => c.html(renderChatPage(), 200, NO_STORE_HEADERS));
+    app.post('/chat/api/message/run', async (c) => {
+      const body = validateChatMessageRequest(await readJsonBody(c));
+      return c.json(services.chat!.startMessageRun(body), 200, NO_STORE_HEADERS);
+    });
+    app.get('/chat/api/runs/:id', (c) => {
+      const snapshot = services.chat!.getRunSnapshot(c.req.param('id'));
+      if (!snapshot) {
+        return c.json({ error: 'chat run not found' }, 404, NO_STORE_HEADERS);
+      }
+      return c.json(snapshot, 200, NO_STORE_HEADERS);
+    });
     app.post('/chat/api/message', async (c) => {
       const body = validateChatMessageRequest(await readJsonBody(c));
       return c.json(await services.chat!.sendMessage(body), 200, NO_STORE_HEADERS);

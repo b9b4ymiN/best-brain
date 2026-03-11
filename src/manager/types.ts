@@ -25,8 +25,26 @@ export type ManagerWorker = (typeof MANAGER_WORKERS)[number];
 export const MANAGER_DECISION_KINDS = ['chat', 'task', 'mission'] as const;
 export type ManagerDecisionKind = (typeof MANAGER_DECISION_KINDS)[number];
 
+export const MANAGER_CHAT_MODES = ['direct_chat', 'chat_memory_update'] as const;
+export type ManagerChatMode = (typeof MANAGER_CHAT_MODES)[number];
+
 export const MANAGER_OUTPUT_MODES = ['human', 'json'] as const;
 export type ManagerOutputMode = (typeof MANAGER_OUTPUT_MODES)[number];
+
+export const MANAGER_TRACE_KINDS = [
+  'status',
+  'tool_call',
+  'tool_result',
+  'command_start',
+  'command_end',
+  'memory_write',
+  'memory_read',
+  'verification',
+  'result',
+  'error',
+] as const;
+
+export type ManagerTraceKind = (typeof MANAGER_TRACE_KINDS)[number];
 
 export interface ManagerInput {
   goal: string;
@@ -51,16 +69,22 @@ export type ManagerProgressStatus = (typeof MANAGER_PROGRESS_STATUSES)[number];
 export interface ManagerProgressEvent {
   stage: string;
   status: ManagerProgressStatus;
-  actor: 'manager' | 'brain' | 'claude' | 'codex' | 'shell' | 'verifier' | 'runtime' | 'control_room';
+  actor: 'manager' | 'brain' | 'claude' | 'codex' | 'shell' | 'verifier' | 'runtime' | 'control_room' | 'mcp';
+  kind: ManagerTraceKind;
   title: string;
   detail: string;
   timestamp: number;
+  seq?: number;
   mission_id: string | null;
   task_id: string | null;
   decision_kind: ManagerDecisionKind | null;
   requested_worker: ManagerWorker | null;
   executed_worker: ManagerWorker | null;
   blocked_reason_code: MissionBlockedReason | null;
+  tool_name?: string | null;
+  server_name?: string | null;
+  worker?: ManagerWorker | 'verifier' | null;
+  exit_code?: number | null;
 }
 
 export interface ManagerRunObserver {
@@ -69,6 +93,7 @@ export interface ManagerRunObserver {
 
 export interface ManagerDecision {
   kind: ManagerDecisionKind;
+  chat_mode: ManagerChatMode | null;
   should_execute: boolean;
   selected_worker: ManagerWorker | null;
   reason: string;
