@@ -113,6 +113,7 @@ bun run smoke:manager
 bun run smoke:manager:thin
 bun run smoke:manager:claude
 bun run smoke:manager:codex
+bun run smoke:manager:dual
 bun run smoke:manager:browser
 bun run smoke:manager:mail
 bun run smoke:manager:ambiguity

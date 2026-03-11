@@ -592,13 +592,12 @@ describe('manager alpha unit flow', () => {
       expect(result.mission_brief_validation.is_complete).toBe(true);
       expect(result.mission_brief_validation.completeness_score).toBe(100);
       expect(result.mission_brief.mission_graph.playbook_id).toBe(result.mission_brief.playbook.id);
-      expect(result.mission_graph.nodes.map((node) => node.id)).toEqual([
-        'context_review',
-        'data_selection',
-        'primary_work',
-        'verification_gate',
-        'final_report',
-      ]);
+      const nodeIds = result.mission_graph.nodes.map((node) => node.id);
+      expect(nodeIds).toContain('context_review');
+      expect(nodeIds).toContain('data_selection');
+      expect(nodeIds).toContain('primary_work');
+      expect(nodeIds).toContain('verification_gate');
+      expect(nodeIds).toContain('final_report');
     } finally {
       await runtime.dispose();
     }
@@ -854,6 +853,63 @@ describe('manager alpha unit flow', () => {
       expect(result.mission_graph.nodes.find((node) => node.id === 'primary_work')?.status).toBe('completed');
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('completed');
       expect(result.mission_graph.nodes.find((node) => node.id === 'final_report')?.status).toBe('completed');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('can execute a dual-worker mission chain (claude then shell) before verification', async () => {
+    const brain = new FakeBrainAdapter();
+    const claude = new FakeWorkerAdapter('claude', {
+      summary: 'Analyzed the mission and prepared execution guidance.',
+      status: 'success',
+      artifacts: [{ type: 'note', ref: 'worker://claude/analysis', description: 'Analysis artifact.' }],
+      proposed_checks: [{ name: 'analysis-ready', passed: true }],
+      raw_output: '{}',
+    });
+    const shell = new FakeWorkerAdapter('shell', {
+      summary: 'Executed the shell command and captured command evidence.',
+      status: 'success',
+      artifacts: [{ type: 'other', ref: 'shell://bun%20--version', description: 'Shell command artifact.' }],
+      proposed_checks: [{ name: 'shell-exit-code-zero', passed: true }],
+      raw_output: '{}',
+    });
+    const verifier = new FakeVerifierAdapter({
+      mission_id: 'mission_dual_worker',
+      summary: 'Verifier accepted the dual-worker mission output.',
+      evidence: [
+        { type: 'note', ref: 'worker://claude/analysis', description: 'Analysis artifact.' },
+        { type: 'other', ref: 'shell://bun%20--version', description: 'Shell command artifact.' },
+      ],
+      verification_checks: [
+        { name: 'analysis-ready', passed: true },
+        { name: 'shell-exit-code-zero', passed: true },
+      ],
+      status: 'verified_complete',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      workers: { claude, shell },
+      verifier,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Analyze this mission and then run `node --version` with proof.',
+        worker_preference: 'claude',
+        mission_id: 'mission_dual_worker',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('mission');
+      expect(result.decision.selected_worker).toBe('claude');
+      expect(claude.requests).toHaveLength(1);
+      expect(shell.requests).toHaveLength(1);
+      expect(shell.requests[0]?.task_id).toContain('secondary_work_');
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.status === 'success')).toBe(true);
+      expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'shell' && task.status === 'success')).toBe(true);
+      expect(result.verification_result?.status).toBe('verified_complete');
+      expect(result.mission_graph.nodes.some((node) => node.id.startsWith('secondary_work_') && node.status === 'completed')).toBe(true);
     } finally {
       await runtime.dispose();
     }

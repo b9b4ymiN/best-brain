@@ -279,6 +279,22 @@ describe('manager alpha via brain HTTP', () => {
         baseUrl: `http://127.0.0.1:${server.port}`,
         autoStart: false,
       }),
+      workers: {
+        shell: new StaticWorkerAdapter('shell', {
+          summary: 'Shell worker produced a note without implementation file evidence.',
+          status: 'success',
+          artifacts: [{ type: 'note', ref: 'worker://manager-http/shell-note', description: 'Shell output note.' }],
+          proposed_checks: [{ name: 'shell-proof-note', passed: true }],
+          raw_output: '{}',
+        }),
+        codex: new StaticWorkerAdapter('codex', {
+          summary: 'Codex worker completed quickly but did not add file evidence.',
+          status: 'success',
+          artifacts: [{ type: 'note', ref: 'worker://manager-http/codex-note', description: 'Codex output note.' }],
+          proposed_checks: [{ name: 'codex-proof-note', passed: true }],
+          raw_output: '{}',
+        }),
+      },
     });
 
     try {

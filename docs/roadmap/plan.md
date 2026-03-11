@@ -106,13 +106,15 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ### Step 11: Dual Worker Dispatch (*depends on Step 9, 10*)
 - **Files**: `src/manager/dispatcher.ts`, `src/manager/runtime.ts`
-- **Action**: Extend dispatcher to chain 2+ workers per mission. Task graph nodes can specify different workers. Worker results feed into next task's context
-- **Verification**: Mission using Claude (analysis) → Shell (execution) completes end-to-end; task graph shows correct worker assignments
+- **Status**: Completed on 2026-03-11
+- **Action**: Extend manager runtime to execute multi-worker mission graphs sequentially (non-verifier nodes), carry prior worker outputs into downstream task prompts, and verify against the merged proof chain.
+- **Verification**: `bun run smoke:manager:dual` passes on a deterministic Claude→Shell chain and records secondary worker nodes in mission/runtime artifacts.
 
 ### Step 12: Worker Health & Retry
 - **Files**: `src/workers/fabric.ts`, `src/manager/runtime.ts`
-- **Action**: Add worker health checks (CLI availability, timeout detection). Implement retry with exponential backoff (max 3 attempts). Fallback to alternative worker if primary unavailable
-- **Verification**: Simulate worker failure → retry succeeds or falls back; no silent failure
+- **Status**: Completed on 2026-03-11
+- **Action**: Add transient-failure retry policy in worker fabric (exponential backoff, max 3 attempts per worker) and preserve fallback behavior to alternate workers when the primary remains unavailable.
+- **Verification**: Worker-fabric tests now cover transient unavailability retries, fallback remains active for unavailable workers, and no silent failures are accepted.
 
 ---
 

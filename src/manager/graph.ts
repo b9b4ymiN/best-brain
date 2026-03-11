@@ -86,14 +86,19 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
     });
   }
 
-  const primaryNodeType: MissionNodeType = brief.selected_worker === 'codex'
-    ? 'implementation'
-    : brief.selected_worker === 'shell' || brief.selected_worker === 'browser' || brief.selected_worker === 'mail'
-      ? 'execution'
-      : 'analysis';
-  const primaryWorker: WorkerId | null = brief.selected_worker;
+  const orderedWorkers = Array.from(new Set([
+    brief.selected_worker,
+    ...brief.playbook.preferred_workers,
+  ])).filter((worker): worker is WorkerId => worker != null && worker !== 'verifier');
+  const workerNodeType = (worker: WorkerId): MissionNodeType => (
+    worker === 'codex'
+      ? 'implementation'
+      : worker === 'shell' || worker === 'browser' || worker === 'mail'
+        ? 'execution'
+        : 'analysis'
+  );
   const requiresDataSelection = brief.input_adapter_decisions.some((decision) => decision.decision !== 'not_required');
-  const primaryDependsOn = requiresDataSelection ? ['data_selection'] : ['context_review'];
+  const firstWorkerDependsOn = requiresDataSelection ? ['data_selection'] : ['context_review'];
   const nodes: MissionTaskNode[] = [
     {
       id: 'context_review',
@@ -124,6 +129,30 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
     });
   }
 
+  const workerNodes: MissionTaskNode[] = orderedWorkers.map((worker, index) => {
+    const nodeId = index === 0 ? 'primary_work' : `secondary_work_${index}`;
+    const dependsOn = index === 0
+      ? firstWorkerDependsOn
+      : [index === 1 ? 'primary_work' : `secondary_work_${index - 1}`];
+    return {
+      id: nodeId,
+      title: index === 0
+        ? 'Execute the primary worker'
+        : `Execute secondary worker ${index}`,
+      objective: `Run ${worker} against the compiled mission brief.`,
+      node_type: workerNodeType(worker),
+      assigned_worker: worker,
+      depends_on: dependsOn,
+      status: 'pending',
+      verification_gate: false,
+      retry_count: 0,
+      artifact_ids: [],
+    };
+  });
+  const verificationDependsOn = workerNodes.length === 0
+    ? ['context_review']
+    : [workerNodes[workerNodes.length - 1]!.id];
+
   return recomputeMissionGraph({
     mission_id: brief.mission_id,
     mission_kind: brief.mission_kind,
@@ -132,25 +161,14 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
     updated_at: now,
     nodes: [
       ...nodes,
-      {
-        id: 'primary_work',
-        title: 'Execute the primary worker',
-        objective: `Run ${primaryWorker ?? 'the selected worker'} against the compiled mission brief.`,
-        node_type: primaryNodeType,
-        assigned_worker: primaryWorker,
-        depends_on: primaryDependsOn,
-        status: 'pending',
-        verification_gate: false,
-        retry_count: 0,
-        artifact_ids: [],
-      },
+      ...workerNodes,
       {
         id: 'verification_gate',
         title: 'Run verification gate',
         objective: `Prove the result with checklist: ${brief.playbook.verifier_checklist.map((item) => item.name).join(' | ')}`,
         node_type: 'verification',
         assigned_worker: 'verifier',
-        depends_on: ['primary_work'],
+        depends_on: verificationDependsOn,
         status: 'pending',
         verification_gate: true,
         retry_count: 0,

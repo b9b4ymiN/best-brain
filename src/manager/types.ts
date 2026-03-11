@@ -191,6 +191,7 @@ export interface WorkerExecutionResult {
   proposed_checks: VerificationCheck[];
   raw_output: string;
   status: 'success' | 'needs_retry' | 'failed';
+  execution_attempts?: number;
   requested_worker?: ManagerWorker;
   executed_worker?: ManagerWorker;
   attempted_workers?: ManagerWorker[];

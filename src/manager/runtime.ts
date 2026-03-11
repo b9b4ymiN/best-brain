@@ -19,7 +19,7 @@ import {
   finalizeRun,
 } from './kernel.ts';
 import { compileMissionBrief } from './mission-compiler.ts';
-import { buildExecutionRequest } from './planner.ts';
+import { buildExecutionRequest, type PlannerExecutionHistoryEntry } from './planner.ts';
 import type { BrainAdapter, VerifierAdapter, WorkerAdapter } from './adapters/types.ts';
 import { BrainHttpAdapter } from './adapters/brain-http.ts';
 import { BrowserWorkerAdapter } from './adapters/browser.ts';
@@ -40,6 +40,7 @@ import {
 } from './chat-memory.ts';
 import type {
   BrainWriteRecord,
+  ExecutionRequest,
   ManagerInput,
   ManagerOutputMode,
   ManagerProgressEvent,
@@ -143,6 +144,66 @@ function artifactRefs(workerResult: WorkerExecutionResult): string[] {
 
 function mapWorkerStatusToRuntimeStatus(status: WorkerExecutionResult['status']): 'succeeded' | 'failed' {
   return status === 'success' ? 'succeeded' : 'failed';
+}
+
+function mergeWorkerResults(workerResults: WorkerExecutionResult[]): WorkerExecutionResult {
+  if (workerResults.length === 0) {
+    return {
+      summary: 'No worker result was produced.',
+      status: 'failed',
+      failure_kind: 'task_failed',
+      artifacts: [],
+      proposed_checks: [{
+        name: 'worker-result-present',
+        passed: false,
+        detail: 'No worker result was produced before verification.',
+      }],
+      raw_output: '',
+      invocation: null,
+      process_output: null,
+    };
+  }
+
+  const status: WorkerExecutionResult['status'] = workerResults.some((result) => result.status === 'failed')
+    ? 'failed'
+    : workerResults.some((result) => result.status === 'needs_retry')
+      ? 'needs_retry'
+      : 'success';
+  const summary = workerResults
+    .map((result, index) => {
+      const worker = result.executed_worker ?? result.requested_worker ?? `worker_${index + 1}`;
+      return `[${worker}] ${result.summary}`;
+    })
+    .join(' | ');
+  const artifacts = Array.from(new Map(
+    workerResults
+      .flatMap((result) => result.artifacts)
+      .map((artifact) => [`${artifact.type}:${artifact.ref}`, artifact]),
+  ).values());
+  const proposedChecks = Array.from(new Map(
+    workerResults
+      .flatMap((result) => result.proposed_checks)
+      .map((check) => [`${check.name}:${check.detail ?? ''}:${check.passed}`, check]),
+  ).values());
+  const rawOutput = workerResults.map((result) => result.raw_output).filter(Boolean).join('\n\n');
+  const attemptedWorkers = Array.from(new Set(workerResults.flatMap((result) => result.attempted_workers ?? [])));
+  const last = workerResults[workerResults.length - 1]!;
+
+  return {
+    summary,
+    status,
+    failure_kind: status === 'failed' ? (last.failure_kind ?? 'task_failed') : null,
+    artifacts,
+    proposed_checks: proposedChecks,
+    raw_output: rawOutput,
+    invocation: last.invocation ?? null,
+    process_output: last.process_output ?? null,
+    requested_worker: workerResults[0]?.requested_worker,
+    executed_worker: last.executed_worker ?? last.requested_worker,
+    attempted_workers: attemptedWorkers,
+    fallback_from: last.fallback_from ?? null,
+    fallback_reason: last.fallback_reason ?? null,
+  };
 }
 
 function mergeConsultResponses(primary: Awaited<ReturnType<BrainAdapter['consult']>>, secondary: Awaited<ReturnType<BrainAdapter['consult']>>) {
@@ -879,14 +940,172 @@ export class ManagerRuntime {
       );
     }
 
-    const executionRequest = buildExecutionRequest(brief, input.cwd);
-    if (!executionRequest) {
+    const brainWrites: BrainWriteRecord[] = [];
+    const plannerHistory: PlannerExecutionHistoryEntry[] = [];
+    const dispatchedWorkerResults: WorkerExecutionResult[] = [];
+    const dispatchedRequests: ExecutionRequest[] = [];
+
+    while (true) {
+      const executionRequest = buildExecutionRequest(brief, input.cwd, plannerHistory);
+      if (!executionRequest) {
+        break;
+      }
+
+      dispatchedRequests.push(executionRequest);
+      missionGraph = updateTaskStatus(missionGraph, executionRequest.task_id, 'running');
+      brief.mission_graph = missionGraph;
+      if (runtimeBundle) {
+        runtimeSpine.recordEvent({
+          task_id: executionRequest.task_id,
+          event_type: 'worker_dispatched',
+          actor: 'manager',
+          detail: `Dispatched ${executionRequest.selected_worker} for ${executionRequest.task_id}.`,
+          data: {
+            task_title: executionRequest.task_title,
+            playbook_id: executionRequest.playbook_id,
+            expected_artifacts: executionRequest.expected_artifacts,
+            requested_worker: executionRequest.selected_worker,
+            worker_chain: this.fabric.primaryWorkerChain(executionRequest),
+          },
+        });
+        runtimeBundle = runtimeSpine.snapshot();
+      }
+      await emitProgress({
+        stage: 'worker_dispatch',
+        status: 'started',
+        actor: 'manager',
+        title: `Dispatching ${executionRequest.selected_worker}`,
+        detail: executionRequest.task_title,
+        decision_kind: decision.kind,
+        requested_worker: executionRequest.selected_worker,
+        task_id: executionRequest.task_id,
+      });
+
+      const primaryDispatch = await this.fabric.dispatchPrimary(executionRequest, {
+        onTrace: observer.onProgress,
+      });
+      const workerResult = primaryDispatch.manager_result;
+      dispatchedWorkerResults.push(workerResult);
+      plannerHistory.push({
+        task_id: executionRequest.task_id,
+        worker: primaryDispatch.executed_worker,
+        status: workerResult.status,
+        summary: workerResult.summary,
+        artifact_refs: artifactRefs(workerResult),
+      });
+      const primaryWorkerTask = runtimeBundle
+        ? runtimeSpine.startWorkerTask({
+            task_id: executionRequest.task_id,
+            worker: primaryDispatch.executed_worker,
+            requested_worker: primaryDispatch.requested_worker,
+            fallback_from: primaryDispatch.executed_worker !== primaryDispatch.requested_worker
+              ? primaryDispatch.requested_worker
+              : null,
+            execution_mode: this.fabric.definitions[primaryDispatch.executed_worker].execution_mode,
+            objective: executionRequest.task_title,
+            playbook_id: executionRequest.playbook_id,
+            verifier_owned: false,
+          })
+        : null;
+      missionGraph = updateTaskStatus(
+        missionGraph,
+        executionRequest.task_id,
+        workerResult.status === 'success' ? 'completed' : 'failed',
+        artifactRefs(workerResult),
+      );
+      brief.mission_graph = missionGraph;
+      if (runtimeBundle) {
+        if (primaryDispatch.executed_worker !== primaryDispatch.requested_worker) {
+          runtimeSpine.recordEvent({
+            task_id: executionRequest.task_id,
+            event_type: 'worker_fallback_applied',
+            actor: 'manager',
+            detail: `Fell back from ${primaryDispatch.requested_worker} to ${primaryDispatch.executed_worker}.`,
+            data: {
+              requested_worker: primaryDispatch.requested_worker,
+              executed_worker: primaryDispatch.executed_worker,
+              attempted_workers: workerResult.attempted_workers ?? primaryDispatch.chain,
+              fallback_reason: workerResult.fallback_reason,
+            },
+          });
+        }
+        const runtimeArtifacts = runtimeSpine.recordVerificationArtifacts(
+          executionRequest.task_id,
+          primaryDispatch.executed_worker,
+          workerResult.artifacts,
+        );
+        if (workerResult.invocation) {
+          runtimeSpine.recordCompletedProcess({
+            actor: primaryDispatch.executed_worker,
+            command: workerResult.invocation.command,
+            args: workerResult.invocation.args,
+            cwd: workerResult.invocation.cwd ?? executionRequest.cwd,
+            status: mapWorkerStatusToRuntimeStatus(workerResult.status),
+            exit_code: workerResult.invocation.exit_code ?? (workerResult.status === 'success' ? 0 : 1),
+            stdout: workerResult.process_output?.stdout ?? workerResult.raw_output,
+            stderr: workerResult.process_output?.stderr ?? (workerResult.status === 'success' ? null : workerResult.summary),
+            task_id: executionRequest.task_id,
+            started_at: workerResult.invocation.started_at,
+            completed_at: workerResult.invocation.completed_at,
+          });
+        }
+        if (primaryWorkerTask) {
+          runtimeSpine.completeWorkerTask({
+            worker_task_id: primaryWorkerTask.id,
+            status: primaryDispatch.task_result.status,
+            summary: primaryDispatch.task_result.summary,
+            artifact_refs: primaryDispatch.task_result.artifacts.map((artifact) => artifact.ref),
+            check_names: primaryDispatch.task_result.checks.map((check) => check.name),
+            retry_recommendation: primaryDispatch.task_result.retry_recommendation,
+            invocation_command: primaryDispatch.task_result.invocation?.command ?? null,
+            invocation_args: primaryDispatch.task_result.invocation?.args ?? [],
+          });
+        }
+        runtimeSpine.createCheckpoint({
+          label: `after_${executionRequest.task_id}`,
+          artifact_ids: runtimeArtifacts.map((artifact) => artifact.id),
+          restore_supported: true,
+        });
+        runtimeSpine.setSessionStatus('active');
+        runtimeSpine.recordEvent({
+          task_id: executionRequest.task_id,
+          event_type: 'worker_completed',
+          actor: primaryDispatch.executed_worker,
+          detail: `${executionRequest.task_id} completed with status ${workerResult.status}.`,
+          data: {
+            proposed_checks: workerResult.proposed_checks.length,
+            requested_worker: primaryDispatch.requested_worker,
+            executed_worker: primaryDispatch.executed_worker,
+          },
+        });
+        runtimeBundle = runtimeSpine.snapshot();
+      }
+      await emitProgress({
+        stage: primaryDispatch.executed_worker !== primaryDispatch.requested_worker ? 'worker_fallback' : 'worker_dispatch',
+        status: 'completed',
+        actor: primaryDispatch.executed_worker,
+        title: primaryDispatch.executed_worker !== primaryDispatch.requested_worker
+          ? `Fell back to ${primaryDispatch.executed_worker}`
+          : `${primaryDispatch.executed_worker} completed ${executionRequest.task_id}`,
+        detail: workerResult.summary,
+        decision_kind: decision.kind,
+        requested_worker: primaryDispatch.requested_worker,
+        executed_worker: primaryDispatch.executed_worker,
+        task_id: executionRequest.task_id,
+      });
+
+      if (workerResult.status !== 'success') {
+        break;
+      }
+    }
+
+    if (dispatchedRequests.length === 0) {
       await emitProgress({
         stage: 'execution_plan',
         status: 'failed',
         actor: 'manager',
         title: 'No executable task was available',
-        detail: 'The mission graph did not expose a runnable primary task.',
+        detail: 'The mission graph did not expose a runnable worker task.',
         decision_kind: decision.kind,
       });
       if (runtimeBundle) {
@@ -909,140 +1128,8 @@ export class ManagerRuntime {
       );
     }
 
-    missionGraph = updateTaskStatus(missionGraph, 'primary_work', 'running');
-    brief.mission_graph = missionGraph;
-    if (runtimeBundle) {
-      runtimeSpine.recordEvent({
-        task_id: executionRequest.task_id,
-        event_type: 'worker_dispatched',
-        actor: 'manager',
-        detail: `Dispatched ${executionRequest.selected_worker} for ${executionRequest.task_id}.`,
-        data: {
-          task_title: executionRequest.task_title,
-          playbook_id: executionRequest.playbook_id,
-          expected_artifacts: executionRequest.expected_artifacts,
-          requested_worker: executionRequest.selected_worker,
-          worker_chain: this.fabric.primaryWorkerChain(executionRequest),
-        },
-      });
-      runtimeBundle = runtimeSpine.snapshot();
-    }
-    await emitProgress({
-      stage: 'worker_dispatch',
-      status: 'started',
-      actor: 'manager',
-      title: `Dispatching ${executionRequest.selected_worker}`,
-      detail: executionRequest.task_title,
-      decision_kind: decision.kind,
-      requested_worker: executionRequest.selected_worker,
-      task_id: executionRequest.task_id,
-    });
-
-    const brainWrites: BrainWriteRecord[] = [];
-    const primaryDispatch = await this.fabric.dispatchPrimary(executionRequest, {
-      onTrace: observer.onProgress,
-    });
-    const workerResult = primaryDispatch.manager_result;
-    const primaryWorkerTask = runtimeBundle
-      ? runtimeSpine.startWorkerTask({
-          task_id: executionRequest.task_id,
-          worker: primaryDispatch.executed_worker,
-          requested_worker: primaryDispatch.requested_worker,
-          fallback_from: primaryDispatch.executed_worker !== primaryDispatch.requested_worker
-            ? primaryDispatch.requested_worker
-            : null,
-          execution_mode: this.fabric.definitions[primaryDispatch.executed_worker].execution_mode,
-          objective: executionRequest.task_title,
-          playbook_id: executionRequest.playbook_id,
-          verifier_owned: false,
-        })
-      : null;
-    missionGraph = updateTaskStatus(
-      missionGraph,
-      'primary_work',
-      workerResult.status === 'success' ? 'completed' : 'failed',
-      artifactRefs(workerResult),
-    );
-    brief.mission_graph = missionGraph;
-    if (runtimeBundle) {
-      if (primaryDispatch.executed_worker !== primaryDispatch.requested_worker) {
-        runtimeSpine.recordEvent({
-          task_id: executionRequest.task_id,
-          event_type: 'worker_fallback_applied',
-          actor: 'manager',
-          detail: `Fell back from ${primaryDispatch.requested_worker} to ${primaryDispatch.executed_worker}.`,
-          data: {
-            requested_worker: primaryDispatch.requested_worker,
-            executed_worker: primaryDispatch.executed_worker,
-            attempted_workers: workerResult.attempted_workers ?? primaryDispatch.chain,
-            fallback_reason: workerResult.fallback_reason,
-          },
-        });
-      }
-      const runtimeArtifacts = runtimeSpine.recordVerificationArtifacts(
-        executionRequest.task_id,
-        primaryDispatch.executed_worker,
-        workerResult.artifacts,
-      );
-      if (workerResult.invocation) {
-        runtimeSpine.recordCompletedProcess({
-          actor: primaryDispatch.executed_worker,
-          command: workerResult.invocation.command,
-          args: workerResult.invocation.args,
-          cwd: workerResult.invocation.cwd ?? executionRequest.cwd,
-          status: mapWorkerStatusToRuntimeStatus(workerResult.status),
-          exit_code: workerResult.invocation.exit_code ?? (workerResult.status === 'success' ? 0 : 1),
-          stdout: workerResult.process_output?.stdout ?? workerResult.raw_output,
-          stderr: workerResult.process_output?.stderr ?? (workerResult.status === 'success' ? null : workerResult.summary),
-          task_id: executionRequest.task_id,
-          started_at: workerResult.invocation.started_at,
-          completed_at: workerResult.invocation.completed_at,
-        });
-      }
-      if (primaryWorkerTask) {
-        runtimeSpine.completeWorkerTask({
-          worker_task_id: primaryWorkerTask.id,
-          status: primaryDispatch.task_result.status,
-          summary: primaryDispatch.task_result.summary,
-          artifact_refs: primaryDispatch.task_result.artifacts.map((artifact) => artifact.ref),
-          check_names: primaryDispatch.task_result.checks.map((check) => check.name),
-          retry_recommendation: primaryDispatch.task_result.retry_recommendation,
-          invocation_command: primaryDispatch.task_result.invocation?.command ?? null,
-          invocation_args: primaryDispatch.task_result.invocation?.args ?? [],
-        });
-      }
-      runtimeSpine.createCheckpoint({
-        label: 'after_primary_work',
-        artifact_ids: runtimeArtifacts.map((artifact) => artifact.id),
-        restore_supported: true,
-      });
-      runtimeSpine.setSessionStatus('active');
-      runtimeSpine.recordEvent({
-        task_id: executionRequest.task_id,
-        event_type: 'worker_completed',
-        actor: primaryDispatch.executed_worker,
-        detail: `Primary worker completed with status ${workerResult.status}.`,
-        data: {
-          proposed_checks: workerResult.proposed_checks.length,
-          requested_worker: primaryDispatch.requested_worker,
-          executed_worker: primaryDispatch.executed_worker,
-        },
-      });
-      runtimeBundle = runtimeSpine.snapshot();
-    }
-    await emitProgress({
-      stage: primaryDispatch.executed_worker !== primaryDispatch.requested_worker ? 'worker_fallback' : 'worker_dispatch',
-      status: 'completed',
-      actor: primaryDispatch.executed_worker,
-      title: primaryDispatch.executed_worker !== primaryDispatch.requested_worker
-        ? `Fell back to ${primaryDispatch.executed_worker}`
-        : `${primaryDispatch.executed_worker} completed the primary task`,
-      detail: workerResult.summary,
-      decision_kind: decision.kind,
-      requested_worker: primaryDispatch.requested_worker,
-      executed_worker: primaryDispatch.executed_worker,
-      task_id: executionRequest.task_id,
-    });
+    const verificationRequestSource = dispatchedRequests[dispatchedRequests.length - 1]!;
+    const workerResult = mergeWorkerResults(dispatchedWorkerResults);
 
     const verifierWorkerTask = runtimeBundle
       ? runtimeSpine.startWorkerTask({
@@ -1050,7 +1137,7 @@ export class ManagerRuntime {
           worker: 'verifier',
           execution_mode: this.fabric.definitions.verifier.execution_mode,
           objective: 'Verify the mission result against the playbook checklist.',
-          playbook_id: executionRequest.playbook_id,
+          playbook_id: verificationRequestSource.playbook_id,
           verifier_owned: true,
         })
       : null;
@@ -1061,10 +1148,10 @@ export class ManagerRuntime {
       title: 'Running verification',
       detail: 'Checking evidence, verification gates, and final proof requirements.',
       decision_kind: decision.kind,
-      executed_worker: primaryDispatch.executed_worker,
+      executed_worker: workerResult.executed_worker ?? null,
       task_id: 'verification_gate',
     });
-    const verifierDispatch = await this.fabric.dispatchVerifier(executionRequest, workerResult);
+    const verifierDispatch = await this.fabric.dispatchVerifier(verificationRequestSource, workerResult);
     const verificationRequest = verifierDispatch.verification_request;
     assertCompletionPolicy(verificationRequest);
     if (runtimeBundle) {
@@ -1087,7 +1174,7 @@ export class ManagerRuntime {
       title: `Verification ${verificationRequest.status}`,
       detail: verificationRequest.summary,
       decision_kind: decision.kind,
-      executed_worker: primaryDispatch.executed_worker,
+      executed_worker: workerResult.executed_worker ?? null,
       task_id: 'verification_gate',
     });
 
@@ -1146,7 +1233,7 @@ export class ManagerRuntime {
       title: 'Mission outcome and verification were saved',
       detail: `Verification finished with status ${verificationResult.status}.`,
       decision_kind: decision.kind,
-      executed_worker: primaryDispatch.executed_worker,
+      executed_worker: workerResult.executed_worker ?? null,
     });
     missionGraph = updateTaskStatus(
       missionGraph,
@@ -1258,7 +1345,7 @@ export class ManagerRuntime {
         ? 'The manager finished the mission with verified proof.'
         : `The manager finished with ${verificationResult.status}.`,
       decision_kind: decision.kind,
-      executed_worker: primaryDispatch.executed_worker,
+      executed_worker: workerResult.executed_worker ?? null,
       blocked_reason_code: verificationResult.status === 'rejected' ? decision.blocked_reason_code : null,
     });
 

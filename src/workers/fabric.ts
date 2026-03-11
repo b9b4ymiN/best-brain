@@ -98,6 +98,9 @@ export interface WorkerDispatchResult {
   executed_worker: ExecutionRequest['selected_worker'];
 }
 
+const MAX_PRIMARY_RETRY_ATTEMPTS = 3;
+const PRIMARY_RETRY_BASE_MS = 150;
+
 export interface VerifierDispatchResult {
   definition: WorkerDefinition;
   task_input: WorkerTaskInput;
@@ -289,6 +292,21 @@ function canFallback(result: WorkerExecutionResult): boolean {
     || result.failure_kind === 'provider_unavailable';
 }
 
+function canRetryOnSameWorker(result: WorkerExecutionResult): boolean {
+  if (result.status !== 'failed') {
+    return false;
+  }
+
+  return result.failure_kind === 'runtime_error'
+    || result.failure_kind === 'worker_unavailable'
+    || result.failure_kind === 'provider_unavailable';
+}
+
+async function waitBeforeRetry(attempt: number): Promise<void> {
+  const delay = PRIMARY_RETRY_BASE_MS * (2 ** attempt);
+  await new Promise((resolve) => setTimeout(resolve, delay));
+}
+
 function buildFallbackReason(worker: ExecutionRequest['selected_worker'], result: WorkerExecutionResult): string {
   return result.summary || `Worker ${worker} was unavailable.`;
 }
@@ -299,6 +317,7 @@ function annotateManagerResult(
   executedWorker: ExecutionRequest['selected_worker'],
   attemptedWorkers: Array<ExecutionRequest['selected_worker']>,
   fallbackReason: string | null,
+  executionAttempts: number,
 ): WorkerExecutionResult {
   const normalized = normalizeManagerResult(
     {
@@ -315,6 +334,7 @@ function annotateManagerResult(
     attempted_workers: [...attemptedWorkers],
     fallback_from: executedWorker !== request.selected_worker ? request.selected_worker : null,
     fallback_reason: executedWorker !== request.selected_worker ? fallbackReason : null,
+    execution_attempts: executionAttempts,
   };
 }
 
@@ -376,26 +396,36 @@ export class WorkerFabric {
     for (const worker of chain) {
       attemptedWorkers.push(worker);
       const adapter = this.workers[worker];
-      const rawResult = await (async () => {
-        if (!adapter) {
-          return buildMissingAdapterResult(worker, chain);
+      let rawResult: WorkerExecutionResult | null = null;
+      let executionAttempts = 0;
+      for (let attempt = 0; attempt < MAX_PRIMARY_RETRY_ATTEMPTS; attempt += 1) {
+        executionAttempts = attempt + 1;
+        rawResult = await (async () => {
+          if (!adapter) {
+            return buildMissingAdapterResult(worker, chain);
+          }
+          try {
+            return await adapter.execute({
+              ...request,
+              selected_worker: worker,
+            }, observer);
+          } catch (error) {
+            return buildRuntimeErrorResult(worker, error);
+          }
+        })();
+        if (!canRetryOnSameWorker(rawResult) || executionAttempts >= MAX_PRIMARY_RETRY_ATTEMPTS) {
+          break;
         }
-        try {
-          return await adapter.execute({
-            ...request,
-            selected_worker: worker,
-          }, observer);
-        } catch (error) {
-          return buildRuntimeErrorResult(worker, error);
-        }
-      })();
+        await waitBeforeRetry(attempt);
+      }
 
       managerResult = annotateManagerResult(
         request,
-        rawResult,
+        rawResult ?? buildRuntimeErrorResult(worker, 'Worker returned no result.'),
         worker,
         attemptedWorkers,
         fallbackReasons.length > 0 ? fallbackReasons.join(' | ') : null,
+        executionAttempts,
       );
       executedWorker = worker;
 
@@ -412,6 +442,7 @@ export class WorkerFabric {
       request.selected_worker,
       attemptedWorkers.length > 0 ? attemptedWorkers : [request.selected_worker],
       null,
+      1,
     );
     const definition = this.definitions[executedWorker];
     const taskInput = buildTaskInput(

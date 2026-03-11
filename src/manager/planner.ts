@@ -1,7 +1,15 @@
 import type { MissionTaskNode } from './graph.ts';
 import { getReadyTaskNodes } from './graph.ts';
 import { buildMissionShellCommand } from '../proving/packs.ts';
-import type { ExecutionRequest, MissionBrief } from './types.ts';
+import type { ExecutionRequest, ManagerWorker, MissionBrief, WorkerExecutionResult } from './types.ts';
+
+export interface PlannerExecutionHistoryEntry {
+  task_id: string;
+  worker: ManagerWorker;
+  status: WorkerExecutionResult['status'];
+  summary: string;
+  artifact_refs: string[];
+}
 
 function splitCommandLine(value: string): string[] {
   const parts: string[] = [];
@@ -92,9 +100,10 @@ export function buildExecutionPlan(brief: MissionBrief): string[] {
   return steps;
 }
 
-function getPrimaryTask(brief: MissionBrief): MissionTaskNode | null {
-  const readyWorkerNodes = getReadyTaskNodes(brief.mission_graph).filter((node) => node.assigned_worker === brief.selected_worker);
-  return readyWorkerNodes[0] ?? null;
+function getReadyExecutionTasks(brief: MissionBrief): MissionTaskNode[] {
+  return getReadyTaskNodes(brief.mission_graph).filter((node) =>
+    node.assigned_worker != null
+    && node.assigned_worker !== 'verifier');
 }
 
 function collectExpectedArtifacts(brief: MissionBrief): Array<ExecutionRequest['expected_artifacts'][number]> {
@@ -126,15 +135,13 @@ function collectExpectedArtifacts(brief: MissionBrief): Array<ExecutionRequest['
   return Array.from(artifactKinds);
 }
 
-export function buildExecutionRequest(brief: MissionBrief, cwd: string): ExecutionRequest | null {
-  if (!brief.selected_worker) {
-    return null;
-  }
-
-  const primaryTask = getPrimaryTask(brief);
-  if (!primaryTask) {
-    return null;
-  }
+function buildExecutionRequestForTask(
+  brief: MissionBrief,
+  cwd: string,
+  task: MissionTaskNode,
+  history: PlannerExecutionHistoryEntry[],
+): ExecutionRequest {
+  const selectedWorker = task.assigned_worker as ManagerWorker;
 
   const expectedArtifacts = collectExpectedArtifacts(brief);
   const graphSummary = brief.mission_graph.nodes
@@ -147,16 +154,19 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
     .map((citation) => `${citation.memory_type}:${citation.title}`)
     .slice(0, 5)
     .join(' | ');
-  const shellCommand = brief.selected_worker === 'shell' ? resolveShellCommand(brief) : null;
+  const shellCommand = selectedWorker === 'shell' ? resolveShellCommand(brief) : null;
+  const historySummary = history
+    .map((entry) => `${entry.task_id}:${entry.worker}:${entry.status}:${entry.summary}`)
+    .join(' | ');
 
   return {
     mission_id: brief.mission_id,
     mission_kind: brief.mission_kind,
     mission_definition_id: brief.mission_definition_id,
     report_contract_id: brief.report_contract_id,
-    task_id: primaryTask.id,
-    task_title: primaryTask.title,
-    selected_worker: brief.selected_worker,
+    task_id: task.id,
+    task_title: task.title,
+    selected_worker: selectedWorker,
     shell_command: shellCommand,
     prompt: [
       'Work on the current task and return only the required JSON result.',
@@ -164,7 +174,7 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
       `Mission kind: ${brief.mission_kind}`,
       `Mission definition: ${brief.mission_definition_id}`,
       `Acceptance profile: ${brief.acceptance_profile_id}`,
-      `Current task: ${primaryTask.id} - ${primaryTask.title}`,
+      `Current task: ${task.id} - ${task.title}`,
       `Goal: ${brief.goal}`,
       `Shell command: ${shellCommand?.raw ?? 'none'}`,
       `Playbook: ${brief.playbook.id} (${brief.playbook.title})`,
@@ -177,6 +187,7 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
       `Input adapters: ${brief.input_adapter_decisions.map((decision) => `${decision.input_id}:${decision.decision}:${decision.selected_adapter_id ?? decision.blocked_reason ?? 'none'}`).join(' | ') || 'none'}`,
       `Verifier checklist: ${checklistSummary}`,
       `Mission graph: ${graphSummary}`,
+      `Previous worker outputs: ${historySummary || 'none'}`,
       `Context citations: ${citationSummary || 'none'}`,
       'If the manager derivation names owner-specific criteria, reflect them explicitly in your result.',
       'Treat confirmed brain memory as grounded context. Reusing confirmed persona, preference, or procedure memory does not require a new owner confirmation unless you are proposing to change that memory.',
@@ -200,4 +211,25 @@ export function buildExecutionRequest(brief: MissionBrief, cwd: string): Executi
     mission_graph: brief.mission_graph,
     verification_required: true,
   };
+}
+
+export function buildExecutionRequests(
+  brief: MissionBrief,
+  cwd: string,
+  history: PlannerExecutionHistoryEntry[] = [],
+): ExecutionRequest[] {
+  if (!brief.selected_worker) {
+    return [];
+  }
+
+  const tasks = getReadyExecutionTasks(brief);
+  return tasks.map((task) => buildExecutionRequestForTask(brief, cwd, task, history));
+}
+
+export function buildExecutionRequest(
+  brief: MissionBrief,
+  cwd: string,
+  history: PlannerExecutionHistoryEntry[] = [],
+): ExecutionRequest | null {
+  return buildExecutionRequests(brief, cwd, history)[0] ?? null;
 }

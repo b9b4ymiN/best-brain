@@ -17,6 +17,23 @@ class FakeWorkerAdapter implements WorkerAdapter {
   }
 }
 
+class SequenceWorkerAdapter implements WorkerAdapter {
+  readonly name: ExecutionRequest['selected_worker'];
+  readonly results: WorkerExecutionResult[];
+  calls = 0;
+
+  constructor(name: ExecutionRequest['selected_worker'], results: WorkerExecutionResult[]) {
+    this.name = name;
+    this.results = results;
+  }
+
+  async execute(): Promise<WorkerExecutionResult> {
+    const index = Math.min(this.calls, this.results.length - 1);
+    this.calls += 1;
+    return this.results[index]!;
+  }
+}
+
 class FakeVerifierAdapter implements VerifierAdapter {
   readonly response: VerificationRequest;
 
@@ -273,5 +290,56 @@ describe('worker fabric', () => {
     });
 
     expect(fabric.primaryWorkerChain(request)).toEqual(['browser', 'mail']);
+  });
+
+  test('retries transient worker-unavailable failures before succeeding on the same worker', async () => {
+    const codexSequence = new SequenceWorkerAdapter('codex', [
+      {
+        summary: 'Codex worker is not available on this machine.',
+        status: 'failed',
+        failure_kind: 'worker_unavailable',
+        artifacts: [{ type: 'note', ref: 'worker://codex/not-available', description: 'first failure' }],
+        proposed_checks: [{ name: 'codex-cli-available', passed: false }],
+        raw_output: 'not available',
+      },
+      {
+        summary: 'Codex worker is not available on this machine.',
+        status: 'failed',
+        failure_kind: 'worker_unavailable',
+        artifacts: [{ type: 'note', ref: 'worker://codex/not-available', description: 'second failure' }],
+        proposed_checks: [{ name: 'codex-cli-available', passed: false }],
+        raw_output: 'not available',
+      },
+      {
+        summary: 'Codex recovered and completed after retries.',
+        status: 'success',
+        artifacts: [{ type: 'note', ref: 'worker://codex/recovered', description: 'success' }],
+        proposed_checks: [{ name: 'worker-proof', passed: true }],
+        raw_output: '{}',
+      },
+    ]);
+    const fabric = new WorkerFabric({
+      codex: codexSequence,
+      claude: new FakeWorkerAdapter('claude', {
+        summary: 'Claude should not run when codex recovers.',
+        status: 'success',
+        artifacts: [{ type: 'note', ref: 'worker://claude/should-not-run' }],
+        proposed_checks: [{ name: 'unexpected', passed: true }],
+        raw_output: '{}',
+      }),
+    }, new FakeVerifierAdapter({
+      mission_id: 'mission_worker_fabric',
+      summary: 'verified',
+      evidence: [],
+      verification_checks: [],
+      status: 'verified_complete',
+    }));
+
+    const dispatch = await fabric.dispatchPrimary(makeExecutionRequest());
+    expect(codexSequence.calls).toBe(3);
+    expect(dispatch.executed_worker).toBe('codex');
+    expect(dispatch.manager_result.status).toBe('success');
+    expect(dispatch.manager_result.execution_attempts).toBe(3);
+    expect(dispatch.manager_result.attempted_workers).toEqual(['codex']);
   });
 });

@@ -37,6 +37,7 @@
     "smoke:manager:claude": "bun scripts/run-manager-claude-smoke.ts",
     "smoke:manager:codex": "bun scripts/run-manager-codex-smoke.ts",
     "smoke:manager:shell": "bun scripts/run-manager-shell-smoke.ts",
+    "smoke:manager:dual": "bun scripts/run-manager-dual-worker-smoke.ts",
     "smoke:manager:browser": "bun scripts/run-manager-browser-smoke.ts",
     "smoke:manager:mail": "bun scripts/run-manager-mail-smoke.ts",
     "smoke:manager:restore": "bun scripts/run-manager-restore-smoke.ts",
