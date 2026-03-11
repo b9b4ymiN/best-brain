@@ -5,6 +5,11 @@ import {
   prepareConsultEvalData,
   runConsultEvaluation,
 } from '../src/eval/consult.ts';
+import {
+  loadChatEvalFixtures,
+  prepareChatEvalData,
+  runChatEvaluation,
+} from '../src/eval/chat.ts';
 import { createTestBrain } from './helpers.ts';
 
 describe('consult evaluation', () => {
@@ -27,6 +32,27 @@ describe('consult evaluation', () => {
       expect(report.summary.mission_proof_pass_rate).toBe(100);
       expect(report.summary.orphan_evidence_count).toBe(0);
       expect(report.summary.passes_v1_gate).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('passes the curated chat evaluation gate', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      await prepareChatEvalData(brain);
+      const fixturePath = path.resolve(process.cwd(), 'tests/fixtures/chat');
+      const report = await runChatEvaluation(brain, loadChatEvalFixtures(fixturePath), fixturePath);
+
+      expect(report.summary.total_cases).toBeGreaterThanOrEqual(10);
+      expect(report.summary.decision_accuracy).toBeGreaterThanOrEqual(90);
+      expect(report.summary.answer_relevance).toBeGreaterThanOrEqual(85);
+      expect(report.summary.memory_write_accuracy).toBeGreaterThanOrEqual(85);
+      expect(report.summary.memory_grounding_rate).toBeGreaterThanOrEqual(85);
+      expect(report.summary.latency_pass_rate).toBeGreaterThanOrEqual(90);
+      expect(report.summary.quality_score).toBeGreaterThanOrEqual(85);
+      expect(report.summary.passes_gate).toBe(true);
     } finally {
       cleanup();
     }

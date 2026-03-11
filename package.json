@@ -14,6 +14,7 @@
     "validate:seeds": "bun scripts/validate-seeds.ts",
     "onboard": "bun scripts/onboard.ts",
     "eval:consult": "bun scripts/run-consult-eval.ts",
+    "eval:chat": "bun scripts/run-chat-eval.ts",
     "eval:consult:bless": "bun scripts/bless-consult-baseline.ts",
     "eval:seed": "bun scripts/run-seed-comparison.ts",
     "examples:manager": "bun scripts/generate-manager-examples.ts",

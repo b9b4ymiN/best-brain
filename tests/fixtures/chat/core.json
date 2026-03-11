@@ -1,0 +1,149 @@
+[
+  {
+    "id": "greeting-th",
+    "category": "greeting",
+    "message": "หวัดดี",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "direct_chat",
+    "expected_contains": ["สวัสดี"],
+    "requires_grounding": false,
+    "manual_scores": {
+      "relevance": 4,
+      "persona_consistency": 4,
+      "memory_grounding": 4,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "today-th",
+    "category": "thai-factual",
+    "message": "วันนี้วันอะไร",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "direct_chat",
+    "expected_contains": ["วันนี้คือ", "2569"],
+    "requires_grounding": false,
+    "manual_scores": {
+      "relevance": 5,
+      "persona_consistency": 4,
+      "memory_grounding": 4,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "month-th",
+    "category": "thai-factual",
+    "message": "เดือนนี้เดือนไร",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "direct_chat",
+    "expected_contains": ["เดือนนี้คือ"],
+    "requires_grounding": false,
+    "manual_scores": {
+      "relevance": 5,
+      "persona_consistency": 4,
+      "memory_grounding": 4,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "owner-name-update",
+    "category": "memory-update",
+    "message": "ฉันชื่อ โบ๊ท",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "chat_memory_update",
+    "expected_contains": ["โบ๊ท"],
+    "expected_written_subtypes": ["persona.identity"],
+    "manual_scores": {
+      "relevance": 5,
+      "persona_consistency": 5,
+      "memory_grounding": 5,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "investor-style-update",
+    "category": "memory-update",
+    "message": "อยากลงทุนแบบ VI เน้นหุ้น Quality Growth",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "chat_memory_update",
+    "expected_contains": ["VI"],
+    "expected_written_subtypes": ["persona.investor_style"],
+    "manual_scores": {
+      "relevance": 5,
+      "persona_consistency": 5,
+      "memory_grounding": 5,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "report-format-update",
+    "category": "memory-update",
+    "message": "I prefer concise report summaries with proof and next action.",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "chat_memory_update",
+    "expected_contains": ["preferred report format"],
+    "expected_written_subtypes": ["preference.report_format"],
+    "manual_scores": {
+      "relevance": 5,
+      "persona_consistency": 5,
+      "memory_grounding": 5,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "owner-name-recall",
+    "category": "memory-recall",
+    "message": "คุณจำชื่อฉันได้ไหม",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "direct_chat",
+    "expected_contains": ["โบ๊ท"],
+    "manual_scores": {
+      "relevance": 5,
+      "persona_consistency": 5,
+      "memory_grounding": 5,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "investor-style-recall",
+    "category": "memory-recall",
+    "message": "แนวลงทุนของฉันคืออะไร",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "direct_chat",
+    "expected_contains": ["VI"],
+    "manual_scores": {
+      "relevance": 5,
+      "persona_consistency": 5,
+      "memory_grounding": 5,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "about-me-recall",
+    "category": "memory-recall",
+    "message": "คุณรู้อะไรเกี่ยวกับฉัน",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "direct_chat",
+    "expected_contains": ["โบ๊ท", "VI"],
+    "manual_scores": {
+      "relevance": 5,
+      "persona_consistency": 5,
+      "memory_grounding": 5,
+      "actionability": 4
+    }
+  },
+  {
+    "id": "working-context-auto-learn",
+    "category": "auto-learn",
+    "message": "I am currently focused on manager runtime and test stability this week.",
+    "expected_decision_kind": "chat",
+    "expected_chat_mode": "direct_chat",
+    "expected_contains": ["Understood"],
+    "expected_written_subtypes": ["working.domain_signal", "working.chat_context"],
+    "manual_scores": {
+      "relevance": 4,
+      "persona_consistency": 4,
+      "memory_grounding": 4,
+      "actionability": 4
+    }
+  }
+]

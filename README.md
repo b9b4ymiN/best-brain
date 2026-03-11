@@ -100,6 +100,7 @@ bun run test
 bun run validate:seeds
 bun run onboard
 bun run eval:consult
+bun run eval:chat
 bun run eval:consult:bless
 bun run eval:seed
 bun run examples:manager
@@ -137,6 +138,13 @@ Brain HTTP:
 - `POST /verification/start`
 - `POST /verification/complete`
 - `GET /preferences/format`
+
+Chat HTTP:
+
+- `POST /chat/api/message`
+- `POST /chat/api/message/stream`
+- `POST /chat/api/message/run`
+- `GET /chat/api/runs/:id`
 
 Brain MCP:
 

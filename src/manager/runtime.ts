@@ -30,6 +30,7 @@ import {
   buildMemoryUpdateAnswer,
   buildOwnerRecallAnswer,
   classifyOwnerRecall,
+  extractChatAutoLearnRequests,
   extractChatMemoryFacts,
   shouldAttemptDirectOwnerRecall,
   shouldPreferLocalMemoryUpdate,
@@ -316,7 +317,13 @@ export class ManagerRuntime {
         observer,
         missionId,
         'Writing to brain memory',
-        `Saving ${fact.kind === 'owner_name' ? 'owner identity' : 'owner investing style'} to brain memory.`,
+        `Saving ${
+          fact.kind === 'owner_name'
+            ? 'owner identity'
+            : fact.kind === 'investor_style'
+              ? 'owner investing style'
+              : 'report format preference'
+        } to brain memory.`,
         'memory_write',
         'started',
         'brain_learn',
@@ -340,11 +347,66 @@ export class ManagerRuntime {
 
     const fallbackName = extraction.facts.find((fact) => fact.kind === 'owner_name')?.value ?? null;
     const fallbackInvestorStyle = extraction.facts.find((fact) => fact.kind === 'investor_style')?.value ?? null;
+    const fallbackPreferredFormat = extraction.facts.find((fact) => fact.kind === 'report_format_preference')?.value ?? null;
 
     return buildMemoryUpdateAnswer(goal, {
       name: recalled.name ?? fallbackName,
       investorStyle: recalled.investorStyle ?? fallbackInvestorStyle,
+      preferredFormat: fallbackPreferredFormat,
     });
+  }
+
+  private async handleChatAutoLearn(
+    goal: string,
+    chatMode: string | null | undefined,
+    missionId: string,
+    observer: ManagerRunObserver,
+  ): Promise<void> {
+    const requests = extractChatAutoLearnRequests(goal, chatMode);
+    if (requests.length === 0) {
+      return;
+    }
+
+    const dedupe = new Set<string>();
+    for (const request of requests) {
+      const key = `${request.learnRequest.memory_subtype ?? 'none'}|${request.learnRequest.content}`;
+      if (dedupe.has(key)) {
+        continue;
+      }
+      dedupe.add(key);
+
+      await this.emitChatBrainEvent(
+        observer,
+        missionId,
+        'Writing to brain memory',
+        `Auto-learning ${request.kind.replaceAll('_', ' ')} from chat context.`,
+        'memory_write',
+        'started',
+        'brain_learn',
+      );
+      try {
+        const result = await this.brain.learn(request.learnRequest);
+        await this.emitChatBrainEvent(
+          observer,
+          missionId,
+          result.accepted ? 'Brain memory updated' : 'Brain memory update rejected',
+          result.reason,
+          'memory_write',
+          result.accepted ? 'completed' : 'failed',
+          'brain_learn',
+        );
+      } catch (error) {
+        await this.emitChatBrainEvent(
+          observer,
+          missionId,
+          'Brain memory update failed',
+          error instanceof Error ? error.message : String(error),
+          'memory_write',
+          'failed',
+          'brain_learn',
+        );
+      }
+    }
   }
 
   private shouldInvokeReasoner(
@@ -764,6 +826,9 @@ export class ManagerRuntime {
         : decision.blocked_reason
           ? decision.blocked_reason
           : `Planned ${brief.kind} path. Next: ${brief.execution_plan[0] ?? 'Review the mission brief.'}`;
+      if (decision.kind === 'chat' && directMemoryUpdateResponse == null) {
+        await this.handleChatAutoLearn(input.goal, decision.chat_mode, missionId, observer);
+      }
       await emitProgress({
         stage: decision.kind === 'chat' ? 'chat_response' : 'planning_only',
         status: decision.kind === 'chat' ? 'completed' : decision.blocked_reason ? 'blocked' : 'completed',

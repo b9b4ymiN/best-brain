@@ -304,7 +304,10 @@ describe('chat HTTP', () => {
 
       expect(events.some((entry) => entry.type === 'status')).toBe(true);
       expect(events.some((entry) => entry.type === 'result')).toBe(true);
-      expect(events.find((entry) => entry.type === 'status')?.event?.title).toBe('Received your message');
+      const statusEvents = events.filter((entry) => entry.type === 'status');
+      expect(statusEvents.length).toBeGreaterThan(0);
+      expect(statusEvents[0]?.event?.title).not.toBe('Received your message');
+      expect(statusEvents.some((entry) => entry.event?.title === 'Manager received the request')).toBe(true);
       expect(events.find((entry) => entry.type === 'result')?.payload?.answer).toBe('Hello from the streamed responder.');
       expect((events.find((entry) => entry.type === 'result')?.payload?.activity_log ?? []).length).toBeGreaterThan(0);
     } finally {
@@ -367,7 +370,8 @@ describe('chat HTTP', () => {
       expect(snapshot.run_status).toBe('completed');
       expect(snapshot.final_answer).toBe('Hello from the polled responder.');
       expect(snapshot.trace_events.length).toBeGreaterThan(0);
-      expect(snapshot.trace_events.some((event) => event.title === 'Received your message')).toBe(true);
+      expect(snapshot.trace_events.some((event) => event.title === 'Received your message')).toBe(false);
+      expect(snapshot.trace_events.some((event) => event.title === 'Manager received the request')).toBe(true);
     } finally {
       server.stop(true);
       cleanup();

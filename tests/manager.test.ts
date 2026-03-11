@@ -426,6 +426,66 @@ describe('manager alpha unit flow', () => {
     }
   });
 
+  test('chat memory update can persist report-format preferences without mission execution', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'chat',
+      chat_mode: 'chat_memory_update',
+      reason: 'The user is updating durable preferences.',
+      direct_answer: null,
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'I prefer concise report summaries with proof and next action.',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('chat');
+      expect(result.decision.chat_mode).toBe('chat_memory_update');
+      expect(result.worker_result).toBeNull();
+      expect(result.verification_result).toBeNull();
+      expect(brain.calls.learn.some((request) => request.memory_subtype === 'preference.report_format')).toBe(true);
+      expect(result.owner_response).toContain('preferred report format');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('direct chat auto-learns working context and domain signals through brain learn policy', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'chat',
+      chat_mode: 'direct_chat',
+      reason: 'The message is direct chat.',
+      direct_answer: 'Understood. I will keep this context in mind.',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'I am currently focused on manager runtime and test stability this week.',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('chat');
+      expect(result.worker_result).toBeNull();
+      expect(result.verification_result).toBeNull();
+      expect(result.owner_response).toContain('Understood');
+      expect(brain.calls.learn.some((request) => request.memory_subtype === 'working.chat_context')).toBe(true);
+      expect(brain.calls.learn.some((request) => request.memory_subtype === 'working.domain_signal')).toBe(true);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   test('owner self-fact updates stay in chat_memory_update even if AI triage tries to escalate them', async () => {
     const brain = new FakeBrainAdapter();
     const reasoner = new FakeReasoner({

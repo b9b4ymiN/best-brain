@@ -56,16 +56,19 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ### Step 4: Brain-Aware Chat Default (*depends on Step 1*)
 - **Files**: `src/manager/chat-responder.ts`, `src/chat/service.ts`
+- **Status**: Completed on 2026-03-11
 - **Action**: Make ChatResponder non-optional — always consult brain before answering. Implement fallback chain: Claude MCP → Claude CLI → Codex CLI → direct brain answer
 - **Verification**: Chat messages with persona/preference questions return memory-grounded answers with citations
 
 ### Step 5: Chat Memory Loop
 - **Files**: `src/chat/service.ts`, `src/services/brain.ts`
+- **Status**: Completed on 2026-03-11
 - **Action**: Auto-learn from chat conversations — extract preference signals, domain knowledge, and working memory from user messages. Use learn mode `working_memory` with 14-day TTL
 - **Verification**: Send 3+ chat messages → verify working_memory items created → next consult references them
 
 ### Step 6: Chat Quality Eval
 - **Files**: `src/eval/` (new chat eval), `scripts/` (new eval runner)
+- **Status**: Completed on 2026-03-11
 - **Action**: Create `chat-eval.ts` with rubrics: response relevance, persona consistency, memory grounding, latency. Minimum 10 test cases covering: greeting, preference recall, domain Q&A, Thai language, clarification requests
 - **Verification**: `bun run eval:chat` passes with ≥85% quality score
 

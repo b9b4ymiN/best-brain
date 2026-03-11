@@ -50,21 +50,6 @@ export class ChatService {
 
     const manager = await this.managerFactory();
     try {
-      await recordProgress({
-        stage: 'chat_receive',
-        kind: 'status',
-        status: 'started',
-        actor: 'manager',
-        title: 'Received your message',
-        detail: 'best-brain is deciding whether to answer directly or run a mission.',
-        timestamp: Date.now(),
-        mission_id: null,
-        task_id: null,
-        decision_kind: null,
-        requested_worker: null,
-        executed_worker: null,
-        blocked_reason_code: null,
-      });
       const result = await manager.run({
         goal: message,
         worker_preference: 'auto',

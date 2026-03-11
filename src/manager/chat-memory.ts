@@ -31,7 +31,7 @@ const ENGLISH_ABOUT_ME_QUERY = /\b(?:what do you know about me|what have you rem
 
 export interface ChatMemoryFact {
   learnRequest: LearnRequest;
-  kind: 'owner_name' | 'investor_style';
+  kind: 'owner_name' | 'investor_style' | 'report_format_preference';
   value: string;
 }
 
@@ -50,6 +50,11 @@ export interface OwnerRecallResult {
   name: string | null;
   investorStyle: string | null;
   consults: ConsultResponse[];
+}
+
+export interface ChatAutoLearnRequest {
+  kind: 'preference_signal' | 'domain_signal' | 'working_memory';
+  learnRequest: LearnRequest;
 }
 
 function containsThai(text: string): boolean {
@@ -114,6 +119,25 @@ function extractInvestorStyle(text: string): string | null {
   return parts.length > 0 ? parts.join(' ') : null;
 }
 
+function extractPreferredReportFormat(text: string): string | null {
+  const normalized = normalizeWhitespace(text.toLowerCase());
+  const thaiShortReport = /(?:ชอบ|อยากได้|ขอ).*(?:รายงาน|สรุป|คำตอบ).*(?:สั้น|กระชับ|ย่อ)/u.test(normalized)
+    || /(?:รายงาน|สรุป|คำตอบ).*(?:สั้น|กระชับ|ย่อ)/u.test(normalized);
+  const englishShortReport = /\b(?:prefer|like|want)\b.*\b(?:short|brief|concise)\b.*\b(?:report|summary|answer)\b/i.test(normalized)
+    || /\b(?:short|brief|concise)\b.*\b(?:report|summary|answer)\b/i.test(normalized);
+  if (thaiShortReport || englishShortReport) {
+    return 'Short status, proof, next action.';
+  }
+
+  const thaiStructuredReport = /(?:รายงาน|สรุป).*(?:เป็นหัวข้อ|เป็นข้อ|เป็นลำดับ|structured)/u.test(normalized);
+  const englishStructuredReport = /\b(?:report|summary)\b.*\b(?:bullet|structured|sections?)\b/i.test(normalized);
+  if (thaiStructuredReport || englishStructuredReport) {
+    return 'Structured sections with objective, result, proof, and next action.';
+  }
+
+  return null;
+}
+
 function buildEvidenceRef(goal: string) {
   return [{
     type: 'note' as const,
@@ -158,6 +182,86 @@ function buildStyleAliases(style: string): string[] {
   }
   if (/quality growth/i.test(trimmed)) {
     aliases.add('quality growth');
+  }
+  return Array.from(aliases);
+}
+
+function buildFormatAliases(format: string): string[] {
+  const aliases = new Set<string>([
+    'preferred report format',
+    'report format',
+    'preferred format',
+    'รูปแบบรายงาน',
+    'รูปแบบสรุป',
+  ]);
+  const trimmed = cleanCapturedValue(format);
+  if (trimmed) {
+    aliases.add(trimmed);
+  }
+  if (/short|concise|brief/i.test(trimmed)) {
+    aliases.add('short report');
+    aliases.add('concise report');
+  }
+  return Array.from(aliases);
+}
+
+function looksLikeGreeting(text: string): boolean {
+  const normalized = text.trim().toLowerCase();
+  return normalized.length <= 24
+    && (
+      /^(hi|hello|hey|yo|thanks|thank you|ok|okay)$/.test(normalized)
+      || /^(สวัสดี|หวัดดี|ขอบคุณ|โอเค|ครับ|ค่ะ|คับ)$/u.test(normalized)
+    );
+}
+
+function shouldCaptureWorkingContext(text: string, chatMode: string | null | undefined): boolean {
+  if (chatMode === 'chat_memory_update') {
+    return false;
+  }
+
+  const normalized = normalizeWhitespace(text);
+  if (!normalized || looksLikeGreeting(normalized) || normalized.length < 24) {
+    return false;
+  }
+
+  if (/[?？]$/.test(normalized)) {
+    return false;
+  }
+
+  return /\b(currently|focus|focused|working on|deadline|phase|this week|next action|context)\b/i.test(normalized)
+    || /(?:ตอนนี้|กำลัง|โฟกัส|เป้าหมาย|สัปดาห์นี้|เดดไลน์|งานที่ทำอยู่|บริบท)/u.test(normalized);
+}
+
+function detectDomainSignal(text: string): string | null {
+  const normalized = text.toLowerCase();
+  if (/\b(stock|equit(y|ies)|vi|quality growth|value investor|trading)\b/i.test(normalized)
+    || /(?:หุ้น|ลงทุน|วีไอ|ตลาดหุ้น|quality growth)/u.test(text)) {
+    return 'investing';
+  }
+  if (/\b(repo|code|typescript|bun|test|ci|mcp|manager)\b/i.test(normalized)
+    || /(?:โค้ด|รีโป|ทดสอบ|เอ็มซีพี|แมเนเจอร์)/u.test(text)) {
+    return 'best-brain';
+  }
+  return null;
+}
+
+function hasQuestionMark(text: string): boolean {
+  return /[?？]/u.test(text);
+}
+
+function buildWorkingMemoryAliases(text: string): string[] {
+  const aliases = new Set<string>([
+    'recent chat context',
+    'conversation context',
+    'working context',
+  ]);
+  const tokens = normalizeWhitespace(text)
+    .split(/\s+/)
+    .map((token) => cleanCapturedValue(token.toLowerCase()))
+    .filter((token) => token.length >= 4)
+    .slice(0, 6);
+  for (const token of tokens) {
+    aliases.add(token);
   }
   return Array.from(aliases);
 }
@@ -218,6 +322,31 @@ export function extractChatMemoryFacts(goal: string): ChatMemoryExtraction {
         memory_subtype: 'persona.investor_style',
         entity_keys: ['owner_investor_style'],
         entity_aliases: buildStyleAliases(investorStyle),
+        evidence_ref: buildEvidenceRef(goal),
+      },
+    });
+  }
+
+  const preferredFormat = extractPreferredReportFormat(goal);
+  if (preferredFormat) {
+    facts.push({
+      kind: 'report_format_preference',
+      value: preferredFormat,
+      learnRequest: {
+        mode: 'preference',
+        title: 'Preferred report format',
+        content: `Preferred report format: ${preferredFormat}`,
+        source: 'chat://mcp-memory-write',
+        verified_by: 'user',
+        confirmed_by_user: true,
+        written_by: 'chat',
+        owner_scope: 'private',
+        reusable: true,
+        memory_scope: 'owner',
+        memory_layer: 'principle',
+        memory_subtype: 'preference.report_format',
+        entity_keys: ['preferred_report_format'],
+        entity_aliases: buildFormatAliases(preferredFormat),
         evidence_ref: buildEvidenceRef(goal),
       },
     });
@@ -360,7 +489,11 @@ export function buildOwnerRecallAnswer(goal: string, facts: { name: string | nul
   return null;
 }
 
-export function buildMemoryUpdateAnswer(goal: string, facts: { name: string | null; investorStyle: string | null }): string {
+export function buildMemoryUpdateAnswer(goal: string, facts: { name: string | null; investorStyle: string | null; preferredFormat?: string | null }): string {
+  const hasName = Boolean(facts.name);
+  const hasStyle = Boolean(facts.investorStyle);
+  const hasFormat = Boolean(facts.preferredFormat);
+
   if (containsThai(goal)) {
     if (facts.name && facts.investorStyle) {
       return `รับทราบแล้ว ฉันจะจำว่าคุณชื่อ ${facts.name} และแนวลงทุนของคุณคือ ${facts.investorStyle}`;
@@ -374,14 +507,26 @@ export function buildMemoryUpdateAnswer(goal: string, facts: { name: string | nu
     return 'ฉันยังไม่แน่ใจว่าควรจำข้อมูลส่วนไหน ช่วยระบุให้ชัดอีกนิดได้ไหม';
   }
 
-  if (facts.name && facts.investorStyle) {
+  if (hasName && hasStyle && hasFormat) {
+    return `Saved. Your name is ${facts.name}, your investing style is ${facts.investorStyle}, and your preferred report format is ${facts.preferredFormat}.`;
+  }
+  if (hasName && hasStyle) {
     return `Saved. Your name is ${facts.name} and your investing style is ${facts.investorStyle}.`;
   }
-  if (facts.name) {
+  if (hasName && hasFormat) {
+    return `Saved. Your name is ${facts.name}. I will use this report format: ${facts.preferredFormat}.`;
+  }
+  if (hasStyle && hasFormat) {
+    return `Saved. Your investing style is ${facts.investorStyle}. I will use this report format: ${facts.preferredFormat}.`;
+  }
+  if (hasName) {
     return `Saved. Your name is ${facts.name}.`;
   }
-  if (facts.investorStyle) {
+  if (hasStyle) {
     return `Saved. Your investing style is ${facts.investorStyle}.`;
+  }
+  if (hasFormat) {
+    return `Saved. Your preferred report format is ${facts.preferredFormat}.`;
   }
   return 'I am not sure which durable fact to save yet. Please restate it more clearly.';
 }
@@ -407,4 +552,86 @@ export function summarizeOwnerRecall(consults: ConsultResponse[]): OwnerRecallRe
     investorStyle: extractValueFromMemory(styleMemory, 'investor_style'),
     consults,
   };
+}
+
+export function extractChatAutoLearnRequests(goal: string, chatMode: string | null | undefined): ChatAutoLearnRequest[] {
+  if (chatMode === 'chat_memory_update') {
+    return [];
+  }
+
+  const requests: ChatAutoLearnRequest[] = [];
+  const preferredFormat = extractPreferredReportFormat(goal);
+  if (preferredFormat) {
+    requests.push({
+      kind: 'preference_signal',
+      learnRequest: {
+        mode: 'preference',
+        title: 'Preferred report format',
+        content: `Preferred report format: ${preferredFormat}`,
+        source: 'chat://mcp-memory-write',
+        verified_by: 'user',
+        confirmed_by_user: true,
+        written_by: 'chat',
+        owner_scope: 'private',
+        reusable: true,
+        memory_scope: 'owner',
+        memory_layer: 'principle',
+        memory_subtype: 'preference.report_format',
+        entity_keys: ['preferred_report_format'],
+        entity_aliases: buildFormatAliases(preferredFormat),
+        evidence_ref: buildEvidenceRef(goal),
+      },
+    });
+  }
+
+  const domainSignal = detectDomainSignal(goal);
+  if (domainSignal && !hasQuestionMark(goal)) {
+    requests.push({
+      kind: 'domain_signal',
+      learnRequest: {
+        mode: 'working_memory',
+        title: `Current domain focus (${domainSignal})`,
+        content: `Current conversation domain focus: ${domainSignal}. User message: ${normalizeWhitespace(goal)}`,
+        source: 'chat://auto-learn',
+        verified_by: 'system_inference',
+        confirmed_by_user: false,
+        written_by: 'chat',
+        owner_scope: 'private',
+        reusable: false,
+        memory_scope: 'session',
+        memory_layer: 'working',
+        memory_subtype: 'working.domain_signal',
+        entity_keys: ['chat_domain_signal'],
+        entity_aliases: [domainSignal],
+        tags: ['chat', 'auto-learn', 'domain-signal', domainSignal],
+        evidence_ref: buildEvidenceRef(goal),
+      },
+    });
+  }
+
+  if (shouldCaptureWorkingContext(goal, chatMode)) {
+    requests.push({
+      kind: 'working_memory',
+      learnRequest: {
+        mode: 'working_memory',
+        title: 'Recent chat working context',
+        content: `Recent chat context: ${normalizeWhitespace(goal)}`,
+        source: 'chat://auto-learn',
+        verified_by: 'system_inference',
+        confirmed_by_user: false,
+        written_by: 'chat',
+        owner_scope: 'private',
+        reusable: false,
+        memory_scope: 'session',
+        memory_layer: 'working',
+        memory_subtype: 'working.chat_context',
+        entity_keys: ['chat_working_context'],
+        entity_aliases: buildWorkingMemoryAliases(goal),
+        tags: ['chat', 'auto-learn', 'working-context'],
+        evidence_ref: buildEvidenceRef(goal),
+      },
+    });
+  }
+
+  return requests;
 }
