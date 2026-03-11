@@ -110,6 +110,59 @@ describe('chat HTTP', () => {
     }
   });
 
+  test('returns a promote-to-mission suggestion for chat messages that look mission-sized', async () => {
+    const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'chat-owner' });
+    let server: ReturnType<typeof Bun.serve>;
+    const managerFactory = () => new ManagerRuntime({
+      brain: new BrainHttpAdapter({
+        baseUrl: `http://127.0.0.1:${server.port}`,
+        autoStart: false,
+      }),
+      chatResponder: new StaticChatResponder('I can outline a workflow first, then you can promote it to mission execution.'),
+    });
+    const controlRoom = new ControlRoomService({
+      dataDir: brain.config.dataDir,
+      managerFactory,
+    });
+    const chat = new ChatService({
+      managerFactory,
+      controlRoom,
+    });
+    const app = createApp(brain, { chat, controlRoom });
+    server = Bun.serve({
+      port: 0,
+      hostname: '127.0.0.1',
+      fetch: app.fetch,
+    });
+
+    try {
+      const baseUrl = `http://127.0.0.1:${server.port}`;
+      const response = await fetch(`${baseUrl}/chat/api/message`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          message: 'Can you help me plan a workflow for this project?',
+        }),
+      });
+      expect(response.status).toBe(200);
+      const payload = await response.json() as {
+        decision_kind: string;
+        mission_id: string | null;
+        promotion: {
+          can_promote: boolean;
+          control_room_prefill_path: string | null;
+        };
+      };
+      expect(payload.decision_kind).toBe('chat');
+      expect(payload.mission_id).toBeNull();
+      expect(payload.promotion.can_promote).toBe(true);
+      expect(payload.promotion.control_room_prefill_path).toContain('/control-room?goal=');
+    } finally {
+      server.stop(true);
+      cleanup();
+    }
+  });
+
   test('asks for clarification on short Thai chat fragments instead of dumping memory retrieval', async () => {
     const { brain, cleanup } = await createTestBrain({ seedDefaults: true, owner: 'chat-owner' });
     let server: ReturnType<typeof Bun.serve>;

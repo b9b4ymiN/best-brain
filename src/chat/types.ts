@@ -5,6 +5,12 @@ export interface ChatMessageRequest {
   message: string;
 }
 
+export interface ChatPromotionSuggestion {
+  can_promote: boolean;
+  reason: string | null;
+  control_room_prefill_path: string | null;
+}
+
 export interface ChatMessageResponse {
   user_message: string;
   answer: string;
@@ -13,6 +19,7 @@ export interface ChatMessageResponse {
   mission_id: string | null;
   mission_status: MissionStatus | null;
   control_room_path: string | null;
+  promotion: ChatPromotionSuggestion;
   trace_id: string;
   citations: ConsultCitation[];
   activity_log: ManagerProgressEvent[];

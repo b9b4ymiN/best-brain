@@ -214,7 +214,35 @@ export function renderControlRoomPage(): string {
             <h2>Missions</h2>
             <small id="missionCount">0 missions</small>
           </div>
+          <div class="stack" style="margin: 10px 0 12px;">
+            <label class="two-line">
+              <span>Status filter</span>
+              <select id="historyStatusFilter">
+                <option value="all">all</option>
+              </select>
+            </label>
+            <label class="two-line">
+              <span>Mission kind filter</span>
+              <select id="historyKindFilter">
+                <option value="all">all</option>
+              </select>
+            </label>
+            <label class="two-line">
+              <span>Date from</span>
+              <input id="historyDateFrom" type="date" />
+            </label>
+            <label class="two-line">
+              <span>Date to</span>
+              <input id="historyDateTo" type="date" />
+            </label>
+            <button id="historyApplyFilter" class="secondary">Apply history filter</button>
+          </div>
           <div id="missionList" class="mission-list"></div>
+          <div class="two-line" style="margin-top: 12px;">
+            <h3>Run history</h3>
+            <small id="historyCount">0 items</small>
+          </div>
+          <div id="historyList" class="mission-list"></div>
         </aside>
 
         <section id="detail" class="grid">
@@ -226,9 +254,13 @@ export function renderControlRoomPage(): string {
     <script>
       const state = {
         dashboard: null,
+        history: null,
         selectedMissionId: null,
+        selectedMissionStatus: null,
       };
-      const requestedMissionId = new URLSearchParams(window.location.search).get('mission_id');
+      const searchParams = new URLSearchParams(window.location.search);
+      const requestedMissionId = searchParams.get('mission_id');
+      const prefilledGoal = searchParams.get('goal');
 
       function badgeClass(status) {
         if (status === 'verified_complete' || status === 'completed') return 'status good';
@@ -244,9 +276,23 @@ export function renderControlRoomPage(): string {
       function renderDashboard() {
         const list = document.getElementById('missionList');
         const missionCount = document.getElementById('missionCount');
+        const statusFilterEl = document.getElementById('historyStatusFilter');
+        const kindFilterEl = document.getElementById('historyKindFilter');
         const missions = state.dashboard?.missions ?? [];
         missionCount.textContent = missions.length + ' mission' + (missions.length === 1 ? '' : 's');
         list.innerHTML = '';
+        if (statusFilterEl) {
+          const selected = statusFilterEl.value || 'all';
+          const statuses = ['all'].concat(state.dashboard?.available_statuses ?? []);
+          statusFilterEl.innerHTML = statuses.map((value) => '<option value="' + value + '">' + value + '</option>').join('');
+          statusFilterEl.value = statuses.includes(selected) ? selected : 'all';
+        }
+        if (kindFilterEl) {
+          const selected = kindFilterEl.value || 'all';
+          const kinds = ['all'].concat(state.dashboard?.available_mission_kinds ?? []);
+          kindFilterEl.innerHTML = kinds.map((value) => '<option value="' + value + '">' + value + '</option>').join('');
+          kindFilterEl.value = kinds.includes(selected) ? selected : 'all';
+        }
         if (missions.length === 0) {
           list.innerHTML = '<div class="empty">No mission has been launched yet.</div>';
           return;
@@ -260,6 +306,62 @@ export function renderControlRoomPage(): string {
           card.addEventListener('click', () => loadMission(mission.mission_id));
           list.appendChild(card);
         }
+      }
+
+      function formatDuration(value) {
+        if (typeof value !== 'number' || !Number.isFinite(value)) {
+          return 'n/a';
+        }
+        const seconds = Math.max(0, Math.round(value / 1000));
+        if (seconds < 60) return seconds + 's';
+        const minutes = Math.floor(seconds / 60);
+        const remain = seconds % 60;
+        return minutes + 'm ' + remain + 's';
+      }
+
+      function renderHistory() {
+        const historyList = document.getElementById('historyList');
+        const historyCount = document.getElementById('historyCount');
+        const items = state.history?.items ?? [];
+        if (historyCount) {
+          historyCount.textContent = items.length + ' item' + (items.length === 1 ? '' : 's');
+        }
+        if (!historyList) {
+          return;
+        }
+        historyList.innerHTML = '';
+        if (items.length === 0) {
+          historyList.innerHTML = '<div class="empty">No history item matches the current filter.</div>';
+          return;
+        }
+        for (const item of items) {
+          const card = document.createElement('div');
+          card.className = 'mission-card';
+          const comparison = item.comparison && item.comparison.has_previous
+            ? 'Δduration: ' + formatDuration(item.comparison.duration_delta_ms) + ' • Δchecks: ' + item.comparison.checks_passed_delta
+            : 'No previous run to compare.';
+          card.innerHTML = ''
+            + '<div class="two-line"><strong>' + item.goal + '</strong><small>' + item.mission_kind + '</small></div>'
+            + '<div class="mission-meta"><span class="' + badgeClass(item.status) + '">' + item.status + '</span><span>' + formatDuration(item.duration_ms) + '</span></div>'
+            + '<div class="mission-meta"><span>runs: ' + item.run_count + '</span><span>checks: ' + item.checks_passed + '/' + item.checks_total + '</span></div>'
+            + '<div class="mission-meta"><span>' + comparison + '</span></div>';
+          historyList.appendChild(card);
+        }
+      }
+
+      async function loadHistory() {
+        const params = new URLSearchParams();
+        const status = document.getElementById('historyStatusFilter')?.value || 'all';
+        const missionKind = document.getElementById('historyKindFilter')?.value || 'all';
+        const dateFrom = document.getElementById('historyDateFrom')?.value || '';
+        const dateTo = document.getElementById('historyDateTo')?.value || '';
+        params.set('status', status);
+        params.set('mission_kind', missionKind);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+        const response = await fetch('/control-room/api/history?' + params.toString());
+        state.history = await response.json();
+        renderHistory();
       }
 
       function renderDetail(view) {
@@ -285,6 +387,11 @@ export function renderControlRoomPage(): string {
           + '    <div class="panel stack">'
           + '      <h3>Plan</h3>'
           + '      <div class="list">' + view.plan_overview.map((step) => '<div class="item"><pre>' + step + '</pre></div>').join('') + '</div>'
+          + '      <h3>Phase timeline</h3>'
+          + '      <div class="list">' + (view.phase_timeline || []).map((phase) =>
+            '<div class="item"><strong>' + phase.title + '</strong><br/><small>' + phase.status + ' • '
+            + formatTime(phase.started_at) + ' → ' + formatTime(phase.ended_at) + ' • '
+            + formatDuration(phase.duration_ms) + '</small><pre>' + phase.detail + '</pre></div>').join('') + '</div>'
           + '    </div>'
           + '    <div class="panel stack">'
           + '      <h3>Verdict</h3>'
@@ -304,7 +411,10 @@ export function renderControlRoomPage(): string {
           + '  </div>'
           + '  <div class="panel stack">'
           + '    <h3>Workers</h3>'
-          + '    <div class="list">' + view.workers.map((worker) => '<div class="item"><strong>' + worker.worker + '</strong><br/><small>' + worker.status + ' • ' + formatTime(worker.last_update_at) + '</small></div>').join('') + '</div>'
+          + '    <div class="list">' + view.workers.map((worker) =>
+            '<div class="item"><strong>' + worker.worker + '</strong><br/><small>' + worker.status + ' • '
+            + formatTime(worker.last_update_at) + ' • artifacts ' + worker.artifact_count + '</small><pre>'
+            + (worker.last_summary || 'No worker summary yet.') + '</pre></div>').join('') + '</div>'
           + '    <h3>Final report</h3>'
           + (view.final_report_artifact
               ? '<div class="item"><pre>' + JSON.stringify(view.final_report_artifact, null, 2) + '</pre></div>'
@@ -348,6 +458,7 @@ export function renderControlRoomPage(): string {
           return;
         }
         state.selectedMissionId = missionId;
+        state.selectedMissionStatus = payload.status || null;
         renderDashboard();
         renderDetail(payload);
       }
@@ -361,6 +472,7 @@ export function renderControlRoomPage(): string {
           state.selectedMissionId = state.dashboard.latest_mission_id;
         }
         renderDashboard();
+        await loadHistory();
         if (state.selectedMissionId) {
           await loadMission(state.selectedMissionId);
         } else {
@@ -396,6 +508,23 @@ export function renderControlRoomPage(): string {
         state.selectedMissionId = view.mission_id;
         await refresh(view.mission_id);
       });
+
+      document.getElementById('historyApplyFilter').addEventListener('click', async () => {
+        await loadHistory();
+      });
+
+      if (prefilledGoal) {
+        document.getElementById('goal').value = prefilledGoal;
+      }
+
+      setInterval(() => {
+        if (!state.selectedMissionId) {
+          return;
+        }
+        if (state.selectedMissionStatus === 'in_progress' || state.selectedMissionStatus === 'awaiting_verification') {
+          loadMission(state.selectedMissionId).catch((error) => window.console.error(error));
+        }
+      }, 1500);
 
       loadDashboard().catch((error) => {
         renderDetail(null);

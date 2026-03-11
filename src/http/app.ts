@@ -8,6 +8,7 @@ import type { ControlRoomService } from '../control-room/service.ts';
 import {
   CONTROL_ROOM_ACTIONS,
   type ControlRoomActionRequest,
+  type ControlRoomHistoryFilter,
   type ControlRoomLaunchRequest,
 } from '../control-room/types.ts';
 import {
@@ -58,6 +59,20 @@ function validateControlRoomActionRequest(input: unknown): ControlRoomActionRequ
   return {
     action: action as ControlRoomActionRequest['action'],
     note: typeof payload.note === 'string' ? payload.note.trim() : undefined,
+  };
+}
+
+function validateControlRoomHistoryFilter(input: Record<string, string | undefined>): ControlRoomHistoryFilter {
+  const status = input.status?.trim() || 'all';
+  const missionKind = input.mission_kind?.trim() || 'all';
+  const dateFrom = input.date_from?.trim() || null;
+  const dateTo = input.date_to?.trim() || null;
+
+  return {
+    status: status as ControlRoomHistoryFilter['status'],
+    mission_kind: missionKind,
+    date_from: dateFrom,
+    date_to: dateTo,
   };
 }
 
@@ -193,6 +208,15 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   if (services.controlRoom) {
     app.get('/control-room', (c) => c.html(renderControlRoomPage()));
     app.get('/control-room/api/overview', (c) => c.json(services.controlRoom!.listDashboard()));
+    app.get('/control-room/api/history', (c) => {
+      const filters = validateControlRoomHistoryFilter({
+        status: c.req.query('status'),
+        mission_kind: c.req.query('mission_kind'),
+        date_from: c.req.query('date_from'),
+        date_to: c.req.query('date_to'),
+      });
+      return c.json(services.controlRoom!.listHistory(filters));
+    });
     app.post('/control-room/api/launch', async (c) => {
       const body = validateControlRoomLaunchRequest(await readJsonBody(c));
       return c.json(await services.controlRoom!.launchMission(body));

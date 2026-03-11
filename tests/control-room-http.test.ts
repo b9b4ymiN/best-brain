@@ -115,18 +115,34 @@ describe('control room HTTP', () => {
       expect(overviewResponse.status).toBe(200);
       const overview = await overviewResponse.json() as {
         latest_mission_id: string | null;
+        available_statuses: string[];
+        available_mission_kinds: string[];
         missions: Array<{ mission_id: string; status: string }>;
       };
       expect(overview.latest_mission_id).toBe(launchView.mission_id);
       expect(overview.missions.some((mission) => mission.mission_id === launchView.mission_id && mission.status === 'verified_complete')).toBe(true);
+      expect(overview.available_statuses.includes('verified_complete')).toBe(true);
+      expect(overview.available_mission_kinds.length).toBeGreaterThan(0);
+
+      const historyResponse = await fetch(`${baseUrl}/control-room/api/history?status=verified_complete`);
+      expect(historyResponse.status).toBe(200);
+      const history = await historyResponse.json() as {
+        total: number;
+        items: Array<{ mission_id: string; run_count: number; comparison: { has_previous: boolean } }>;
+      };
+      expect(history.total).toBeGreaterThan(0);
+      expect(history.items.some((item) => item.mission_id === launchView.mission_id)).toBe(true);
 
       const detailResponse = await fetch(`${baseUrl}/control-room/api/missions/${launchView.mission_id}`);
       expect(detailResponse.status).toBe(200);
       const detail = await detailResponse.json() as {
+        phase_timeline: Array<{ phase: string }>;
         mission_graph: { nodes: Array<{ id: string }> };
         artifacts: Array<{ uri: string }>;
         allowed_actions: string[];
       };
+      expect(detail.phase_timeline.length).toBeGreaterThan(0);
+      expect(detail.phase_timeline.some((phase) => phase.phase === 'verify')).toBe(true);
       expect(detail.mission_graph.nodes.some((node) => node.id === 'primary_work')).toBe(true);
       expect(detail.artifacts.some((artifact) => artifact.uri.startsWith('input-adapter://'))).toBe(true);
       expect(detail.allowed_actions.includes('approve_verdict')).toBe(true);
@@ -170,6 +186,57 @@ describe('control room HTTP', () => {
       expect(retryPayload.view.status).toBe('verified_complete');
       expect(retryPayload.view.operator_review.status).toBe('pending');
       expect(retryPayload.view.timeline.some((entry) => entry.source === 'operator' && entry.title.includes('approved'))).toBe(true);
+
+      const planningLaunchResponse = await fetch(`${baseUrl}/control-room/api/launch`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          goal: 'Plan the next scanner mission but do not execute yet.',
+          dry_run: false,
+          no_execute: true,
+        }),
+      });
+      expect(planningLaunchResponse.status).toBe(200);
+      const planningView = await planningLaunchResponse.json() as {
+        mission_id: string;
+        status: string;
+        allowed_actions: string[];
+      };
+      expect(planningView.status).toBe('in_progress');
+      expect(planningView.allowed_actions.includes('cancel_mission')).toBe(true);
+
+      const cancelResponse = await fetch(`${baseUrl}/control-room/api/missions/${planningView.mission_id}/actions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'cancel_mission',
+          note: 'Pause until next review window.',
+        }),
+      });
+      expect(cancelResponse.status).toBe(200);
+      const cancelPayload = await cancelResponse.json() as {
+        accepted: boolean;
+        view: { status: string; operator_review: { status: string } };
+      };
+      expect(cancelPayload.accepted).toBe(true);
+      expect(cancelPayload.view.status).toBe('rejected');
+      expect(cancelPayload.view.operator_review.status).toBe('cancelled');
+
+      const resumeResponse = await fetch(`${baseUrl}/control-room/api/missions/${planningView.mission_id}/actions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          action: 'resume_mission',
+        }),
+      });
+      expect(resumeResponse.status).toBe(200);
+      const resumePayload = await resumeResponse.json() as {
+        accepted: boolean;
+        view: { status: string; operator_review: { status: string } };
+      };
+      expect(resumePayload.accepted).toBe(true);
+      expect(resumePayload.view.status).toBe('verified_complete');
+      expect(resumePayload.view.operator_review.status).toBe('pending');
     } finally {
       server.stop(true);
       cleanup();

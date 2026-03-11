@@ -167,6 +167,7 @@ Control room:
 
 - `GET /control-room`
 - `GET /control-room/api/overview`
+- `GET /control-room/api/history`
 - `POST /control-room/api/launch`
 - `GET /control-room/api/missions/:id`
 - `POST /control-room/api/missions/:id/actions`
@@ -262,9 +263,13 @@ http://localhost:47888/control-room
 The current control room is the first local mission console. It can:
 
 - launch a mission from one goal
-- inspect mission graph, timeline, workers, artifacts, verdict, and final report
-- retry a mission through the manager path
+- inspect mission graph, phase timeline (goal → consult → compile → dispatch → execute → verify → report), workers, artifacts, verdict, and final report
+- poll mission status while active and show worker cards with artifact count + latest summary
+- filter mission history by status, mission kind, and date range, with per-mission run deltas
+- retry, resume, or cancel a mission through the manager path
 - record operator approve/reject audit without bypassing kernel rails
+
+Chat can now also suggest `Promote to mission` for mission-sized prompts that still route through direct chat, and opens control room with a prefilled goal.
 
 For deterministic local proof, use:
 

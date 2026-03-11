@@ -757,6 +757,13 @@ export function renderChatPage(): string {
           link.href = payload.control_room_path;
           link.textContent = 'Inspect in control room';
           view.linksEl.appendChild(link);
+          return;
+        }
+        if (payload.promotion && payload.promotion.can_promote && payload.promotion.control_room_prefill_path) {
+          const link = document.createElement('a');
+          link.href = payload.promotion.control_room_prefill_path;
+          link.textContent = 'Promote to mission';
+          view.linksEl.appendChild(link);
         }
       }
 

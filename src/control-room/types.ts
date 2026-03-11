@@ -25,6 +25,28 @@ export const WORKER_CARD_STATUSES = [
 
 export type WorkerCardStatus = (typeof WORKER_CARD_STATUSES)[number];
 
+export const MISSION_PHASE_KEYS = [
+  'goal',
+  'consult',
+  'compile',
+  'dispatch',
+  'execute',
+  'verify',
+  'report',
+] as const;
+
+export type MissionPhaseKey = (typeof MISSION_PHASE_KEYS)[number];
+
+export const MISSION_PHASE_STATUSES = [
+  'pending',
+  'running',
+  'completed',
+  'failed',
+  'blocked',
+] as const;
+
+export type MissionPhaseStatus = (typeof MISSION_PHASE_STATUSES)[number];
+
 export interface ControlRoomLaunchRequest {
   goal: string;
   dry_run: boolean;
@@ -34,8 +56,12 @@ export interface ControlRoomLaunchRequest {
 export interface ControlRoomMissionSummary {
   mission_id: string;
   goal: string;
+  mission_kind: string;
   status: MissionStatus;
   selected_worker: WorkerId | null;
+  duration_ms: number | null;
+  checks_passed: number;
+  checks_total: number;
   retryable: boolean;
   final_message: string;
   updated_at: number;
@@ -57,7 +83,19 @@ export interface WorkerStatusCard {
   status: WorkerCardStatus;
   current_task_id: string | null;
   current_task_title: string | null;
+  artifact_count: number;
+  last_summary: string | null;
   last_update_at: number;
+}
+
+export interface MissionPhaseSummary {
+  phase: MissionPhaseKey;
+  title: string;
+  status: MissionPhaseStatus;
+  started_at: number | null;
+  ended_at: number | null;
+  duration_ms: number | null;
+  detail: string;
 }
 
 export interface JudgeVerdictView {
@@ -70,7 +108,7 @@ export interface JudgeVerdictView {
 }
 
 export interface OperatorReviewView {
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   note: string | null;
   updated_at: number | null;
 }
@@ -81,6 +119,7 @@ export interface MissionConsoleView {
   status: MissionStatus;
   mission_graph: MissionTaskGraph;
   plan_overview: string[];
+  phase_timeline: MissionPhaseSummary[];
   timeline: MissionTimelineEntry[];
   workers: WorkerStatusCard[];
   artifacts: RuntimeArtifactRecord[];
@@ -94,6 +133,8 @@ export interface MissionConsoleView {
 export interface ControlRoomDashboardView {
   latest_mission_id: string | null;
   missions: ControlRoomMissionSummary[];
+  available_statuses: MissionStatus[];
+  available_mission_kinds: string[];
 }
 
 export interface ControlRoomActionRequest {
@@ -107,4 +148,29 @@ export interface ControlRoomActionResult {
   action: ControlRoomAction;
   message: string;
   view: MissionConsoleView;
+}
+
+export interface ControlRoomHistoryFilter {
+  status?: MissionStatus | 'all';
+  mission_kind?: string | 'all';
+  date_from?: string | null;
+  date_to?: string | null;
+}
+
+export interface MissionComparisonSummary {
+  has_previous: boolean;
+  status_changed: boolean;
+  duration_delta_ms: number | null;
+  checks_passed_delta: number;
+}
+
+export interface ControlRoomHistoryItem extends ControlRoomMissionSummary {
+  run_count: number;
+  comparison: MissionComparisonSummary;
+}
+
+export interface ControlRoomHistoryView {
+  filters: ControlRoomHistoryFilter;
+  total: number;
+  items: ControlRoomHistoryItem[];
 }

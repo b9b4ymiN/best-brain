@@ -15,6 +15,39 @@ export interface ChatServiceOptions {
   controlRoom?: ControlRoomService | null;
 }
 
+function suggestMissionPromotion(
+  message: string,
+  decisionKind: ChatMessageResponse['decision_kind'],
+  hasControlRoom: boolean,
+): ChatMessageResponse['promotion'] {
+  if (decisionKind !== 'chat' || !hasControlRoom) {
+    return {
+      can_promote: false,
+      reason: null,
+      control_room_prefill_path: null,
+    };
+  }
+
+  const normalized = message.toLowerCase();
+  const missionLike =
+    /\b(build|create|implement|automate|system|pipeline|workflow|scanner|mission|report)\b/.test(normalized)
+    || /อยากได้|ช่วยทำ|สร้าง|ระบบ|เวิร์กโฟลว์|สแกน|โปรเจค|ภารกิจ|ทำจนเสร็จ|จัดการงาน/.test(message);
+
+  if (!missionLike) {
+    return {
+      can_promote: false,
+      reason: null,
+      control_room_prefill_path: null,
+    };
+  }
+
+  return {
+    can_promote: true,
+    reason: 'This looks like mission-sized work. You can promote it to the control room.',
+    control_room_prefill_path: `/control-room?goal=${encodeURIComponent(message)}`,
+  };
+}
+
 export class ChatService {
   private readonly managerFactory: ChatServiceOptions['managerFactory'];
   private readonly controlRoom: ControlRoomService | null;
@@ -91,6 +124,7 @@ export class ChatService {
         mission_id: missionId,
         mission_status: missionStatus,
         control_room_path: controlRoomPath,
+        promotion: suggestMissionPromotion(message, result.decision.kind, this.controlRoom != null),
         trace_id: result.mission_brief.brain_trace_id,
         citations: result.mission_brief.brain_citations,
         activity_log: activityLog,

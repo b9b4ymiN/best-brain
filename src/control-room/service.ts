@@ -4,23 +4,31 @@ import type { MissionStatus } from '../types.ts';
 import type { ManagerRuntime } from '../manager/runtime.ts';
 import type { ManagerRunResult } from '../manager/types.ts';
 import type { RuntimeArtifactRecord, RuntimeEventRecord, RuntimeWorkerTaskRun } from '../runtime/types.ts';
+import { MISSION_PHASE_KEYS } from './types.ts';
 import type {
+  ControlRoomHistoryFilter,
+  ControlRoomHistoryItem,
+  ControlRoomHistoryView,
   ControlRoomAction,
   ControlRoomActionRequest,
   ControlRoomActionResult,
   ControlRoomDashboardView,
   ControlRoomLaunchRequest,
+  MissionComparisonSummary,
+  MissionPhaseSummary,
   MissionTimelineEntry,
   ControlRoomMissionSummary,
   MissionConsoleView,
   OperatorReviewView,
+  MissionPhaseKey,
+  MissionPhaseStatus,
   WorkerCardStatus,
   WorkerStatusCard,
 } from './types.ts';
 
 interface StoredOperatorEvent {
   id: string;
-  action: Extract<ControlRoomAction, 'approve_verdict' | 'reject_verdict'>;
+  action: Extract<ControlRoomAction, 'approve_verdict' | 'reject_verdict' | 'cancel_mission'>;
   note: string | null;
   created_at: number;
 }
@@ -40,6 +48,7 @@ interface StoredMissionRecord {
   runs: StoredMissionRun[];
   operator_events: StoredOperatorEvent[];
   operator_review: OperatorReviewView;
+  status_override: MissionStatus | null;
 }
 
 export interface ControlRoomManagerFactory {
@@ -128,11 +137,35 @@ function buildWorkerCards(workerTasks: RuntimeWorkerTaskRun[]): WorkerStatusCard
       status: mapWorkerCardStatus(task),
       current_task_id: task.status === 'running' ? task.task_id : null,
       current_task_title: task.status === 'running' ? task.objective : null,
+      artifact_count: task.artifact_refs.length,
+      last_summary: task.summary ?? null,
       last_update_at: task.updated_at,
     }));
 }
 
-function resolveMissionStatus(result: ManagerRunResult): MissionStatus {
+function missionDurationMs(result: ManagerRunResult): number | null {
+  const session = result.runtime_bundle?.session;
+  if (!session) {
+    return null;
+  }
+  const duration = session.updated_at - session.created_at;
+  return Number.isFinite(duration) && duration >= 0 ? duration : null;
+}
+
+function missionChecks(result: ManagerRunResult): { checks_passed: number; checks_total: number } {
+  if (!result.verification_result) {
+    return { checks_passed: 0, checks_total: 0 };
+  }
+  return {
+    checks_passed: result.verification_result.checks_passed,
+    checks_total: result.verification_result.checks_total,
+  };
+}
+
+function resolveMissionStatus(result: ManagerRunResult, statusOverride: MissionStatus | null = null): MissionStatus {
+  if (statusOverride) {
+    return statusOverride;
+  }
   if (result.verification_result) {
     return result.verification_result.status;
   }
@@ -145,9 +178,17 @@ function resolveMissionStatus(result: ManagerRunResult): MissionStatus {
   return result.retryable ? 'verification_failed' : 'in_progress';
 }
 
-function buildAllowedActions(result: ManagerRunResult, operatorReview: OperatorReviewView): ControlRoomAction[] {
+function buildAllowedActions(
+  result: ManagerRunResult,
+  operatorReview: OperatorReviewView,
+  statusOverride: MissionStatus | null = null,
+): ControlRoomAction[] {
   const actions: ControlRoomAction[] = [];
-  const status = resolveMissionStatus(result);
+  const status = resolveMissionStatus(result, statusOverride);
+
+  if (status === 'in_progress' || status === 'awaiting_verification') {
+    actions.push('cancel_mission');
+  }
 
   if (status === 'verification_failed' || status === 'rejected') {
     actions.push('retry_mission', 'resume_mission');
@@ -163,6 +204,10 @@ function buildAllowedActions(result: ManagerRunResult, operatorReview: OperatorR
     actions.push('reject_verdict');
   }
 
+  if (status === 'rejected' && operatorReview.status === 'cancelled') {
+    actions.push('resume_mission');
+  }
+
   return actions;
 }
 
@@ -174,17 +219,170 @@ function operatorTimelineEntries(
     id: event.id,
     mission_id: missionId,
     source: 'operator',
-    status: event.action === 'approve_verdict' ? 'completed' : 'failed',
-    title: event.action === 'approve_verdict' ? 'Operator approved verdict' : 'Operator rejected verdict',
+    status: event.action === 'approve_verdict' ? 'completed' : event.action === 'cancel_mission' ? 'blocked' : 'failed',
+    title: event.action === 'approve_verdict'
+      ? 'Operator approved verdict'
+      : event.action === 'cancel_mission'
+        ? 'Operator requested mission cancellation'
+        : 'Operator rejected verdict',
     detail: event.note ?? 'No operator note was recorded.',
     artifact_ids: [],
     created_at: event.created_at,
   }));
 }
 
-function buildTimeline(result: ManagerRunResult, operatorEvents: StoredOperatorEvent[]): MissionTimelineEntry[] {
+function firstEvent(events: RuntimeEventRecord[], predicate: (event: RuntimeEventRecord) => boolean): RuntimeEventRecord | null {
+  for (const event of events) {
+    if (predicate(event)) {
+      return event;
+    }
+  }
+  return null;
+}
+
+function lastEvent(events: RuntimeEventRecord[], predicate: (event: RuntimeEventRecord) => boolean): RuntimeEventRecord | null {
+  for (let index = events.length - 1; index >= 0; index -= 1) {
+    const event = events[index];
+    if (event && predicate(event)) {
+      return event;
+    }
+  }
+  return null;
+}
+
+function derivePhaseStatus(
+  missionStatus: MissionStatus,
+  startedAt: number | null,
+  endedAt: number | null,
+): MissionPhaseStatus {
+  if (startedAt == null) {
+    return missionStatus === 'rejected' ? 'blocked' : 'pending';
+  }
+  if (endedAt != null) {
+    return missionStatus === 'verification_failed' || missionStatus === 'rejected' ? 'failed' : 'completed';
+  }
+  if (missionStatus === 'rejected') {
+    return 'blocked';
+  }
+  if (missionStatus === 'verification_failed') {
+    return 'failed';
+  }
+  return 'running';
+}
+
+function phaseSummary(
+  phase: MissionPhaseKey,
+  title: string,
+  detail: string,
+  missionStatus: MissionStatus,
+  startedAt: number | null,
+  endedAt: number | null,
+): MissionPhaseSummary {
+  const duration = startedAt != null && endedAt != null ? Math.max(0, endedAt - startedAt) : null;
+  return {
+    phase,
+    title,
+    status: derivePhaseStatus(missionStatus, startedAt, endedAt),
+    started_at: startedAt,
+    ended_at: endedAt,
+    duration_ms: duration,
+    detail,
+  };
+}
+
+function buildPhaseTimeline(result: ManagerRunResult, missionStatus: MissionStatus): MissionPhaseSummary[] {
+  const events = (result.runtime_bundle?.events ?? []).slice().sort((left, right) => left.created_at - right.created_at);
+  const opened = firstEvent(events, (event) => event.event_type === 'runtime_session_opened');
+  const compiled = firstEvent(events, (event) => event.event_type === 'mission_brief_compiled');
+  const dispatchStart = firstEvent(events, (event) => event.event_type === 'worker_dispatched');
+  const executionStart = firstEvent(
+    events,
+    (event) => event.event_type === 'worker_task_started' && event.actor !== 'verifier',
+  );
+  const executionEnd = lastEvent(
+    events,
+    (event) => event.event_type === 'worker_completed' && event.actor !== 'verifier',
+  );
+  const verifyStart = firstEvent(events, (event) => event.event_type === 'verification_requested');
+  const verifyEnd = lastEvent(
+    events,
+    (event) => event.event_type === 'worker_task_completed' && event.actor === 'verifier',
+  );
+  const reportEvent = firstEvent(events, (event) => event.event_type === 'final_report_emitted');
+
+  const goalStartedAt = opened?.created_at ?? null;
+  const consultEndedAt = compiled?.created_at ?? null;
+  const compileEndedAt = dispatchStart?.created_at ?? compiled?.created_at ?? null;
+
+  const phases: MissionPhaseSummary[] = [
+    phaseSummary(
+      'goal',
+      'Goal Received',
+      'Mission goal was captured and runtime session started.',
+      missionStatus,
+      goalStartedAt,
+      consultEndedAt ?? goalStartedAt,
+    ),
+    phaseSummary(
+      'consult',
+      'Brain Consult',
+      'Persona, memory context, and policy hints were loaded before planning.',
+      missionStatus,
+      goalStartedAt,
+      consultEndedAt,
+    ),
+    phaseSummary(
+      'compile',
+      'Mission Compile',
+      'Manager compiled mission brief, graph, and input adapter decisions.',
+      missionStatus,
+      consultEndedAt,
+      compileEndedAt,
+    ),
+    phaseSummary(
+      'dispatch',
+      'Worker Dispatch',
+      'Primary/secondary workers were dispatched from the mission graph.',
+      missionStatus,
+      dispatchStart?.created_at ?? null,
+      executionStart?.created_at ?? dispatchStart?.created_at ?? null,
+    ),
+    phaseSummary(
+      'execute',
+      'Execution',
+      'Workers executed mission tasks and emitted runtime artifacts.',
+      missionStatus,
+      executionStart?.created_at ?? null,
+      executionEnd?.created_at ?? null,
+    ),
+    phaseSummary(
+      'verify',
+      'Verification Gate',
+      'Verifier checked evidence and completion gates.',
+      missionStatus,
+      verifyStart?.created_at ?? null,
+      verifyEnd?.created_at ?? null,
+    ),
+    phaseSummary(
+      'report',
+      'Final Report',
+      'Manager emitted the owner-facing mission report artifact.',
+      missionStatus,
+      reportEvent?.created_at ?? null,
+      reportEvent?.created_at ?? null,
+    ),
+  ];
+
+  return phases.filter((phase) => MISSION_PHASE_KEYS.includes(phase.phase));
+}
+
+function buildTimeline(
+  result: ManagerRunResult,
+  operatorEvents: StoredOperatorEvent[],
+  missionStatusOverride: MissionStatus | null = null,
+): MissionTimelineEntry[] {
   const missionId = result.mission_brief.mission_id;
-  const missionStatus = resolveMissionStatus(result);
+  const missionStatus = resolveMissionStatus(result, missionStatusOverride);
   const runtimeEntries: MissionTimelineEntry[] = (result.runtime_bundle?.events ?? []).map((event) => ({
     id: event.id,
     mission_id: missionId,
@@ -223,7 +421,9 @@ export function buildMissionConsoleView(
   result: ManagerRunResult,
   operatorReview: OperatorReviewView,
   operatorEvents: StoredOperatorEvent[] = [],
+  statusOverride: MissionStatus | null = null,
 ): MissionConsoleView {
+  const missionStatus = resolveMissionStatus(result, statusOverride);
   const artifacts = result.runtime_bundle?.artifacts ?? [];
   const finalReportArtifact = result.runtime_bundle?.session.final_report_artifact_id
     ? artifacts.find((artifact) => artifact.id === result.runtime_bundle?.session.final_report_artifact_id) ?? null
@@ -250,16 +450,17 @@ export function buildMissionConsoleView(
   return {
     mission_id: result.mission_brief.mission_id,
     goal: result.input.goal,
-    status: resolveMissionStatus(result),
+    status: missionStatus,
     mission_graph: result.mission_graph,
     plan_overview: result.mission_graph.nodes.map((node) => `${node.id}: ${node.title} (${node.status})`),
-    timeline: buildTimeline(result, operatorEvents),
+    phase_timeline: buildPhaseTimeline(result, missionStatus),
+    timeline: buildTimeline(result, operatorEvents, statusOverride),
     workers: buildWorkerCards(result.runtime_bundle?.worker_tasks ?? []),
     artifacts,
     final_report_artifact: finalReportArtifact,
     verdict,
     operator_review: operatorReview,
-    allowed_actions: buildAllowedActions(result, operatorReview),
+    allowed_actions: buildAllowedActions(result, operatorReview, statusOverride),
     updated_at: updatedAt,
   };
 }
@@ -269,12 +470,18 @@ function buildMissionSummary(record: StoredMissionRecord): ControlRoomMissionSum
   if (!latestRun) {
     throw new Error(`control-room record is missing a run: ${record.mission_id}`);
   }
+  const checks = missionChecks(latestRun.result);
+  const status = resolveMissionStatus(latestRun.result, record.status_override);
 
   return {
     mission_id: record.mission_id,
     goal: record.goal,
-    status: resolveMissionStatus(latestRun.result),
+    mission_kind: latestRun.result.mission_brief.mission_kind,
+    status,
     selected_worker: latestRun.result.decision.selected_worker,
+    duration_ms: missionDurationMs(latestRun.result),
+    checks_passed: checks.checks_passed,
+    checks_total: checks.checks_total,
     retryable: latestRun.result.retryable,
     final_message: latestRun.result.final_message,
     updated_at: record.updated_at,
@@ -310,7 +517,20 @@ export class ControlRoomService {
     if (!fs.existsSync(filePath)) {
       return null;
     }
-    return JSON.parse(fs.readFileSync(filePath, 'utf8')) as StoredMissionRecord;
+    const parsed = JSON.parse(fs.readFileSync(filePath, 'utf8')) as Partial<StoredMissionRecord>;
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.mission_id !== 'string' || !Array.isArray(parsed.runs)) {
+      return null;
+    }
+    return {
+      mission_id: parsed.mission_id,
+      goal: typeof parsed.goal === 'string' ? parsed.goal : parsed.mission_id,
+      created_at: typeof parsed.created_at === 'number' ? parsed.created_at : this.now(),
+      updated_at: typeof parsed.updated_at === 'number' ? parsed.updated_at : this.now(),
+      runs: parsed.runs,
+      operator_events: Array.isArray(parsed.operator_events) ? parsed.operator_events : [],
+      operator_review: parsed.operator_review ?? createInitialOperatorReview(),
+      status_override: parsed.status_override ?? null,
+    };
   }
 
   private writeRecord(record: StoredMissionRecord): void {
@@ -328,6 +548,7 @@ export class ControlRoomService {
           updated_at: timestamp,
           runs: [...existing.runs, run],
           operator_review: createInitialOperatorReview(),
+          status_override: null,
         }
       : {
           mission_id: missionId,
@@ -337,6 +558,7 @@ export class ControlRoomService {
           runs: [run],
           operator_events: [],
           operator_review: createInitialOperatorReview(),
+          status_override: null,
         };
     this.writeRecord(record);
     return record;
@@ -350,18 +572,82 @@ export class ControlRoomService {
       result,
     };
     const record = this.persistRun(goal, run);
-    return buildMissionConsoleView(result, record.operator_review, record.operator_events);
+    return buildMissionConsoleView(result, record.operator_review, record.operator_events, record.status_override);
   }
 
   listDashboard(): ControlRoomDashboardView {
-    const missions = fs.readdirSync(this.missionsDir)
-      .filter((entry) => entry.endsWith('.json'))
-      .map((entry) => JSON.parse(fs.readFileSync(path.join(this.missionsDir, entry), 'utf8')) as StoredMissionRecord)
-      .sort((left, right) => right.updated_at - left.updated_at);
+    const missions = this.listMissionRecords();
+    const summaries = missions.map(buildMissionSummary);
+    const availableStatuses = Array.from(new Set(summaries.map((mission) => mission.status))).sort();
+    const availableMissionKinds = Array.from(new Set(summaries.map((mission) => mission.mission_kind))).sort();
 
     return {
       latest_mission_id: missions[0]?.mission_id ?? null,
-      missions: missions.map(buildMissionSummary),
+      missions: summaries,
+      available_statuses: availableStatuses,
+      available_mission_kinds: availableMissionKinds,
+    };
+  }
+
+  private listMissionRecords(): StoredMissionRecord[] {
+    return fs.readdirSync(this.missionsDir)
+      .filter((entry) => entry.endsWith('.json'))
+      .map((entry) => this.readRecord(entry.slice(0, -5)))
+      .filter((record): record is StoredMissionRecord => record != null)
+      .sort((left, right) => right.updated_at - left.updated_at);
+  }
+
+  private comparisonForRecord(record: StoredMissionRecord): MissionComparisonSummary {
+    const latest = record.runs.at(-1)?.result;
+    const previous = record.runs.length >= 2 ? record.runs[record.runs.length - 2]?.result : null;
+    if (!latest || !previous) {
+      return {
+        has_previous: false,
+        status_changed: false,
+        duration_delta_ms: null,
+        checks_passed_delta: 0,
+      };
+    }
+    const latestChecks = missionChecks(latest);
+    const previousChecks = missionChecks(previous);
+    const latestDuration = missionDurationMs(latest);
+    const previousDuration = missionDurationMs(previous);
+    return {
+      has_previous: true,
+      status_changed: resolveMissionStatus(latest, record.status_override) !== resolveMissionStatus(previous, null),
+      duration_delta_ms: latestDuration != null && previousDuration != null ? latestDuration - previousDuration : null,
+      checks_passed_delta: latestChecks.checks_passed - previousChecks.checks_passed,
+    };
+  }
+
+  listHistory(filters: ControlRoomHistoryFilter = {}): ControlRoomHistoryView {
+    const normalizedFilters: ControlRoomHistoryFilter = {
+      status: filters.status && filters.status !== 'all' ? filters.status : 'all',
+      mission_kind: filters.mission_kind && filters.mission_kind !== 'all' ? filters.mission_kind : 'all',
+      date_from: filters.date_from ?? null,
+      date_to: filters.date_to ?? null,
+    };
+    const fromTimestamp = normalizedFilters.date_from ? Date.parse(normalizedFilters.date_from) : null;
+    const toTimestamp = normalizedFilters.date_to ? Date.parse(normalizedFilters.date_to) : null;
+
+    const items: ControlRoomHistoryItem[] = this.listMissionRecords()
+      .map((record) => {
+        const summary = buildMissionSummary(record);
+        return {
+          ...summary,
+          run_count: record.runs.length,
+          comparison: this.comparisonForRecord(record),
+        };
+      })
+      .filter((item) => normalizedFilters.status === 'all' || item.status === normalizedFilters.status)
+      .filter((item) => normalizedFilters.mission_kind === 'all' || item.mission_kind === normalizedFilters.mission_kind)
+      .filter((item) => fromTimestamp == null || item.updated_at >= fromTimestamp)
+      .filter((item) => toTimestamp == null || item.updated_at <= toTimestamp);
+
+    return {
+      filters: normalizedFilters,
+      total: items.length,
+      items,
     };
   }
 
@@ -374,7 +660,7 @@ export class ControlRoomService {
     if (!latestRun) {
       return null;
     }
-    return buildMissionConsoleView(latestRun.result, record.operator_review, record.operator_events);
+    return buildMissionConsoleView(latestRun.result, record.operator_review, record.operator_events, record.status_override);
   }
 
   private async runManagerMission(
@@ -422,7 +708,12 @@ export class ControlRoomService {
       throw new Error(`control-room mission has no runs: ${missionId}`);
     }
 
-    const currentView = buildMissionConsoleView(latestRun.result, record.operator_review, record.operator_events);
+    const currentView = buildMissionConsoleView(
+      latestRun.result,
+      record.operator_review,
+      record.operator_events,
+      record.status_override,
+    );
     if (!currentView.allowed_actions.includes(request.action)) {
       throw new Error(`control-room action is not allowed for this mission: ${request.action}`);
     }
@@ -439,8 +730,14 @@ export class ControlRoomService {
       record.runs.push(rerun);
       record.updated_at = this.now();
       record.operator_review = createInitialOperatorReview();
+      record.status_override = null;
       this.writeRecord(record);
-      const view = buildMissionConsoleView(rerun.result, record.operator_review, record.operator_events);
+      const view = buildMissionConsoleView(
+        rerun.result,
+        record.operator_review,
+        record.operator_events,
+        record.status_override,
+      );
       return {
         accepted: true,
         mission_id: missionId,
@@ -450,7 +747,7 @@ export class ControlRoomService {
       };
     }
 
-    if (request.action === 'approve_verdict' || request.action === 'reject_verdict') {
+    if (request.action === 'approve_verdict' || request.action === 'reject_verdict' || request.action === 'cancel_mission') {
       const event: StoredOperatorEvent = {
         id: `${request.action}_${this.now()}`,
         action: request.action,
@@ -459,20 +756,34 @@ export class ControlRoomService {
       };
       record.operator_events.push(event);
       record.operator_review = {
-        status: request.action === 'approve_verdict' ? 'approved' : 'rejected',
+        status: request.action === 'approve_verdict'
+          ? 'approved'
+          : request.action === 'cancel_mission'
+            ? 'cancelled'
+            : 'rejected',
         note: event.note,
         updated_at: event.created_at,
       };
+      if (request.action === 'cancel_mission') {
+        record.status_override = 'rejected';
+      }
       record.updated_at = event.created_at;
       this.writeRecord(record);
-      const view = buildMissionConsoleView(latestRun.result, record.operator_review, record.operator_events);
+      const view = buildMissionConsoleView(
+        latestRun.result,
+        record.operator_review,
+        record.operator_events,
+        record.status_override,
+      );
       return {
         accepted: true,
         mission_id: missionId,
         action: request.action,
         message: request.action === 'approve_verdict'
           ? 'Operator approval recorded.'
-          : 'Operator rejection recorded.',
+          : request.action === 'cancel_mission'
+            ? 'Mission cancellation request recorded.'
+            : 'Operator rejection recorded.',
         view,
       };
     }

@@ -124,28 +124,33 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ### Step 13: Mission Timeline View (*depends on Step 7*)
 - **Files**: `src/control-room/` (page templates, service)
+- **Status**: Completed on 2026-03-11
 - **Action**: Build timeline visualization showing mission phases: goal → consult → compile → dispatch → execute → verify → report. Each phase shows duration, status, key data
-- **Verification**: Launch a mission → timeline shows all phases with correct transitions
+- **Verification**: `tests/control-room-http.test.ts` validates `phase_timeline` coverage; control-room mission detail now renders phase status + duration for all major phases
 
 ### Step 14: Live Worker Status Panel (*parallel with Step 13*)
 - **Files**: `src/control-room/service.ts` (extend worker tracking)
+- **Status**: Completed on 2026-03-11
 - **Action**: Real-time worker status cards: running/idle/failed, current task, last output snippet, artifact count. WebSocket or polling updates
-- **Verification**: During mission execution, worker cards update status in real-time
+- **Verification**: Worker cards now expose `artifact_count` + `last_summary`; control-room UI polls active mission view and refreshes cards while mission state is `in_progress|awaiting_verification`
 
 ### Step 15: Operator Steering Controls (*depends on Step 13*)
 - **Files**: `src/control-room/service.ts`, `src/manager/kernel.ts`
+- **Status**: Completed on 2026-03-11
 - **Action**: Implement full action handling: approve_verdict, reject_verdict, cancel_mission, resume_mission, retry_mission. Approval gates require explicit operator click before mission transitions to verified_complete
-- **Verification**: Mission reaches awaiting_verification → operator approves via UI → status transitions correctly; reject triggers repair loop
+- **Verification**: `tests/control-room-http.test.ts` now covers `approve_verdict`, `retry_mission`, `cancel_mission`, and `resume_mission` with persisted operator audit events
 
 ### Step 16: Mission History & Comparison
 - **Files**: `src/control-room/`, `src/db/` (mission queries)
+- **Status**: Completed on 2026-03-11
 - **Action**: Mission history panel showing past runs with: success/fail status, duration, key metrics, diff between runs. Filter by mission kind, date range, status
-- **Verification**: After 3+ missions, history panel shows all runs sortable and filterable
+- **Verification**: Added `/control-room/api/history` with status/mission-kind/date filters and per-mission run comparison deltas; UI renders filterable history cards
 
 ### Step 17: Chat ↔ Control Room Integration (*depends on Step 4, Step 13*)
 - **Files**: `src/chat/service.ts`, `src/control-room/service.ts`
+- **Status**: Completed on 2026-03-11
 - **Action**: Seamless promotion: chat detects mission-worthy goal → shows "Promote to Mission?" → clicking promotes to control room with pre-filled goal. Control room shows chat history for context
-- **Verification**: Chat conversation → promote → control room shows mission with chat context attached
+- **Verification**: `tests/chat-http.test.ts` validates promotion suggestion payload for chat-sized planning messages; chat UI now renders `Promote to mission` link and control-room reads prefilled `goal` query
 
 ---
 
