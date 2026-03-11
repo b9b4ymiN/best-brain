@@ -4,7 +4,14 @@ import type { ExecutionRequest, ManagerWorker, WorkerExecutionResult } from './t
 export function buildWorkerChain(request: ExecutionRequest): ManagerWorker[] {
   return Array.from(new Set([
     request.selected_worker,
-    ...request.playbook.preferred_workers.filter((worker): worker is ManagerWorker => worker === 'claude' || worker === 'codex' || worker === 'shell'),
+    ...request.playbook.preferred_workers.filter(
+      (worker): worker is ManagerWorker =>
+        worker === 'claude'
+        || worker === 'codex'
+        || worker === 'shell'
+        || worker === 'browser'
+        || worker === 'mail',
+    ),
   ]));
 }
 

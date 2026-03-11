@@ -53,22 +53,22 @@ const DEFAULT_WORKER_DEFINITIONS: Record<WorkerId, WorkerDefinition> = {
   browser: {
     id: 'browser',
     title: 'Browser Worker',
-    execution_mode: 'reserved',
+    execution_mode: 'manager_owned',
     capabilities: ['browser_navigation'],
     phase2_required: false,
     produces_runtime_process: false,
-    manager_owned: false,
-    available: false,
+    manager_owned: true,
+    available: true,
   },
   mail: {
     id: 'mail',
     title: 'Mail Worker',
-    execution_mode: 'reserved',
+    execution_mode: 'manager_owned',
     capabilities: ['mail_processing'],
     phase2_required: false,
     produces_runtime_process: false,
-    manager_owned: false,
-    available: false,
+    manager_owned: true,
+    available: true,
   },
   verifier: {
     id: 'verifier',
@@ -108,6 +108,7 @@ export interface VerifierDispatchResult {
 function synthesizeInvocation(request: ExecutionRequest, result: WorkerExecutionResult): NonNullable<WorkerExecutionResult['invocation']> {
   const now = Date.now();
   const shellCommand = request.selected_worker === 'shell' ? request.shell_command : null;
+  const isManagerOwned = request.selected_worker === 'browser' || request.selected_worker === 'mail';
   return {
     command: shellCommand?.command ?? request.selected_worker,
     args: shellCommand?.args ?? [request.task_id, request.playbook_id],
@@ -116,7 +117,11 @@ function synthesizeInvocation(request: ExecutionRequest, result: WorkerExecution
     timed_out: false,
     started_at: now,
     completed_at: now,
-    transport: request.selected_worker === 'shell' ? 'local_process' : 'cli',
+    transport: request.selected_worker === 'shell'
+      ? 'local_process'
+      : isManagerOwned
+        ? 'manager_owned'
+        : 'cli',
   };
 }
 
@@ -348,7 +353,11 @@ export class WorkerFabric {
       request.selected_worker,
       ...request.playbook.preferred_workers.filter(
         (worker): worker is ExecutionRequest['selected_worker'] =>
-          worker === 'claude' || worker === 'codex' || worker === 'shell',
+          worker === 'claude'
+          || worker === 'codex'
+          || worker === 'shell'
+          || worker === 'browser'
+          || worker === 'mail',
       ),
       ...fallbackOrderFor(request.selected_worker),
     ]));

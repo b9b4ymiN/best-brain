@@ -262,6 +262,8 @@ describe('manager alpha unit flow', () => {
     expect(routeIntent(makeInput('Analyze the current mission plan.')).selected_worker).toBe('claude');
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.')).selected_worker).toBe('codex');
     expect(routeIntent(makeInput('Run `bun --version` locally and summarize the result.')).selected_worker).toBe('shell');
+    expect(routeIntent(makeInput('Use browser to open https://example.com, capture a screenshot, and save evidence.')).selected_worker).toBe('browser');
+    expect(routeIntent(makeInput('Use mail worker to draft an email status update and save the draft as evidence.')).selected_worker).toBe('mail');
     expect(routeIntent(makeInput('I want a Thai stock scanner system that matches how I invest.')).selected_worker).toBe('claude');
     expect(routeIntent(makeInput(THAI_TODAY_QUESTION)).kind).toBe('chat');
     expect(routeIntent(makeInput(THAI_MONDAY_FRAGMENT)).kind).toBe('chat');

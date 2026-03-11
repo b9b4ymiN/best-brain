@@ -255,4 +255,23 @@ describe('worker fabric', () => {
     expect(dispatch.manager_result.status).toBe('failed');
     expect(dispatch.task_result.worker).toBe('codex');
   });
+
+  test('builds a primary chain that keeps browser/mail workers when configured in playbook preferences', () => {
+    const fabric = new WorkerFabric({}, new FakeVerifierAdapter({
+      mission_id: 'mission_worker_fabric',
+      summary: 'verified',
+      evidence: [],
+      verification_checks: [],
+      status: 'verified_complete',
+    }));
+    const request = makeExecutionRequest({
+      selected_worker: 'browser',
+      playbook: {
+        ...makeExecutionRequest().playbook,
+        preferred_workers: ['browser', 'mail', 'verifier'],
+      },
+    });
+
+    expect(fabric.primaryWorkerChain(request)).toEqual(['browser', 'mail']);
+  });
 });

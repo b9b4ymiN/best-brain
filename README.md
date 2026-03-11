@@ -52,13 +52,13 @@ What exists now:
 - persona, preference, mission, failure, and verification memory
 - manager alpha with `chat`, `task`, and `mission` routing
 - manager beta rails for `MissionBrief` validation, goal ambiguity detection, mission graph compilation, and playbook-guided verification
-- one-primary-worker execution with `claude`, `codex`, or `shell`
+- one-primary-worker execution with `claude`, `codex`, `shell`, `browser`, or `mail`
 - proof-chain persistence: outcome, verification start, verification complete, failure lesson
 
 What does not exist yet:
 
 - worker swarm orchestration
-- browser worker, mail worker, or full runtime operator layer
+- full browser automation worker, full mail provider integration, or full runtime operator layer
 - full control room maturity with live streaming and long-running mission steering
 - autonomous multi-step operator mode
 - full repair-loop maturity across multiple workers
@@ -113,6 +113,8 @@ bun run smoke:manager
 bun run smoke:manager:thin
 bun run smoke:manager:claude
 bun run smoke:manager:codex
+bun run smoke:manager:browser
+bun run smoke:manager:mail
 bun run smoke:manager:ambiguity
 bun run proof:manager
 bun run proof:phase4

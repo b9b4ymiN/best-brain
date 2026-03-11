@@ -92,15 +92,17 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ### Step 9: Browser Worker (*depends on Step 1*)
 - **Files**: `src/workers/` (new browser adapter), `src/manager/adapters/`
-- **Action**: Implement BrowserWorkerAdapter using Puppeteer/Playwright. Capabilities: navigate, screenshot, extract text, fill forms, click. Output: artifacts (screenshots, extracted data) + checks
+- **Status**: Completed (alpha scope) on 2026-03-11
+- **Action**: Implement manager-owned `BrowserWorkerAdapter` with URL fetch, HTML snapshot artifact capture, text/title extraction, and verification checks. Domain allow-list guardrails are supported.
 - **Security**: Sandbox browser process, restrict to allowed domains (configurable), no credential storage in memory
-- **Verification**: Smoke test navigates to a public page, captures screenshot, extracts text → artifacts valid
+- **Verification**: `bun run smoke:manager:browser` passes with real manager proof-chain persistence and browser artifacts.
 
 ### Step 10: Mail Worker (*parallel with Step 9*)
 - **Files**: `src/workers/` (new mail adapter)
-- **Action**: Implement MailWorkerAdapter. Capabilities: draft email (not send without approval), read inbox summary, search mail. Use IMAP/SMTP or provider APIs
+- **Status**: Completed (alpha scope) on 2026-03-11
+- **Action**: Implement manager-owned `MailWorkerAdapter` with draft generation, inbox summary, and mailbox search from local artifacts.
 - **Security**: Require explicit operator approval before sending. Draft-only mode by default
-- **Verification**: Smoke test drafts an email → artifact shows draft content → no actual send without approval
+- **Verification**: `bun run smoke:manager:mail` passes; direct send requests are blocked by draft-only policy.
 
 ### Step 11: Dual Worker Dispatch (*depends on Step 9, 10*)
 - **Files**: `src/manager/dispatcher.ts`, `src/manager/runtime.ts`

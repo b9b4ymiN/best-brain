@@ -22,8 +22,10 @@ import { compileMissionBrief } from './mission-compiler.ts';
 import { buildExecutionRequest } from './planner.ts';
 import type { BrainAdapter, VerifierAdapter, WorkerAdapter } from './adapters/types.ts';
 import { BrainHttpAdapter } from './adapters/brain-http.ts';
+import { BrowserWorkerAdapter } from './adapters/browser.ts';
 import { ClaudeCliAdapter } from './adapters/claude-cli.ts';
 import { CodexCliAdapter } from './adapters/codex-cli.ts';
+import { MailWorkerAdapter } from './adapters/mail.ts';
 import { ShellCliAdapter } from './adapters/shell-cli.ts';
 import { ManagerVerifierAdapter } from './adapters/verifier.ts';
 import {
@@ -64,7 +66,13 @@ function normalizeOutputMode(value: ManagerOutputMode | undefined): ManagerOutpu
 }
 
 function normalizeWorkerPreference(value: ManagerWorkerPreference | undefined): ManagerWorkerPreference {
-  return value === 'claude' || value === 'codex' || value === 'shell' ? value : 'auto';
+  return value === 'claude'
+    || value === 'codex'
+    || value === 'shell'
+    || value === 'browser'
+    || value === 'mail'
+    ? value
+    : 'auto';
 }
 
 function normalizeInput(
@@ -189,6 +197,8 @@ export class ManagerRuntime {
       claude: new ClaudeCliAdapter(),
       codex: new CodexCliAdapter(),
       shell: new ShellCliAdapter(),
+      browser: new BrowserWorkerAdapter(),
+      mail: new MailWorkerAdapter(),
       ...(options.workers ?? {}),
     };
     this.verifier = options.verifier ?? new ManagerVerifierAdapter();

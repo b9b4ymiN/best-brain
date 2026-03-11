@@ -8,6 +8,8 @@ const MISSION_HINTS = ['mission', 'complete', 'proof', 'verification', 'deliver'
 const SYSTEM_HINTS = ['system', 'platform', 'workflow', 'pipeline', 'service', 'scanner', 'tool'];
 const ANALYSIS_HINTS = ['analyze', 'analysis', 'review', 'plan', 'draft', 'outline', 'summarize'];
 const CODE_HINTS = ['code', 'repo', 'typescript', 'bun', 'test', 'server', 'cli', 'script', 'file'];
+const BROWSER_HINTS = ['web', 'website', 'url', 'browser', 'page', 'navigate', 'click', 'screenshot', 'extract', 'crawl'];
+const MAIL_HINTS = ['mail', 'email', 'inbox', 'thread', 'subject', 'draft', 'compose'];
 const WORK_TARGET_HINTS = ['file', 'repo', 'server', 'script', 'report', 'browser', 'mail', 'stock', 'scanner', 'system', 'web'];
 const IMPLEMENT_HINTS = ['implement', 'edit', 'fix', 'write', 'patch', 'scaffold'];
 const SHELL_HINTS = ['run', 'build', 'lint', 'smoke', 'terminal', 'shell', 'powershell', 'command'];
@@ -58,6 +60,8 @@ const THAI_WORK_TARGET_HINTS = [
   '\u0e2b\u0e38\u0e49\u0e19',
   '\u0e2a\u0e41\u0e01\u0e19\u0e2b\u0e38\u0e49\u0e19',
 ];
+const THAI_BROWSER_HINTS = ['\u0e40\u0e27\u0e47\u0e1a', '\u0e2b\u0e19\u0e49\u0e32\u0e40\u0e27\u0e47\u0e1a', '\u0e04\u0e25\u0e34\u0e01', '\u0e2a\u0e01\u0e23\u0e35\u0e19\u0e0a\u0e47\u0e2d\u0e15', '\u0e14\u0e36\u0e07\u0e02\u0e49\u0e2d\u0e21\u0e39\u0e25'];
+const THAI_MAIL_HINTS = ['\u0e40\u0e21\u0e25', '\u0e2d\u0e35\u0e40\u0e21\u0e25', '\u0e01\u0e25\u0e48\u0e2d\u0e07\u0e08\u0e14\u0e2b\u0e21\u0e32\u0e22', '\u0e40\u0e17\u0e23\u0e14', '\u0e23\u0e48\u0e32\u0e07'];
 const OWNER_WANT_HINTS = ['i want', 'want a', 'want an', 'want the', 'need a', 'need an'];
 const THAI_OWNER_WANT_HINTS = ['\u0e2d\u0e22\u0e32\u0e01\u0e44\u0e14\u0e49', '\u0e15\u0e49\u0e2d\u0e07\u0e01\u0e32\u0e23'];
 
@@ -70,17 +74,28 @@ function includesAnyText(value: string, hints: string[]): boolean {
 }
 
 export function selectWorker(goal: string, preference: ManagerWorkerPreference): ManagerWorker | null {
-  if (preference === 'claude' || preference === 'codex' || preference === 'shell') {
+  if (preference === 'claude' || preference === 'codex' || preference === 'shell' || preference === 'browser' || preference === 'mail') {
     return preference;
   }
 
   const tokens = tokenize(goal);
+  const normalizedGoal = goal.toLowerCase();
   const isActualThaiEquitiesMission = isThaiEquitiesActualManagerGoal(goal);
   const hasExplicitCommand = goal.includes('`');
   const hasImplementationIntent = includesAny(tokens, IMPLEMENT_HINTS);
+  const hasBrowserIntent = includesAny(tokens, BROWSER_HINTS) || includesAnyText(normalizedGoal, THAI_BROWSER_HINTS);
+  const hasMailIntent = includesAny(tokens, MAIL_HINTS) || includesAnyText(normalizedGoal, THAI_MAIL_HINTS);
 
   if (isActualThaiEquitiesMission) {
     return hasImplementationIntent ? 'codex' : 'claude';
+  }
+
+  if (hasMailIntent && !hasImplementationIntent) {
+    return 'mail';
+  }
+
+  if (hasBrowserIntent && !hasImplementationIntent) {
+    return 'browser';
   }
 
   if (hasExplicitCommand || (includesAny(tokens, SHELL_HINTS) && !hasImplementationIntent)) {

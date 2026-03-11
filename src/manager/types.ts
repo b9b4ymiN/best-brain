@@ -16,10 +16,10 @@ import type {
 import type { RuntimeSessionBundle } from '../runtime/types.ts';
 import type { MissionTaskGraph } from './graph.ts';
 
-export const MANAGER_WORKER_PREFERENCES = ['auto', 'claude', 'codex', 'shell'] as const;
+export const MANAGER_WORKER_PREFERENCES = ['auto', 'claude', 'codex', 'shell', 'browser', 'mail'] as const;
 export type ManagerWorkerPreference = (typeof MANAGER_WORKER_PREFERENCES)[number];
 
-export const MANAGER_WORKERS = ['claude', 'codex', 'shell'] as const;
+export const MANAGER_WORKERS = ['claude', 'codex', 'shell', 'browser', 'mail'] as const;
 export type ManagerWorker = (typeof MANAGER_WORKERS)[number];
 
 export const MANAGER_DECISION_KINDS = ['chat', 'task', 'mission'] as const;
@@ -69,7 +69,7 @@ export type ManagerProgressStatus = (typeof MANAGER_PROGRESS_STATUSES)[number];
 export interface ManagerProgressEvent {
   stage: string;
   status: ManagerProgressStatus;
-  actor: 'manager' | 'brain' | 'claude' | 'codex' | 'shell' | 'verifier' | 'runtime' | 'control_room' | 'mcp';
+  actor: 'manager' | 'brain' | 'claude' | 'codex' | 'shell' | 'browser' | 'mail' | 'verifier' | 'runtime' | 'control_room' | 'mcp';
   kind: ManagerTraceKind;
   title: string;
   detail: string;

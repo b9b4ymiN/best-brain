@@ -88,7 +88,7 @@ export function buildMissionTaskGraph(brief: MissionBrief): MissionTaskGraph {
 
   const primaryNodeType: MissionNodeType = brief.selected_worker === 'codex'
     ? 'implementation'
-    : brief.selected_worker === 'shell'
+    : brief.selected_worker === 'shell' || brief.selected_worker === 'browser' || brief.selected_worker === 'mail'
       ? 'execution'
       : 'analysis';
   const primaryWorker: WorkerId | null = brief.selected_worker;

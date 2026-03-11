@@ -4,13 +4,13 @@ import { LocalCliManagerReasoner } from '../src/manager/reasoner.ts';
 
 function parseArgs(argv: string[]): {
   goal: string;
-  worker_preference: 'auto' | 'claude' | 'codex' | 'shell';
+  worker_preference: 'auto' | 'claude' | 'codex' | 'shell' | 'browser' | 'mail';
   mission_id: string | null;
   output_mode: 'human' | 'json';
   dry_run: boolean;
   no_execute: boolean;
 } {
-  let workerPreference: 'auto' | 'claude' | 'codex' | 'shell' = 'auto';
+  let workerPreference: 'auto' | 'claude' | 'codex' | 'shell' | 'browser' | 'mail' = 'auto';
   let missionId: string | null = null;
   let outputMode: 'human' | 'json' = 'human';
   let dryRun = false;
@@ -22,7 +22,7 @@ function parseArgs(argv: string[]): {
 
     if (arg.startsWith('--worker=')) {
       const value = arg.slice('--worker='.length);
-      if (value === 'auto' || value === 'claude' || value === 'codex' || value === 'shell') {
+      if (value === 'auto' || value === 'claude' || value === 'codex' || value === 'shell' || value === 'browser' || value === 'mail') {
         workerPreference = value;
         continue;
       }
@@ -54,7 +54,7 @@ function parseArgs(argv: string[]): {
 
   const goal = positional.join(' ').trim();
   if (!goal) {
-    throw new Error('Usage: bun run manager -- "<goal>" [--worker=auto|claude|codex|shell] [--mission-id=<id>] [--json] [--dry-run] [--no-execute]');
+    throw new Error('Usage: bun run manager -- "<goal>" [--worker=auto|claude|codex|shell|browser|mail] [--mission-id=<id>] [--json] [--dry-run] [--no-execute]');
   }
 
   return {
