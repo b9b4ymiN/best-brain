@@ -159,23 +159,30 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 **Goal**: System learns from past missions — what worked, what failed, how to improve.
 
 ### Step 18: Failure Pattern Learning (*depends on Step 7*)
-- **Files**: `src/services/brain.ts`, `src/policies/learning.ts`
-- **Action**: After mission failure, auto-extract failure pattern: what went wrong, root cause category (worker_error, invalid_input, ambiguous_goal, verification_gap), suggested mitigation. Store as FailureMemory with `user_confirmed` gate
+- **Status**: Completed on 2026-03-12
+- **Files**: `src/manager/kernel.ts`, `src/manager/runtime.ts`, `src/policies/failure-pattern.ts`
+- **Action**: On `verification_failed`, manager classifies deterministic root-cause (`worker_error|invalid_input|ambiguous_goal|verification_gap`) and writes a failure lesson as a candidate memory (`confirmed=false`) for user-confirm gating.
+- **Verification (actual)**: `tests/manager.test.ts` verifies failure lesson write-back includes classified root cause and remains retryable; `bun run test` is green.
 - **Verification**: Mission fails → failure lesson proposed → user confirms → next similar mission avoids same pattern
 
 ### Step 19: Procedure Auto-Generation (*depends on Step 18*)
-- **Files**: `src/policies/learning.ts`, `src/seed/`
-- **Action**: After 3+ successful missions of same kind, generate Procedure memory: "For [mission_kind], always [steps]". Require user confirmation before promoting to active procedure
+- **Status**: Completed on 2026-03-12
+- **Files**: `src/manager/runtime.ts`, `src/services/brain.ts`, `src/policies/learning.ts`
+- **Action**: After >=3 `verified_complete` outcomes for the same mission kind, manager proposes a procedure memory as `status=candidate` (not auto-active), preserving user-confirm gate before promotion.
+- **Verification (actual)**: `tests/manager.test.ts` asserts candidate procedure proposal after 3 verified outcomes; candidate items are excluded from default retrieval in `tests/brain.test.ts`.
 - **Verification**: 3 repo_change missions succeed → procedure proposed → confirmed → next mission references it
 
 ### Step 20: Memory Quality Metrics
-- **Files**: `src/eval/` (extend consult eval)
-- **Action**: Track memory quality over time: staleness ratio, contradiction count, superseded but still retrieved count, citation usefulness rating. Dashboard widget showing memory health
-- **Verification**: Memory dashboard shows health metrics; stale memories decay correctly per retention policy
+- **Status**: Completed on 2026-03-12
+- **Files**: `src/db/client.ts`, `src/services/brain.ts`, `src/http/app.ts`, `src/control-room/service.ts`, `src/control-room/page.ts`
+- **Action**: Added `GET /brain/memory-quality` and control-room memory-health widget covering active count, staleness ratio, unresolved contradictions, superseded retrieval leakage, and citation usefulness.
+- **Verification**: `tests/http.test.ts` validates API shape; `tests/control-room-http.test.ts` validates dashboard memory health payload; `tests/brain.test.ts` validates metric counters.
 
 ### Step 21: Cross-Mission Knowledge Transfer (*parallel with Step 20*)
-- **Files**: `src/services/brain.ts`, `src/policies/memory-v2.ts`
-- **Action**: When mission in domain A succeeds, check if learnings apply to domain B (via entity_keys and domain overlap). Propose cross-domain DomainMemory items
+- **Status**: Completed on 2026-03-12
+- **Files**: `src/manager/runtime.ts`, `src/policies/learning.ts`, `src/types.ts`, `src/validation.ts`
+- **Action**: On verified missions, manager evaluates domain/entity overlap and proposes `domain_memory` transfer candidates (`status=candidate`) for cross-mission reuse with explicit promotion path.
+- **Verification (actual)**: `tests/manager.test.ts` validates cross-domain proposal when overlap exists; `bun run test` passes.
 - **Verification**: Thai equities insight → proposed as general investment knowledge → user confirms → available in non-Thai contexts
 
 ---

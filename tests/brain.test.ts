@@ -505,4 +505,119 @@ describe('best-brain core', () => {
       cleanup();
     }
   });
+
+  test('candidate procedure memories stay out of default retrieval until confirmed', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      const result = await brain.learn({
+        mode: 'procedure',
+        title: 'Auto procedure candidate',
+        content: 'Candidate procedure from repeated mission outcomes.',
+        source: 'test://procedure-candidate',
+        domain: 'best-brain',
+        tags: ['procedure', 'pending-confirmation', 'mission-kind:command-execution-mission'],
+        verified_by: 'system_inference',
+        confirmed_by_user: false,
+        status_override: 'candidate',
+      });
+
+      expect(result.accepted).toBe(true);
+      expect(result.status).toBe('candidate');
+
+      const response = await brain.consult({
+        query: 'What procedure should we use for this command mission?',
+      });
+      expect(response.selected_memories.some((memory) => memory.title === 'Auto procedure candidate')).toBe(false);
+
+      const trace = brain.getRetrievalTrace(response.trace_id);
+      const candidateTrace = trace?.matched_candidates.find((item) => item.title === 'Auto procedure candidate');
+      expect(candidateTrace?.why_excluded.some((reason) => reason.includes('candidate_pending_confirmation'))).toBe(true);
+    } finally {
+      cleanup();
+    }
+  });
+
+  test('memory quality metrics report staleness, unresolved contradictions, and leakage counters', async () => {
+    const { brain, cleanup } = await createTestBrain();
+
+    try {
+      const supersededBase = await brain.learn({
+        mode: 'working_memory',
+        title: 'Leakage probe note',
+        content: 'Old working memory record for leakage probe.',
+        source: 'test://leakage-base',
+      });
+      await brain.learn({
+        mode: 'working_memory',
+        title: 'Leakage probe note',
+        content: 'Newer working memory record that supersedes the old one.',
+        source: 'test://leakage-next',
+        supersedes: supersededBase.memory_id,
+      });
+
+      await brain.learn({
+        mode: 'procedure',
+        title: 'Conflict procedure A',
+        content: 'First procedure version.',
+        source: 'test://conflict-1',
+        memory_subtype: 'procedure.verification',
+        entity_keys: ['verification_playbook'],
+        verified_by: 'system_inference',
+      });
+      await brain.learn({
+        mode: 'procedure',
+        title: 'Conflict procedure B',
+        content: 'Second procedure version with a conflicting claim.',
+        source: 'test://conflict-2',
+        memory_subtype: 'procedure.verification',
+        entity_keys: ['verification_playbook'],
+        verified_by: 'system_inference',
+      });
+
+      const staleCandidate = await brain.learn({
+        mode: 'domain_memory',
+        title: 'Old market heuristic',
+        content: 'A stale heuristic that should be penalized.',
+        source: 'test://stale',
+        domain: 'trading',
+        last_validated_at: Date.now() - (90 * 24 * 60 * 60 * 1000),
+        success_rate_hint: 0.2,
+        status_override: 'active',
+      });
+      if (staleCandidate.memory_id) {
+        brain.store.sqlite
+          .prepare('UPDATE memory_items SET times_reused = 1 WHERE id = ?')
+          .run(staleCandidate.memory_id);
+      }
+
+      if (supersededBase.memory_id) {
+        brain.store.insertRetrievalTrace({
+          id: 'trace_leakage_probe',
+          query: 'leakage probe',
+          intent: 'working_context',
+          queryProfile: 'balanced',
+          missionId: null,
+          domain: 'best-brain',
+          policyPath: 'deterministic.working_context.v1',
+          retrievalMode: 'fts_only',
+          matchedCandidates: [],
+          whyIncluded: [],
+          whyExcluded: [],
+          rankingContribution: [],
+          finalSelectedSet: [supersededBase.memory_id],
+          createdAt: Date.now(),
+        });
+      }
+
+      const metrics = brain.getMemoryQualityMetrics();
+      expect(metrics.active_memory_count).toBeGreaterThan(0);
+      expect(metrics.stale_candidate_count).toBeGreaterThan(0);
+      expect(metrics.unresolved_contradiction_count).toBeGreaterThan(0);
+      expect(metrics.superseded_retrieval_leakage_count).toBeGreaterThanOrEqual(1);
+      expect(metrics.citation_usefulness_rating).toBeGreaterThanOrEqual(0);
+    } finally {
+      cleanup();
+    }
+  });
 });

@@ -1,6 +1,6 @@
 import fs from 'fs';
 import path from 'path';
-import type { MissionStatus } from '../types.ts';
+import type { MemoryQualityMetrics, MissionStatus } from '../types.ts';
 import type { ManagerRuntime } from '../manager/runtime.ts';
 import type { ManagerRunResult } from '../manager/types.ts';
 import type { RuntimeArtifactRecord, RuntimeEventRecord, RuntimeWorkerTaskRun } from '../runtime/types.ts';
@@ -58,6 +58,7 @@ export interface ControlRoomManagerFactory {
 export interface ControlRoomServiceOptions {
   dataDir: string;
   managerFactory: ControlRoomManagerFactory;
+  memoryQualityProvider?: () => MemoryQualityMetrics;
   now?: () => number;
 }
 
@@ -499,11 +500,13 @@ function createInitialOperatorReview(): OperatorReviewView {
 export class ControlRoomService {
   private readonly missionsDir: string;
   private readonly managerFactory: ControlRoomManagerFactory;
+  private readonly memoryQualityProvider: (() => MemoryQualityMetrics) | null;
   private readonly now: () => number;
 
   constructor(options: ControlRoomServiceOptions) {
     this.missionsDir = path.join(options.dataDir, 'control-room', 'missions');
     this.managerFactory = options.managerFactory;
+    this.memoryQualityProvider = options.memoryQualityProvider ?? null;
     this.now = options.now ?? (() => Date.now());
     fs.mkdirSync(this.missionsDir, { recursive: true });
   }
@@ -580,12 +583,23 @@ export class ControlRoomService {
     const summaries = missions.map(buildMissionSummary);
     const availableStatuses = Array.from(new Set(summaries.map((mission) => mission.status))).sort();
     const availableMissionKinds = Array.from(new Set(summaries.map((mission) => mission.mission_kind))).sort();
+    const memoryHealth = (() => {
+      if (!this.memoryQualityProvider) {
+        return null;
+      }
+      try {
+        return this.memoryQualityProvider();
+      } catch {
+        return null;
+      }
+    })();
 
     return {
       latest_mission_id: missions[0]?.mission_id ?? null,
       missions: summaries,
       available_statuses: availableStatuses,
       available_mission_kinds: availableMissionKinds,
+      memory_health: memoryHealth,
     };
   }
 

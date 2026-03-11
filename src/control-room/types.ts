@@ -1,4 +1,4 @@
-import type { MissionStatus } from '../types.ts';
+import type { MemoryQualityMetrics, MissionStatus } from '../types.ts';
 import type { MissionTaskGraph } from '../manager/graph.ts';
 import type { WorkerId } from '../workers/types.ts';
 import type { RuntimeArtifactRecord } from '../runtime/types.ts';
@@ -135,6 +135,7 @@ export interface ControlRoomDashboardView {
   missions: ControlRoomMissionSummary[];
   available_statuses: MissionStatus[];
   available_mission_kinds: string[];
+  memory_health: MemoryQualityMetrics | null;
 }
 
 export interface ControlRoomActionRequest {

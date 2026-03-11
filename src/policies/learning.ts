@@ -30,6 +30,13 @@ const RULES: Record<LearnMode, LearningRule> = {
     requiresExplicitConfirmation: false,
     allowsAutoMerge: true,
   },
+  domain_memory: {
+    memoryType: 'DomainMemory',
+    defaultStatus: 'active',
+    defaultVerifiedBy: 'system_inference',
+    requiresExplicitConfirmation: false,
+    allowsAutoMerge: true,
+  },
   mission_outcome: {
     memoryType: 'MissionMemory',
     defaultStatus: 'active',
@@ -69,6 +76,15 @@ export function validateLearnRequest(request: LearnRequest): string | null {
   const rule = getLearningRule(request.mode);
   if (rule.requiresExplicitConfirmation && request.confirmed_by_user !== true) {
     return `${request.mode} updates require confirmed_by_user=true`;
+  }
+
+  if (request.status_override != null) {
+    if (request.status_override !== 'active' && request.status_override !== 'candidate') {
+      return 'status_override must be active or candidate';
+    }
+    if (request.status_override === 'active' && request.mode !== 'working_memory' && request.confirmed_by_user !== true && rule.requiresExplicitConfirmation) {
+      return `${request.mode} active updates require confirmed_by_user=true`;
+    }
   }
 
   return null;

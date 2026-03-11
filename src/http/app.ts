@@ -183,6 +183,8 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
     return c.json(await brain.getContext(params));
   });
 
+  app.get('/brain/memory-quality', (c) => c.json(brain.getMemoryQualityMetrics()));
+
   app.post('/missions/:id/outcome', async (c) => {
     const body = validateMissionOutcomeInput(await readJsonBody(c), c.req.param('id'));
     return c.json(await brain.saveMissionOutcome(body));

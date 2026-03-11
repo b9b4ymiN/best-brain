@@ -652,6 +652,13 @@ export class BrainStore {
     }>;
   }
 
+  countUnresolvedContradictions(): number {
+    const row = this.sqlite
+      .prepare(`SELECT COUNT(*) AS count FROM memory_contradictions WHERE resolution_state != 'resolved'`)
+      .get() as RawRow | null;
+    return Number(row?.count ?? 0);
+  }
+
   findActiveConflict(leftMemoryId: string, rightMemoryId: string): { id: string } | null {
     return this.sqlite
       .prepare(
@@ -965,6 +972,13 @@ export class BrainStore {
   getRetrievalTrace(traceId: string): RetrievalTraceRecord | null {
     const row = this.sqlite.prepare('SELECT * FROM retrieval_traces WHERE id = ?').get(traceId) as RawRow | null;
     return row ? asRetrievalTraceRecord(row) : null;
+  }
+
+  listRetrievalTraces(limit = 100): RetrievalTraceRecord[] {
+    const rows = this.sqlite
+      .prepare('SELECT * FROM retrieval_traces ORDER BY created_at DESC LIMIT ?')
+      .all(limit) as RawRow[];
+    return rows.map(asRetrievalTraceRecord);
   }
 
   insertLearningEvent(event: {

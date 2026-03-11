@@ -592,6 +592,15 @@ const dashboardView: ControlRoomDashboardView = {
   }],
   available_statuses: ['verified_complete'],
   available_mission_kinds: [playbook.mission_kind],
+  memory_health: {
+    generated_at: now + 27_000,
+    active_memory_count: 24,
+    stale_candidate_count: 2,
+    stale_ratio: 8.33,
+    unresolved_contradiction_count: 0,
+    superseded_retrieval_leakage_count: 0,
+    citation_usefulness_rating: 4.6,
+  },
 };
 
 const programScorecard = buildProgramScorecard({

@@ -12,6 +12,7 @@ import type {
 import type { CompletionProofState } from '../types.ts';
 import type { MissionTaskGraph } from './graph.ts';
 import type { RuntimeSessionBundle } from '../runtime/types.ts';
+import { classifyFailurePattern } from '../policies/failure-pattern.ts';
 
 export function buildManagerSummary(
   input: ManagerInput,
@@ -54,15 +55,27 @@ export function buildManagerSummary(
   ].join('\n');
 }
 
-export function buildFailureWrite(goal: string, missionId: string, workerResult: WorkerExecutionResult) {
+export function buildFailureWrite(
+  goal: string,
+  missionId: string,
+  workerResult: WorkerExecutionResult,
+  verificationStatus: CompletionProofState['status'],
+  blockedReason: string | null = null,
+) {
+  const pattern = classifyFailurePattern({
+    goal,
+    workerResult,
+    verificationStatus,
+    blockedReason,
+  });
   return {
-    title: `Manager failure: ${goal.slice(0, 80)}`,
-    cause: workerResult.summary || 'Primary worker did not produce a verifiable result.',
-    lesson: 'Do not treat worker output as complete until the verification gate passes.',
-    prevention: 'Collect evidence and verification checks before completing the mission.',
+    title: `Failure pattern (${pattern.root_cause}): ${goal.slice(0, 80)}`,
+    cause: `${pattern.cause}\nObserved worker summary: ${workerResult.summary || 'Primary worker did not produce a verifiable result.'}`,
+    lesson: pattern.lesson,
+    prevention: pattern.prevention,
     mission_id: missionId,
     domain: 'best-brain',
-    confirmed: true,
+    confirmed: false,
     evidence_ref: workerResult.artifacts,
   };
 }

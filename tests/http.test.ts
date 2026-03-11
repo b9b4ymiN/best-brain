@@ -29,6 +29,23 @@ describe('http routes', () => {
       expect(Array.isArray(payload.memory_ids)).toBe(true);
       expect(payload.citations.length).toBe(payload.memory_ids.length);
       expect(payload.trace_id.startsWith('trace_')).toBe(true);
+
+      const memoryQuality = await app.request('/brain/memory-quality');
+      expect(memoryQuality.status).toBe(200);
+      const memoryQualityPayload = await memoryQuality.json() as {
+        active_memory_count: number;
+        stale_candidate_count: number;
+        stale_ratio: number;
+        unresolved_contradiction_count: number;
+        superseded_retrieval_leakage_count: number;
+        citation_usefulness_rating: number;
+      };
+      expect(memoryQualityPayload.active_memory_count).toBeGreaterThan(0);
+      expect(memoryQualityPayload.stale_candidate_count).toBeGreaterThanOrEqual(0);
+      expect(memoryQualityPayload.stale_ratio).toBeGreaterThanOrEqual(0);
+      expect(memoryQualityPayload.unresolved_contradiction_count).toBeGreaterThanOrEqual(0);
+      expect(memoryQualityPayload.superseded_retrieval_leakage_count).toBeGreaterThanOrEqual(0);
+      expect(memoryQualityPayload.citation_usefulness_rating).toBeGreaterThanOrEqual(0);
     } finally {
       cleanup();
     }

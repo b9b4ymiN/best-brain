@@ -4,6 +4,7 @@ import { buildMissionReportDocument } from '../proving/report.ts';
 import { LocalRuntimeSpine } from '../runtime/spine.ts';
 import { WorkerFabric } from '../workers/fabric.ts';
 import { createId } from '../utils/id.ts';
+import { slugify } from '../utils/text.ts';
 import { buildChatOwnerResponse } from './chat-response.ts';
 import type { ChatResponder } from './chat-responder.ts';
 import { validateMissionBrief } from './brief-validator.ts';
@@ -230,6 +231,14 @@ function mergeConsultResponses(primary: Awaited<ReturnType<BrainAdapter['consult
     selected_memories: Array.from(selectedMemoryMap.values()),
     retrieval_bundle: primary.retrieval_bundle ?? secondary.retrieval_bundle,
   };
+}
+
+function missionKindTag(missionKind: string): string {
+  return `mission-kind:${slugify(missionKind.replace(/_/g, ' '))}`;
+}
+
+function hasTag(tags: string[], tag: string): boolean {
+  return tags.some((candidate) => candidate.toLowerCase() === tag.toLowerCase());
 }
 
 function shouldUseBrainAwareChat(goal: string): boolean {
@@ -684,6 +693,34 @@ export class ManagerRuntime {
         detail: ambiguity.reason,
         decision_kind: decision.kind,
         blocked_reason_code: 'ambiguous_goal',
+      });
+    }
+
+    if (decision.kind !== 'chat') {
+      await emitProgress({
+        stage: 'brain_consult_failure',
+        status: 'started',
+        actor: 'brain',
+        title: 'Loading failure lessons',
+        detail: 'Checking reusable failure patterns before compiling the mission.',
+        decision_kind: decision.kind,
+      });
+      const failureConsult = await this.brain.consult({
+        query: `failure lessons for mission kind ${decision.kind}: ${input.goal}`,
+        mission_id: existingMissionId,
+        domain: 'best-brain',
+        limit: 5,
+        consumer: 'manager',
+        bundle_profile: 'manager_plan',
+      });
+      consult = mergeConsultResponses(consult, failureConsult);
+      await emitProgress({
+        stage: 'brain_consult_failure',
+        status: 'completed',
+        actor: 'brain',
+        title: 'Failure context loaded',
+        detail: `Merged ${failureConsult.citations.length} failure-oriented citations into the mission context.`,
+        decision_kind: decision.kind,
       });
     }
 
@@ -1181,6 +1218,7 @@ export class ManagerRuntime {
     const strictOutcome = validateMissionOutcomeStrictInput({
       mission_id: missionId,
       objective: brief.goal,
+      mission_kind: brief.mission_kind,
       result_summary: workerResult.summary,
       evidence: verificationRequest.evidence,
       verification_checks: verificationRequest.verification_checks,
@@ -1317,8 +1355,167 @@ export class ManagerRuntime {
       runtimeBundle = runtimeSpine.snapshot();
     }
 
+    if (verificationResult.status === 'verified_complete') {
+      await emitProgress({
+        stage: 'learning_capture',
+        status: 'started',
+        actor: 'brain',
+        title: 'Capturing post-mission learnings',
+        detail: 'Evaluating failure-safe procedure and cross-mission learning candidates.',
+        decision_kind: decision.kind,
+      });
+
+      const kindTag = missionKindTag(brief.mission_kind);
+      const historyConsult = await this.brain.consult({
+        query: `verified mission outcomes for mission kind ${brief.mission_kind}`,
+        domain: 'best-brain',
+        limit: 12,
+        consumer: 'manager',
+        bundle_profile: 'manager_plan',
+      });
+      const verifiedKindOutcomes = historyConsult.selected_memories.filter((memory) => (
+        memory.memory_type === 'MissionMemory'
+        && memory.verified_by === 'verifier'
+        && hasTag(memory.tags, kindTag)
+      ));
+
+      const existingProcedureConsult = await this.brain.consult({
+        query: `active procedure for mission kind ${brief.mission_kind}`,
+        domain: 'best-brain',
+        limit: 8,
+        consumer: 'manager',
+        bundle_profile: 'manager_plan',
+      });
+      const hasActiveProcedure = existingProcedureConsult.selected_memories.some((memory) => (
+        memory.memory_type === 'Procedures'
+        && memory.status === 'active'
+        && hasTag(memory.tags, kindTag)
+      ));
+
+      const captureNotes: string[] = [];
+      if (verifiedKindOutcomes.length >= 3 && !hasActiveProcedure) {
+        const distilled = verifiedKindOutcomes
+          .slice(0, 3)
+          .map((memory, index) => `${index + 1}. ${memory.summary}`)
+          .join('\n');
+        const procedureCandidate = await this.brain.learn({
+          mode: 'procedure',
+          title: `Procedure candidate: ${brief.mission_kind}`,
+          content: [
+            `Auto-generated after ${verifiedKindOutcomes.length} verified missions of kind ${brief.mission_kind}.`,
+            'Observed successful outcomes:',
+            distilled || '- No outcome summary captured.',
+            'This is a candidate and requires explicit owner confirmation before activation.',
+          ].join('\n'),
+          source: 'manager://procedure-auto',
+          domain: 'best-brain',
+          reusable: true,
+          mission_id: null,
+          tags: ['procedure', 'auto-generated', 'pending-confirmation', kindTag],
+          verified_by: 'system_inference',
+          confirmed_by_user: false,
+          written_by: 'manager',
+          memory_subtype: 'procedure.planning',
+          status_override: 'candidate',
+          evidence_ref: [{
+            type: 'note',
+            ref: `procedure-candidate://${missionId}`,
+            description: 'Auto-generated from repeated verified missions; pending owner confirmation.',
+          }],
+        });
+        brainWrites.push(createBrainWriteRecord(
+          'capture_learning',
+          procedureCandidate.accepted ? 'success' : 'skipped',
+          procedureCandidate.accepted
+            ? `Procedure candidate captured for ${brief.mission_kind}.`
+            : `Procedure candidate skipped for ${brief.mission_kind}: ${procedureCandidate.reason}`,
+          procedureCandidate,
+        ));
+        captureNotes.push(procedureCandidate.accepted
+          ? 'Procedure candidate proposed (pending confirmation).'
+          : `Procedure proposal skipped: ${procedureCandidate.reason}`);
+      }
+
+      const sourceDomain = strictOutcome.domain;
+      const sourceKeys = new Set(brief.brain_citations.flatMap((citation) => citation.entity_keys));
+      const crossDomainCandidate = context.durable_memory
+        .filter((memory) => memory.domain != null && memory.domain !== sourceDomain)
+        .map((memory) => {
+          const overlap = memory.entity_keys.filter((key) => sourceKeys.has(key)).length;
+          return { memory, overlap };
+        })
+        .filter((item) => item.overlap >= 2)
+        .sort((left, right) => right.overlap - left.overlap)[0];
+      if (crossDomainCandidate) {
+        const targetDomain = crossDomainCandidate.memory.domain!;
+        const crossDomainResult = await this.brain.learn({
+          mode: 'domain_memory',
+          title: `Cross-domain transfer candidate: ${brief.mission_kind} -> ${targetDomain}`,
+          content: [
+            `Source mission kind: ${brief.mission_kind}`,
+            `Source domain: ${sourceDomain}`,
+            `Target domain: ${targetDomain}`,
+            `Overlapping entity keys: ${crossDomainCandidate.memory.entity_keys.filter((key) => sourceKeys.has(key)).join(', ')}`,
+            `Transfer hypothesis: ${crossDomainCandidate.memory.summary}`,
+            'This is a candidate transfer and requires explicit owner confirmation before activation.',
+          ].join('\n'),
+          source: 'manager://cross-mission-transfer',
+          domain: targetDomain,
+          reusable: true,
+          mission_id: null,
+          tags: [
+            'domain',
+            'cross-mission',
+            'auto-generated',
+            'pending-confirmation',
+            kindTag,
+            `source-domain:${slugify(sourceDomain)}`,
+            `target-domain:${slugify(targetDomain)}`,
+          ],
+          verified_by: 'system_inference',
+          confirmed_by_user: false,
+          written_by: 'manager',
+          memory_subtype: 'domain.model',
+          status_override: 'candidate',
+          evidence_ref: [{
+            type: 'note',
+            ref: `cross-domain-candidate://${missionId}`,
+            description: 'Auto-generated from overlap between verified mission context and another active domain.',
+          }],
+        });
+        brainWrites.push(createBrainWriteRecord(
+          'capture_learning',
+          crossDomainResult.accepted ? 'success' : 'skipped',
+          crossDomainResult.accepted
+            ? `Cross-domain learning candidate captured for ${targetDomain}.`
+            : `Cross-domain learning skipped: ${crossDomainResult.reason}`,
+          crossDomainResult,
+        ));
+        captureNotes.push(crossDomainResult.accepted
+          ? `Cross-domain candidate proposed for ${targetDomain} (pending confirmation).`
+          : `Cross-domain proposal skipped: ${crossDomainResult.reason}`);
+      }
+
+      await emitProgress({
+        stage: 'learning_capture',
+        status: 'completed',
+        actor: 'brain',
+        title: 'Post-mission learning captured',
+        detail: captureNotes.length > 0
+          ? captureNotes.join(' ')
+          : 'No new learning candidate was generated for this mission run.',
+        decision_kind: decision.kind,
+      });
+    }
+
     if (verificationResult.status !== 'verified_complete') {
-      const failureInput = buildFailureWrite(brief.goal, missionId, workerResult) as FailureInput;
+      const failureInput = buildFailureWrite(
+        brief.goal,
+        missionId,
+        workerResult,
+        verificationResult.status,
+        decision.blocked_reason,
+      ) as FailureInput;
       const failureResult = await this.brain.saveFailure(failureInput);
       brainWrites.push(createBrainWriteRecord(
         'save_failure',

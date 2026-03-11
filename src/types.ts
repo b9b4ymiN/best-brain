@@ -64,6 +64,7 @@ export const LEARN_MODES = [
   'persona',
   'preference',
   'procedure',
+  'domain_memory',
   'mission_outcome',
   'failure_lesson',
   'working_memory',
@@ -280,8 +281,10 @@ export interface LearnRequest {
   written_by?: WrittenBy;
   owner_scope?: OwnerScope;
   retrieval_weight?: number;
+  success_rate_hint?: number | null;
   last_validated_at?: number | null;
   valid_until?: number | null;
+  status_override?: MemoryStatus;
 }
 
 export interface CuratedMemoryInput {
@@ -449,6 +452,7 @@ export interface MissionEventRecord {
 export interface MissionOutcomeInput {
   mission_id: string;
   objective: string;
+  mission_kind?: string | null;
   result_summary: string;
   evidence: VerificationArtifact[];
   verification_checks: VerificationCheck[];
@@ -483,6 +487,16 @@ export interface MissionContextBundle {
   verification_state: CompletionProofState | null;
   verification_artifacts: VerificationArtifactRecord[];
   manager_bundle: ManagerRetrievalBundle | null;
+}
+
+export interface MemoryQualityMetrics {
+  generated_at: number;
+  active_memory_count: number;
+  stale_candidate_count: number;
+  stale_ratio: number;
+  unresolved_contradiction_count: number;
+  superseded_retrieval_leakage_count: number;
+  citation_usefulness_rating: number;
 }
 
 export interface VerificationStartInput {

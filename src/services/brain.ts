@@ -12,6 +12,7 @@ import type {
   LearnResult,
   ManagerRetrievalBundle,
   MemoryRecord,
+  MemoryQualityMetrics,
   MissionContextBundle,
   MissionOutcomeInput,
   MissionRecord,
@@ -235,6 +236,7 @@ export class BestBrain {
     written_by?: MemoryRecord['written_by'];
     owner_scope?: MemoryRecord['owner_scope'];
     retrieval_weight?: number;
+    success_rate_hint?: number | null;
     last_validated_at?: number | null;
     valid_until?: number | null;
   }, timestamp: number, status: MemoryRecord['status'], verifiedBy: MemoryRecord['verified_by']): MemoryRecord {
@@ -284,7 +286,7 @@ export class BestBrain {
       promotion_state: 'none',
       times_reused: 0,
       last_reused_at: null,
-      success_rate_hint: null,
+      success_rate_hint: input.success_rate_hint ?? null,
       status,
       verified_by: verifiedBy,
       evidence_ref: uniqueArtifacts(input.evidence_ref ?? []),
@@ -327,6 +329,7 @@ export class BestBrain {
       written_by: request.written_by ?? 'system',
       owner_scope: request.owner_scope,
       retrieval_weight: request.retrieval_weight,
+      success_rate_hint: request.success_rate_hint,
       last_validated_at: request.last_validated_at,
       valid_until: request.valid_until,
     }, timestamp, status, verifiedBy);
@@ -421,10 +424,11 @@ export class BestBrain {
     const confirmed =
       request.confirmed_by_user === true
       || ['user', 'test', 'verifier', 'trusted_import'].includes(request.verified_by ?? '');
-    const status =
+    const derivedStatus =
       request.mode === 'failure_lesson'
         ? (confirmed ? 'active' : 'candidate')
         : rule.defaultStatus;
+    const status = request.status_override ?? derivedStatus;
     const verifiedBy =
       request.verified_by ?? (confirmed ? rule.defaultVerifiedBy : 'system_inference');
 
@@ -717,8 +721,8 @@ export class BestBrain {
       if (memory.status === 'archived' && memory.memory_type !== 'MissionMemory') {
         whyExcluded.push('archived');
       }
-      if (memory.memory_type === 'FailureMemory' && memory.status === 'candidate') {
-        whyExcluded.push('unconfirmed_failure');
+      if (memory.status === 'candidate') {
+        whyExcluded.push(memory.memory_type === 'FailureMemory' ? 'unconfirmed_failure' : 'candidate_pending_confirmation');
       }
 
       const searchable = `${memory.title} ${memory.summary} ${memory.content} ${memory.tags.join(' ')} ${memory.domain ?? ''}`;
@@ -1050,6 +1054,57 @@ export class BestBrain {
     };
   }
 
+  getMemoryQualityMetrics(): MemoryQualityMetrics {
+    const timestamp = nowMs();
+    const activeMemories = this.store.listActiveMemories().filter((memory) => !memory.superseded_by);
+    const staleCandidateCount = activeMemories.filter((memory) => isStaleCandidate(memory, timestamp)).length;
+    const staleRatio = activeMemories.length === 0
+      ? 0
+      : Number(((staleCandidateCount / activeMemories.length) * 100).toFixed(2));
+    const unresolvedContradictionCount = this.store.countUnresolvedContradictions();
+
+    const traces = this.store.listRetrievalTraces(120);
+    let supersededLeakageCount = 0;
+    let usefulTraceCount = 0;
+    let groundedTraceCount = 0;
+    for (const trace of traces) {
+      if (trace.final_selected_set.length === 0) {
+        continue;
+      }
+      usefulTraceCount += 1;
+      let grounded = false;
+      for (const memoryId of trace.final_selected_set) {
+        const memory = this.store.getMemory(memoryId);
+        if (!memory) {
+          continue;
+        }
+        if (memory.status === 'superseded' || memory.status === 'expired' || (memory.status === 'archived' && memory.memory_type !== 'MissionMemory')) {
+          supersededLeakageCount += 1;
+        }
+        if ((memory.verified_by != null && memory.verified_by !== 'system_inference') || memory.evidence_ref.length > 0) {
+          grounded = true;
+        }
+      }
+      if (grounded) {
+        groundedTraceCount += 1;
+      }
+    }
+
+    const citationUsefulnessRating = usefulTraceCount === 0
+      ? 0
+      : Number((((groundedTraceCount / usefulTraceCount) * 5)).toFixed(2));
+
+    return {
+      generated_at: timestamp,
+      active_memory_count: activeMemories.length,
+      stale_candidate_count: staleCandidateCount,
+      stale_ratio: staleRatio,
+      unresolved_contradiction_count: unresolvedContradictionCount,
+      superseded_retrieval_leakage_count: supersededLeakageCount,
+      citation_usefulness_rating: citationUsefulnessRating,
+    };
+  }
+
   getVerificationArtifactRegistry(missionId: string | null): VerificationArtifactRegistrySnapshot {
     return this.store.getVerificationArtifactRegistrySnapshot(missionId);
   }
@@ -1121,10 +1176,14 @@ export class BestBrain {
 
     const content = [
       `Objective: ${input.objective}`,
+      `Mission kind: ${input.mission_kind ?? 'unknown'}`,
       `Result: ${input.result_summary}`,
       `Evidence: ${input.evidence.map((artifact) => `${artifact.type}:${artifact.ref}`).join(', ') || 'none'}`,
       `Verification checks: ${input.verification_checks.map((check) => `${check.name}=${check.passed ? 'pass' : 'fail'}`).join(', ') || 'none'}`,
     ].join('\n');
+    const missionKindTag = input.mission_kind?.trim()
+      ? `mission-kind:${slugify(input.mission_kind.replace(/_/g, ' '))}`
+      : null;
 
     const learnResult = await this.learn({
       mode: 'mission_outcome',
@@ -1136,7 +1195,7 @@ export class BestBrain {
       domain: input.domain ?? mission.domain,
       reusable: true,
       mission_id: input.mission_id,
-      tags: ['mission', 'outcome'],
+      tags: missionKindTag ? ['mission', 'outcome', missionKindTag] : ['mission', 'outcome'],
       verified_by: 'system_inference',
       evidence_ref: input.evidence,
     });
@@ -1156,7 +1215,13 @@ export class BestBrain {
       'outcome_saved',
       'brain',
       `Mission outcome recorded and mission moved to ${nextMission.status}.`,
-      { outcome_memory_id: learnResult.memory_id, checks: input.verification_checks, evidence: input.evidence, reused_memory_ids: input.reused_memory_ids ?? [] },
+      {
+        outcome_memory_id: learnResult.memory_id,
+        mission_kind: input.mission_kind ?? null,
+        checks: input.verification_checks,
+        evidence: input.evidence,
+        reused_memory_ids: input.reused_memory_ids ?? [],
+      },
       nowMs(),
     );
 

@@ -214,6 +214,7 @@ export function renderControlRoomPage(): string {
             <h2>Missions</h2>
             <small id="missionCount">0 missions</small>
           </div>
+          <div id="memoryHealth" class="item" style="margin-top: 10px;"></div>
           <div class="stack" style="margin: 10px 0 12px;">
             <label class="two-line">
               <span>Status filter</span>
@@ -276,10 +277,24 @@ export function renderControlRoomPage(): string {
       function renderDashboard() {
         const list = document.getElementById('missionList');
         const missionCount = document.getElementById('missionCount');
+        const memoryHealth = document.getElementById('memoryHealth');
         const statusFilterEl = document.getElementById('historyStatusFilter');
         const kindFilterEl = document.getElementById('historyKindFilter');
         const missions = state.dashboard?.missions ?? [];
         missionCount.textContent = missions.length + ' mission' + (missions.length === 1 ? '' : 's');
+        if (memoryHealth) {
+          const health = state.dashboard?.memory_health;
+          if (!health) {
+            memoryHealth.innerHTML = '<strong>Memory health</strong><br/><small>unavailable</small>';
+          } else {
+            memoryHealth.innerHTML = ''
+              + '<strong>Memory health</strong><br/>'
+              + '<small>active ' + health.active_memory_count
+              + ' • stale ' + health.stale_candidate_count + ' (' + health.stale_ratio + '%)'
+              + ' • contradictions ' + health.unresolved_contradiction_count
+              + ' • citation rating ' + health.citation_usefulness_rating + '/5</small>';
+          }
+        }
         list.innerHTML = '';
         if (statusFilterEl) {
           const selected = statusFilterEl.value || 'all';

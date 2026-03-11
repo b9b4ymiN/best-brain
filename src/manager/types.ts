@@ -215,7 +215,7 @@ export interface WorkerExecutionResult {
 }
 
 export interface BrainWriteRecord {
-  action: 'save_outcome' | 'save_failure' | 'start_verification' | 'complete_verification';
+  action: 'save_outcome' | 'save_failure' | 'start_verification' | 'complete_verification' | 'capture_learning';
   status: 'success' | 'skipped';
   detail: string;
   payload?: unknown;

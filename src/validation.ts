@@ -83,6 +83,7 @@ function normalizeLearnMode(body: Record<string, unknown>): LearnRequest['mode']
     rawMode === 'persona'
     || rawMode === 'preference'
     || rawMode === 'procedure'
+    || rawMode === 'domain_memory'
     || rawMode === 'mission_outcome'
     || rawMode === 'failure_lesson'
     || rawMode === 'working_memory'
@@ -166,6 +167,7 @@ export function validateContextInput(value: unknown): {
 
 export function validateLearnRequestInput(value: unknown): LearnRequest {
   const body = assertObject(value);
+  const statusOverride = readOptionalString(body, 'status_override') as LearnRequest['status_override'] | null;
   return {
     mode: normalizeLearnMode(body),
     title: readRequiredString(body, 'title'),
@@ -189,8 +191,10 @@ export function validateLearnRequestInput(value: unknown): LearnRequest {
     written_by: readOptionalString(body, 'written_by') as LearnRequest['written_by'] | undefined,
     owner_scope: readOptionalString(body, 'owner_scope') as LearnRequest['owner_scope'] | undefined,
     retrieval_weight: readOptionalNumber(body, 'retrieval_weight'),
+    success_rate_hint: readOptionalNumber(body, 'success_rate_hint') ?? null,
     last_validated_at: readOptionalNumber(body, 'last_validated_at') ?? null,
     valid_until: readOptionalNumber(body, 'valid_until') ?? null,
+    status_override: statusOverride ?? undefined,
   };
 }
 
@@ -199,6 +203,7 @@ export function validateMissionOutcomeInput(value: unknown, missionId: string): 
   return {
     mission_id: missionId,
     objective: readRequiredString(body, 'objective'),
+    mission_kind: readOptionalString(body, 'mission_kind'),
     result_summary: readRequiredString(body, 'result_summary'),
     evidence: readArray(body, 'evidence', true) as MissionOutcomeInput['evidence'],
     verification_checks: readArray(body, 'verification_checks', true) as MissionOutcomeInput['verification_checks'],
@@ -213,6 +218,7 @@ export function validateMissionOutcomeToolInput(value: unknown): MissionOutcomeI
   return {
     mission_id: readRequiredString(body, 'mission_id'),
     objective: readRequiredString(body, 'objective'),
+    mission_kind: readOptionalString(body, 'mission_kind'),
     result_summary: readRequiredString(body, 'result_summary'),
     evidence: readArray(body, 'evidence', true) as MissionOutcomeInput['evidence'],
     verification_checks: readArray(body, 'verification_checks', true) as MissionOutcomeInput['verification_checks'],
@@ -261,6 +267,7 @@ export function validateMissionOutcomeStrictInput(value: unknown): StrictMission
   return {
     mission_id: readRequiredString(body, 'mission_id'),
     objective: readRequiredString(body, 'objective'),
+    mission_kind: readOptionalString(body, 'mission_kind'),
     result_summary: readRequiredString(body, 'result_summary'),
     evidence,
     verification_checks: verificationChecks,

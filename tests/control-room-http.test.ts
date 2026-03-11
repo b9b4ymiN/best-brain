@@ -49,6 +49,7 @@ describe('control room HTTP', () => {
     let server: ReturnType<typeof Bun.serve>;
     const controlRoom = new ControlRoomService({
       dataDir: brain.config.dataDir,
+      memoryQualityProvider: () => brain.getMemoryQualityMetrics(),
       managerFactory: () => new ManagerRuntime({
         brain: new BrainHttpAdapter({
           baseUrl: `http://127.0.0.1:${server.port}`,
@@ -117,12 +118,18 @@ describe('control room HTTP', () => {
         latest_mission_id: string | null;
         available_statuses: string[];
         available_mission_kinds: string[];
+        memory_health: {
+          active_memory_count: number;
+          citation_usefulness_rating: number;
+        } | null;
         missions: Array<{ mission_id: string; status: string }>;
       };
       expect(overview.latest_mission_id).toBe(launchView.mission_id);
       expect(overview.missions.some((mission) => mission.mission_id === launchView.mission_id && mission.status === 'verified_complete')).toBe(true);
       expect(overview.available_statuses.includes('verified_complete')).toBe(true);
       expect(overview.available_mission_kinds.length).toBeGreaterThan(0);
+      expect(overview.memory_health?.active_memory_count).toBeGreaterThan(0);
+      expect((overview.memory_health?.citation_usefulness_rating ?? 0)).toBeGreaterThanOrEqual(0);
 
       const historyResponse = await fetch(`${baseUrl}/control-room/api/history?status=verified_complete`);
       expect(historyResponse.status).toBe(200);

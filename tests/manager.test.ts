@@ -5,6 +5,7 @@ import type {
   FailureInput,
   LearnRequest,
   LearnResult,
+  MemoryRecord,
   MissionContextBundle,
   StrictMissionOutcomeInput,
   VerificationCompleteInput,
@@ -86,6 +87,82 @@ function makeContextBundle(overrides: Partial<MissionContextBundle> = {}): Missi
   };
 }
 
+function makeMemoryRecord(overrides: Partial<MemoryRecord>): MemoryRecord {
+  return {
+    id: overrides.id ?? 'mem_default',
+    title: overrides.title ?? 'Default memory',
+    content: overrides.content ?? 'Default memory content',
+    summary: overrides.summary ?? 'Default memory summary',
+    memory_type: overrides.memory_type ?? 'MissionMemory',
+    memory_scope: overrides.memory_scope ?? 'mission',
+    memory_layer: overrides.memory_layer ?? 'retro',
+    memory_subtype: overrides.memory_subtype ?? 'mission.outcome',
+    source: overrides.source ?? 'test://memory',
+    confidence: overrides.confidence ?? 0.9,
+    owner: overrides.owner ?? 'test-owner',
+    owner_scope: overrides.owner_scope ?? 'private',
+    domain: overrides.domain ?? 'best-brain',
+    reusable: overrides.reusable ?? true,
+    supersedes: overrides.supersedes ?? null,
+    superseded_by: overrides.superseded_by ?? null,
+    mission_id: overrides.mission_id ?? 'mission_default',
+    tags: overrides.tags ?? ['mission', 'outcome'],
+    entity_keys: overrides.entity_keys ?? ['mission_outcome'],
+    entity_aliases: overrides.entity_aliases ?? [],
+    written_by: overrides.written_by ?? 'system',
+    retrieval_weight: overrides.retrieval_weight ?? 1,
+    promotion_state: overrides.promotion_state ?? 'none',
+    times_reused: overrides.times_reused ?? 0,
+    last_reused_at: overrides.last_reused_at ?? null,
+    success_rate_hint: overrides.success_rate_hint ?? null,
+    status: overrides.status ?? 'active',
+    verified_by: overrides.verified_by ?? 'verifier',
+    evidence_ref: overrides.evidence_ref ?? [{ type: 'note', ref: 'proof://default' }],
+    version: overrides.version ?? 1,
+    review_due_at: overrides.review_due_at ?? null,
+    stale_after_at: overrides.stale_after_at ?? null,
+    archive_after_at: overrides.archive_after_at ?? null,
+    expires_at: overrides.expires_at ?? null,
+    archived_at: overrides.archived_at ?? null,
+    last_validated_at: overrides.last_validated_at ?? null,
+    valid_until: overrides.valid_until ?? null,
+    embedding_status: overrides.embedding_status ?? 'disabled',
+    embedding_updated_at: overrides.embedding_updated_at ?? null,
+    embedding_model_version: overrides.embedding_model_version ?? null,
+    created_at: overrides.created_at ?? 1_700_000_000_000,
+    updated_at: overrides.updated_at ?? 1_700_000_000_000,
+  };
+}
+
+function citationFromMemory(memory: MemoryRecord): ConsultResponse['citations'][number] {
+  return {
+    memory_id: memory.id,
+    title: memory.title,
+    memory_type: memory.memory_type,
+    memory_scope: memory.memory_scope,
+    memory_layer: memory.memory_layer,
+    memory_subtype: memory.memory_subtype,
+    summary: memory.summary,
+    source: memory.source,
+    verified_by: memory.verified_by,
+    evidence_ref: memory.evidence_ref,
+    entity_keys: memory.entity_keys,
+    entity_aliases: memory.entity_aliases,
+  };
+}
+
+function makeConsultFromMemories(
+  memories: MemoryRecord[],
+  overrides: Partial<ConsultResponse> = {},
+): ConsultResponse {
+  return makeConsultResponse({
+    memory_ids: memories.map((memory) => memory.id),
+    citations: memories.map(citationFromMemory),
+    selected_memories: memories,
+    ...overrides,
+  });
+}
+
 class FakeBrainAdapter implements BrainAdapter {
   readonly calls = {
     ensureAvailable: 0,
@@ -105,11 +182,14 @@ class FakeBrainAdapter implements BrainAdapter {
     consultResponse?: ConsultResponse;
     contextResponse?: MissionContextBundle;
     startedByAdapter?: boolean;
+    consultResolver?: ((request: { query: string }) => ConsultResponse) | null;
   } = {}) {
     this.consultResponse = options.consultResponse ?? makeConsultResponse();
     this.contextResponse = options.contextResponse ?? makeContextBundle();
     this.startedByAdapter = options.startedByAdapter ?? false;
+    this.consultResolver = options.consultResolver ?? null;
   }
+  readonly consultResolver: ((request: { query: string }) => ConsultResponse) | null;
 
   async ensureAvailable(): Promise<BrainHealthResponse> {
     this.calls.ensureAvailable += 1;
@@ -127,6 +207,9 @@ class FakeBrainAdapter implements BrainAdapter {
 
   async consult(request: { query: string }): Promise<ConsultResponse> {
     this.calls.consult.push(request);
+    if (this.consultResolver) {
+      return this.consultResolver(request);
+    }
     return this.consultResponse;
   }
 
@@ -137,8 +220,20 @@ class FakeBrainAdapter implements BrainAdapter {
       action: 'created',
       reason: 'stored chat memory',
       memory_id: 'mem_chat_learn',
-      memory_type: request.mode === 'persona' ? 'Persona' : 'WorkingMemory',
-      status: 'active',
+      memory_type: request.mode === 'persona'
+        ? 'Persona'
+        : request.mode === 'preference'
+          ? 'Preferences'
+          : request.mode === 'procedure'
+            ? 'Procedures'
+            : request.mode === 'domain_memory'
+              ? 'DomainMemory'
+              : request.mode === 'failure_lesson'
+                ? 'FailureMemory'
+                : request.mode === 'mission_outcome'
+                  ? 'MissionMemory'
+                  : 'WorkingMemory',
+      status: request.status_override ?? (request.mode === 'failure_lesson' ? 'candidate' : 'active'),
     };
   }
 
@@ -168,7 +263,7 @@ class FakeBrainAdapter implements BrainAdapter {
       reason: 'stored failure lesson',
       memory_id: 'mem_failure',
       memory_type: 'FailureMemory',
-      status: 'active',
+      status: input.confirmed ? 'active' : 'candidate',
     };
   }
 
@@ -691,7 +786,7 @@ describe('manager alpha unit flow', () => {
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.status === 'success')).toBe(true);
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'success')).toBe(true);
       expect(result.runtime_bundle?.artifacts.some((artifact) => artifact.uri.startsWith('input-adapter://'))).toBe(true);
-      expect(brain.calls.consult).toHaveLength(2);
+      expect(brain.calls.consult.length).toBeGreaterThanOrEqual(2);
     } finally {
       await runtime.dispose();
     }
@@ -994,6 +1089,8 @@ describe('manager alpha unit flow', () => {
       expect(result.brain_writes.some((entry) => entry.action === 'save_failure')).toBe(true);
       expect(brain.calls.completeVerification[0]?.status).toBe('verification_failed');
       expect(brain.calls.saveFailure).toHaveLength(1);
+      expect(brain.calls.saveFailure[0]?.confirmed).toBe(false);
+      expect(brain.calls.saveFailure[0]?.title).toContain('Failure pattern (verification_gap)');
       expect(result.runtime_bundle?.session.status).toBe('failed');
       expect(result.runtime_bundle?.session.final_report_artifact_id).not.toBeNull();
       expect(result.runtime_bundle?.worker_tasks).toHaveLength(2);
@@ -1003,6 +1100,150 @@ describe('manager alpha unit flow', () => {
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'claude' && task.status === 'needs_retry')).toBe(true);
       expect(result.runtime_bundle?.worker_tasks.some((task) => task.worker === 'verifier' && task.status === 'needs_retry')).toBe(true);
       expect(result.mission_graph.nodes.find((node) => node.id === 'verification_gate')?.status).toBe('failed');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('verified mission history auto-proposes a procedure candidate after three matching verified outcomes', async () => {
+    const missionKindTag = 'mission-kind:command-execution-mission';
+    const verifiedOutcomes = [
+      makeMemoryRecord({
+        id: 'mem_outcome_1',
+        title: 'Mission outcome: command run 1',
+        summary: 'Executed command mission with verified proof.',
+        tags: ['mission', 'outcome', missionKindTag],
+      }),
+      makeMemoryRecord({
+        id: 'mem_outcome_2',
+        title: 'Mission outcome: command run 2',
+        summary: 'Second verified command mission with complete evidence.',
+        tags: ['mission', 'outcome', missionKindTag],
+      }),
+      makeMemoryRecord({
+        id: 'mem_outcome_3',
+        title: 'Mission outcome: command run 3',
+        summary: 'Third verified command mission confirmed repeatability.',
+        tags: ['mission', 'outcome', missionKindTag],
+      }),
+    ];
+    const baseConsult = makeConsultResponse();
+    const brain = new FakeBrainAdapter({
+      consultResolver: (request) => {
+        if (request.query.includes('verified mission outcomes for mission kind')) {
+          return makeConsultFromMemories(verifiedOutcomes);
+        }
+        if (request.query.includes('active procedure for mission kind')) {
+          return makeConsultFromMemories([]);
+        }
+        return baseConsult;
+      },
+    });
+    const worker = new FakeWorkerAdapter('shell', {
+      summary: 'Shell command succeeded and produced a concise proof note.',
+      status: 'success',
+      artifacts: [{ type: 'note', ref: 'worker://shell/success', description: 'Command proof note' }],
+      proposed_checks: [{ name: 'command-succeeded', passed: true }],
+      raw_output: 'success',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      workers: { shell: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Run `bun --version` locally and return a concise proof note.',
+        worker_preference: 'shell',
+        mission_id: 'mission_procedure_candidate',
+        output_mode: 'json',
+      });
+
+      expect(result.verification_result?.status).toBe('verified_complete');
+      const procedureLearn = brain.calls.learn.find((request) => (
+        request.mode === 'procedure'
+        && request.title.includes('Procedure candidate:')
+        && request.status_override === 'candidate'
+        && request.tags?.includes(missionKindTag)
+      ));
+      expect(procedureLearn).toBeDefined();
+      expect(result.brain_writes.some((entry) => entry.action === 'capture_learning' && entry.status === 'success')).toBe(true);
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('verified mission can propose cross-domain transfer candidate when domain overlap is detected', async () => {
+    const sharedKeys = ['quality_growth', 'free_cash_flow', 'margin_safety'];
+    const baseMemory = makeMemoryRecord({
+      id: 'mem_owner_style',
+      memory_type: 'Persona',
+      memory_scope: 'owner',
+      memory_layer: 'principle',
+      memory_subtype: 'persona.investor_style',
+      summary: 'Owner prefers quality growth with margin of safety.',
+      domain: 'best-brain',
+      tags: ['persona', 'vi'],
+      entity_keys: sharedKeys,
+    });
+    const crossDomainMemory = makeMemoryRecord({
+      id: 'mem_cross_domain',
+      memory_type: 'DomainMemory',
+      memory_scope: 'domain',
+      memory_layer: 'pattern',
+      memory_subtype: 'domain.model',
+      summary: 'Quality-growth screening heuristics transfer well to adjacent domains.',
+      domain: 'investment-general',
+      tags: ['domain', 'screening'],
+      entity_keys: ['quality_growth', 'margin_safety', 'roe_consistency'],
+    });
+    const brain = new FakeBrainAdapter({
+      consultResolver: (request) => {
+        if (request.query.includes('verified mission outcomes for mission kind')) {
+          return makeConsultFromMemories([
+            makeMemoryRecord({
+              id: 'mem_verified_current',
+              title: 'Mission outcome: current verified mission',
+              summary: 'Current mission finished with complete proof.',
+              tags: ['mission', 'outcome', 'mission-kind:analysis-reporting-mission'],
+            }),
+          ]);
+        }
+        if (request.query.includes('active procedure for mission kind')) {
+          return makeConsultFromMemories([]);
+        }
+        return makeConsultFromMemories([baseMemory]);
+      },
+      contextResponse: makeContextBundle({
+        durable_memory: [crossDomainMemory],
+      }),
+    });
+    const worker = new FakeWorkerAdapter('claude', {
+      summary: 'Analysis report completed with evidence.',
+      status: 'success',
+      artifacts: [{ type: 'note', ref: 'worker://claude/analysis', description: 'analysis report' }],
+      proposed_checks: [{ name: 'analysis-ready', passed: true }],
+      raw_output: 'analysis-ready',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      workers: { claude: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Analyze the current scanner approach and produce a concise owner-facing report.',
+        worker_preference: 'claude',
+        mission_id: 'mission_cross_domain_candidate',
+        output_mode: 'json',
+      });
+
+      expect(result.verification_result?.status).toBe('verified_complete');
+      const crossDomainLearn = brain.calls.learn.find((request) => request.mode === 'domain_memory');
+      expect(crossDomainLearn).toBeDefined();
+      expect(crossDomainLearn?.status_override).toBe('candidate');
+      expect(crossDomainLearn?.memory_subtype).toBe('domain.model');
+      expect(crossDomainLearn?.tags?.some((tag) => tag.startsWith('target-domain:investment-general'))).toBe(true);
     } finally {
       await runtime.dispose();
     }

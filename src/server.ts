@@ -27,6 +27,7 @@ const managerFactory = () => new ManagerRuntime({
 const controlRoom = new ControlRoomService({
   dataDir: brain.config.dataDir,
   managerFactory,
+  memoryQualityProvider: () => brain.getMemoryQualityMetrics(),
 });
 const chat = new ChatService({
   managerFactory,
