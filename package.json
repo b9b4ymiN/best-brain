@@ -25,6 +25,7 @@
     "proof:control-room": "bun scripts/capture-control-room-proof.ts",
     "proof:chat-memory": "bun scripts/capture-chat-memory-proof.ts",
     "proof:proving": "bun scripts/run-proving-harness.ts",
+    "proof:bootstrap:matrix": "bun scripts/check-bootstrap-matrix.ts",
     "scorecard:program": "bun scripts/generate-program-scorecard.ts",
     "smoke:bootstrap": "bun scripts/run-bootstrap-smoke.ts",
     "smoke:bootstrap:proof": "bun scripts/capture-bootstrap-proof.ts",

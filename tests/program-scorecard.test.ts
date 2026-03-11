@@ -43,7 +43,7 @@ describe('program scorecard', () => {
         first_run_db_init_success: true,
         startup_time_ms: 250,
       },
-      captured_bootstrap_proofs: ['windows'],
+      captured_bootstrap_proofs: ['windows', 'macos', 'linux'],
       manager_proof: {
         thin_manager_pass: true,
         claude_primary_pass: true,

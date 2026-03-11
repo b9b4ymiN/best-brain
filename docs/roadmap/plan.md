@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-best-brain is a local AI work OS with the slogan "Think like me. Work for me. Finish for real." Phases 1-6 are locally proven (Brain v1, Manager alpha, Thai equities scanner proving mission, repeatability, control room liftoff). Two metrics currently fail: **Codex worker invocation (67%)** and **cross-platform bootstrap (Windows only)**. This plan first stabilizes those, then lays out the full Phase 7-11 execution path toward autonomous Operator Mode.
+best-brain is a local AI work OS with the slogan "Think like me. Work for me. Finish for real." Phases 1-6 are locally proven (Brain v1, Manager alpha, Thai equities scanner proving mission, repeatability, control room liftoff). The remaining stabilization gap is **cross-platform bootstrap proof capture (Windows/macOS/Linux)**. This plan first closes that gap, then lays out the full Phase 7-11 execution path toward autonomous Operator Mode.
 
 ---
 
@@ -19,8 +19,7 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Eval**: ConsultEval 8/8 passing, all v1 gates met
 
 ### What's Failing ❌
-1. **Worker invocation pass rate: 67%** (target ≥95%) — Codex primary worker path fails
-2. **Platform coverage**: Bootstrap proofs only on Windows; macOS/Linux pending
+1. **Platform coverage**: Bootstrap proofs only on Windows; macOS/Linux pending
 
 ### What's Partially Done 🟡
 - VerifierAdapter: Framework exists, basic implementation only
@@ -36,9 +35,9 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ### Step 1: Fix Codex Worker Path
 - **File**: `src/workers/fabric.ts`, `src/manager/adapters/` (Codex CLI adapter)
-- **Problem**: Codex primary worker invocation fails (drives invocation rate to 67%)
-- **Action**: Debug Codex adapter — check CLI invocation, argument format, output parsing, error handling. Compare against working Claude adapter pattern
-- **Verification**: `bun run smoke:manager:codex` passes; scorecard shows worker invocation ≥95%
+- **Status**: Completed on 2026-03-11
+- **Action**: Codex adapter hardened for structured/freeform parsing, provider-unavailable detection, and large-output truncation safety
+- **Verification**: `bun run smoke:manager:codex` passes; manager proof and scorecard report worker invocation 100%
 
 ### Step 2: Cross-Platform Bootstrap
 - **File**: `src/smoke/bootstrap.ts`, `src/config.ts` (platform-specific paths)

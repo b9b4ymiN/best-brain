@@ -120,6 +120,7 @@ bun run proof:control-room
 bun run proof:chat-memory
 bun run examples:program
 bun run proof:proving
+bun run proof:bootstrap:matrix
 bun run scorecard:program
 ```
 
@@ -309,6 +310,13 @@ Generate the current program scorecard with:
 
 ```bash
 bun run scorecard:program
+```
+
+Check cross-platform bootstrap proof coverage:
+
+```bash
+bun run proof:bootstrap:matrix
+bun run proof:bootstrap:matrix -- --require-all
 ```
 
 ## Docs

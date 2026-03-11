@@ -120,11 +120,59 @@ const controlRoomProof = readJson<{
   };
 }>(path.join(artifactsDir, 'control-room-proof.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
-const capturedBootstrapProofs = fs.existsSync(bootstrapProofDir)
-  ? fs.readdirSync(bootstrapProofDir)
-      .filter((entry) => entry.endsWith('.json'))
-      .map((entry) => path.basename(entry, '.json'))
-  : [];
+
+type BootstrapTarget = 'windows' | 'macos' | 'linux';
+
+function normalizeBootstrapTarget(value: string): BootstrapTarget | null {
+  const normalized = value.trim().toLowerCase();
+  if (normalized === 'windows' || normalized === 'win32') {
+    return 'windows';
+  }
+  if (normalized === 'macos' || normalized === 'darwin' || normalized === 'mac') {
+    return 'macos';
+  }
+  if (normalized === 'linux') {
+    return 'linux';
+  }
+  return null;
+}
+
+function collectCapturedBootstrapProofs(proofDir: string): BootstrapTarget[] {
+  const captured = new Set<BootstrapTarget>();
+  if (!fs.existsSync(proofDir)) {
+    return [];
+  }
+
+  for (const entry of fs.readdirSync(proofDir)) {
+    if (!entry.endsWith('.json')) {
+      continue;
+    }
+
+    const stem = path.basename(entry, '.json');
+    const fromStem = normalizeBootstrapTarget(stem);
+    if (fromStem != null) {
+      captured.add(fromStem);
+      continue;
+    }
+
+    const fullPath = path.join(proofDir, entry);
+    try {
+      const payload = JSON.parse(fs.readFileSync(fullPath, 'utf8')) as { os_label?: string | null };
+      const fromPayload = typeof payload.os_label === 'string'
+        ? normalizeBootstrapTarget(payload.os_label)
+        : null;
+      if (fromPayload != null) {
+        captured.add(fromPayload);
+      }
+    } catch {
+      // Ignore malformed proof files in scorecard generation.
+    }
+  }
+
+  return Array.from(captured).sort();
+}
+
+const capturedBootstrapProofs = collectCapturedBootstrapProofs(bootstrapProofDir);
 
 const scorecard = buildProgramScorecard({
   generated_at: new Date().toISOString(),
