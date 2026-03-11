@@ -2,6 +2,45 @@ import { ManagerRuntime } from '../src/manager/runtime.ts';
 
 const runtime = new ManagerRuntime();
 
+function compactForOutput(result: Awaited<ReturnType<ManagerRuntime['run']>>) {
+  const safeSlice = (value: unknown, max = 2000): string => (
+    typeof value === 'string'
+      ? value.slice(0, max)
+      : value == null
+        ? ''
+        : String(value).slice(0, max)
+  );
+
+  const workerResult = result.worker_result
+    ? {
+        ...result.worker_result,
+        raw_output: safeSlice(result.worker_result.raw_output, 4000),
+        process_output: result.worker_result.process_output
+          ? {
+              stdout: safeSlice(result.worker_result.process_output.stdout, 4000),
+              stderr: safeSlice(result.worker_result.process_output.stderr, 4000),
+            }
+          : null,
+      }
+    : null;
+
+  const runtimeBundle = result.runtime_bundle
+    ? {
+        ...result.runtime_bundle,
+        processes: result.runtime_bundle.processes.map((processEntry) => ({
+          ...processEntry,
+          args: processEntry.args.slice(0, 20),
+        })),
+      }
+    : null;
+
+  return {
+    ...result,
+    worker_result: workerResult,
+    runtime_bundle: runtimeBundle,
+  };
+}
+
 try {
   const result = await runtime.run({
     goal: 'Create a short verified report with one concrete next action using the latest verified mission proof and owner preferences. Keep the workspace unchanged.',
@@ -10,7 +49,7 @@ try {
     output_mode: 'json',
   });
 
-  console.log(JSON.stringify(result, null, 2));
+  console.log(JSON.stringify(compactForOutput(result), null, 2));
 
   if (result.worker_result?.status !== 'success') {
     throw new Error(`Codex manager smoke failed: ${result.worker_result?.summary ?? 'no worker result'}`);

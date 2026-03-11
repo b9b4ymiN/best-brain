@@ -14,6 +14,36 @@ import {
   toEnvRecord,
 } from './shared.ts';
 
+const MAX_CAPTURE_CHARS = 120_000;
+
+function truncateCapture(value: string, maxChars = MAX_CAPTURE_CHARS): string {
+  if (value.length <= maxChars) {
+    return value;
+  }
+
+  const head = value.slice(0, Math.floor(maxChars / 2));
+  const tail = value.slice(-Math.floor(maxChars / 2));
+  return `${head}\n...[truncated ${value.length - maxChars} chars]...\n${tail}`;
+}
+
+function isStructuredWorkerPayload(
+  payload: unknown,
+): payload is {
+  summary?: string;
+  status?: WorkerExecutionResult['status'];
+  artifacts?: unknown;
+  proposed_checks?: unknown;
+} {
+  if (typeof payload !== 'object' || payload == null) {
+    return false;
+  }
+
+  const candidate = payload as { status?: unknown };
+  return candidate.status === 'success'
+    || candidate.status === 'needs_retry'
+    || candidate.status === 'failed';
+}
+
 function normalizeArtifacts(value: unknown): VerificationArtifact[] {
   if (!Array.isArray(value)) {
     return [];
@@ -63,7 +93,7 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
         passed: false,
         detail: 'Codex worker did not return the required JSON object.',
       }],
-      raw_output: output,
+      raw_output: truncateCapture(output),
       invocation: null,
       process_output: null,
     };
@@ -83,7 +113,7 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
       passed: true,
       detail: 'Codex returned usable freeform text for a note-only mission.',
     }],
-    raw_output: output,
+    raw_output: truncateCapture(output),
     invocation: null,
     process_output: null,
   };
@@ -91,16 +121,13 @@ function buildFreeformFallback(output: string, request: ExecutionRequest, fallba
 
 function parseWorkerResult(output: string, request: ExecutionRequest, fallbackSummary: string): WorkerExecutionResult {
   try {
-    const payload = JSON.parse(extractJsonText(output)) as {
-      summary?: string;
-      status?: WorkerExecutionResult['status'];
-      artifacts?: unknown;
-      proposed_checks?: unknown;
-    };
+    const parsed = JSON.parse(extractJsonText(output)) as unknown;
+    if (!isStructuredWorkerPayload(parsed)) {
+      return buildFreeformFallback(output, request, fallbackSummary);
+    }
 
-    const status = payload.status === 'success' || payload.status === 'needs_retry' || payload.status === 'failed'
-      ? payload.status
-      : 'failed';
+    const payload = parsed;
+    const status = payload.status as WorkerExecutionResult['status'];
 
     return {
       summary: payload.summary?.trim() || fallbackSummary,
@@ -108,7 +135,7 @@ function parseWorkerResult(output: string, request: ExecutionRequest, fallbackSu
       failure_kind: status === 'failed' ? 'task_failed' : null,
       artifacts: normalizeArtifacts(payload.artifacts),
       proposed_checks: normalizeChecks(payload.proposed_checks),
-      raw_output: output,
+      raw_output: truncateCapture(output),
       invocation: null,
       process_output: null,
     };
@@ -119,24 +146,19 @@ function parseWorkerResult(output: string, request: ExecutionRequest, fallbackSu
 
 function tryParseStructuredWorkerResult(output: string, fallbackSummary: string): WorkerExecutionResult | null {
   try {
-    const payload = JSON.parse(extractJsonText(output)) as {
-      summary?: string;
-      status?: WorkerExecutionResult['status'];
-      artifacts?: unknown;
-      proposed_checks?: unknown;
-    };
-
-    if (payload.status !== 'success' && payload.status !== 'needs_retry' && payload.status !== 'failed') {
+    const parsed = JSON.parse(extractJsonText(output)) as unknown;
+    if (!isStructuredWorkerPayload(parsed)) {
       return null;
     }
+    const payload = parsed;
 
     return {
       summary: payload.summary?.trim() || fallbackSummary,
-      status: payload.status,
+      status: payload.status as WorkerExecutionResult['status'],
       failure_kind: payload.status === 'failed' ? 'task_failed' : null,
       artifacts: normalizeArtifacts(payload.artifacts),
       proposed_checks: normalizeChecks(payload.proposed_checks),
-      raw_output: output,
+      raw_output: truncateCapture(output),
       invocation: null,
       process_output: null,
     };
@@ -305,15 +327,24 @@ export class CodexCliAdapter implements WorkerAdapter {
         : result.stdout;
       const streamMessage = extractCodexStreamMessage(result.stdout);
       const streamError = extractCodexStreamError(result.stdout);
-      const providerIssue = detectCodexProviderIssue([result.stdout, result.stderr, streamError].filter(Boolean).join('\n'));
+      const providerProbe = [
+        streamError,
+        result.stderr,
+        result.stdout.slice(0, 8_000),
+        result.stdout.slice(-8_000),
+      ].filter(Boolean).join('\n');
+      const providerIssue = detectCodexProviderIssue(providerProbe);
       const preferredOutput = lastMessage.trim().length > 0
         ? lastMessage
         : streamMessage ?? result.stdout;
+      const capturedStdout = truncateCapture(result.stdout);
+      const capturedStderr = truncateCapture(result.stderr);
+      const capturedLastMessage = truncateCapture(lastMessage);
 
       if (providerIssue) {
         const unavailable = this.buildProviderUnavailableResult(
           providerIssue,
-          [result.stdout, result.stderr, lastMessage, streamError].filter(Boolean).join('\n'),
+          truncateCapture([result.stdout, result.stderr, lastMessage, streamError].filter(Boolean).join('\n')),
         );
         unavailable.invocation = {
           command: 'codex',
@@ -336,8 +367,8 @@ export class CodexCliAdapter implements WorkerAdapter {
           transport: 'cli',
         };
         unavailable.process_output = {
-          stdout: result.stdout,
-          stderr: result.stderr,
+          stdout: capturedStdout,
+          stderr: capturedStderr,
         };
         await observer?.onTrace?.({
           stage: 'worker_codex_command_end',
@@ -380,6 +411,7 @@ export class CodexCliAdapter implements WorkerAdapter {
             exit_code: result.exitCode,
           });
           parsedFromFailure.raw_output = [result.stdout, result.stderr, lastMessage].filter(Boolean).join('\n');
+          parsedFromFailure.raw_output = truncateCapture(parsedFromFailure.raw_output);
           parsedFromFailure.invocation = {
             command: 'codex',
             args: [
@@ -401,8 +433,8 @@ export class CodexCliAdapter implements WorkerAdapter {
             transport: 'cli',
           };
           parsedFromFailure.process_output = {
-            stdout: result.stdout,
-            stderr: result.stderr,
+            stdout: capturedStdout,
+            stderr: capturedStderr,
           };
           return parsedFromFailure;
         }
@@ -439,7 +471,7 @@ export class CodexCliAdapter implements WorkerAdapter {
             passed: false,
             detail: `Codex worker exited with code ${String(result.exitCode)}.`,
           }],
-          raw_output: [result.stdout, result.stderr, lastMessage].filter(Boolean).join('\n'),
+          raw_output: truncateCapture([result.stdout, result.stderr, lastMessage].filter(Boolean).join('\n')),
           invocation: {
             command: 'codex',
             args: [
@@ -461,8 +493,8 @@ export class CodexCliAdapter implements WorkerAdapter {
             transport: 'cli',
           },
           process_output: {
-            stdout: result.stdout,
-            stderr: result.stderr,
+            stdout: capturedStdout,
+            stderr: capturedStderr,
           },
         };
       }
@@ -506,9 +538,12 @@ export class CodexCliAdapter implements WorkerAdapter {
         transport: 'cli',
       };
       parsed.process_output = {
-        stdout: result.stdout,
-        stderr: result.stderr,
+        stdout: capturedStdout,
+        stderr: capturedStderr,
       };
+      if (parsed.raw_output === preferredOutput) {
+        parsed.raw_output = truncateCapture(preferredOutput || capturedLastMessage || capturedStdout);
+      }
       return parsed;
     } finally {
       try {
