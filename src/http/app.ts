@@ -2,9 +2,11 @@ import { Hono } from 'hono';
 import { renderChatPage } from '../chat/page.ts';
 import type { ChatService } from '../chat/service.ts';
 import type { ChatMessageRequest } from '../chat/types.ts';
+import { MANAGER_WORKER_PREFERENCES } from '../manager/types.ts';
 import type { BestBrain } from '../services/brain.ts';
 import { renderControlRoomPage } from '../control-room/page.ts';
 import type { ControlRoomService } from '../control-room/service.ts';
+import type { MissionScheduler } from '../runtime/scheduler.ts';
 import {
   CONTROL_ROOM_ACTIONS,
   type ControlRoomActionRequest,
@@ -20,6 +22,7 @@ import {
   validateVerificationCompleteInput,
   validateVerificationStartInput,
 } from '../validation.ts';
+import type { ScheduleCadence, ScheduleWorkerPreference } from '../runtime/types.ts';
 
 async function readJsonBody(c: { req: { json: () => Promise<unknown> } }): Promise<unknown> {
   try {
@@ -39,11 +42,20 @@ function validateControlRoomLaunchRequest(input: unknown): ControlRoomLaunchRequ
   if (!goal) {
     throw new Error('control-room goal is required');
   }
+  const workerPreferenceRaw = typeof payload.worker_preference === 'string'
+    ? payload.worker_preference.trim()
+    : '';
+  if (workerPreferenceRaw && !MANAGER_WORKER_PREFERENCES.includes(workerPreferenceRaw as typeof MANAGER_WORKER_PREFERENCES[number])) {
+    throw new Error('control-room worker_preference is invalid');
+  }
 
   return {
     goal,
     dry_run: payload.dry_run === true,
     no_execute: payload.no_execute === true,
+    worker_preference: workerPreferenceRaw
+      ? workerPreferenceRaw as ControlRoomLaunchRequest['worker_preference']
+      : undefined,
   };
 }
 
@@ -91,9 +103,80 @@ function validateChatMessageRequest(input: unknown): ChatMessageRequest {
   };
 }
 
+function validateScheduleCadence(input: unknown): ScheduleCadence {
+  if (!input || typeof input !== 'object') {
+    throw new Error('scheduler cadence must be an object');
+  }
+  const payload = input as Record<string, unknown>;
+  const kind = typeof payload.kind === 'string' ? payload.kind.trim() : '';
+  if (kind === 'daily') {
+    const time = typeof payload.time_hhmm === 'string' ? payload.time_hhmm.trim() : '';
+    if (!/^([01]?\d|2[0-3]):([0-5]\d)$/.test(time)) {
+      throw new Error('scheduler daily cadence requires time_hhmm in HH:mm format');
+    }
+    const timezone = typeof payload.timezone === 'string' && payload.timezone.trim().length > 0
+      ? payload.timezone.trim()
+      : 'local';
+    return {
+      kind: 'daily',
+      time_hhmm: time,
+      timezone,
+    };
+  }
+  if (kind === 'interval') {
+    const everyMinutes = Number(payload.every_minutes);
+    if (!Number.isFinite(everyMinutes) || everyMinutes <= 0) {
+      throw new Error('scheduler interval cadence requires every_minutes > 0');
+    }
+    return {
+      kind: 'interval',
+      every_minutes: Math.floor(everyMinutes),
+    };
+  }
+  throw new Error('scheduler cadence kind is invalid');
+}
+
+function validateSchedulerCreateRequest(input: unknown): {
+  name: string;
+  goal: string;
+  cadence: ScheduleCadence;
+  worker_preference?: ScheduleWorkerPreference;
+  start_immediately?: boolean;
+} {
+  if (!input || typeof input !== 'object') {
+    throw new Error('scheduler create request must be an object');
+  }
+  const payload = input as Record<string, unknown>;
+  const name = typeof payload.name === 'string' ? payload.name.trim() : '';
+  const goal = typeof payload.goal === 'string' ? payload.goal.trim() : '';
+  if (!name) {
+    throw new Error('scheduler name is required');
+  }
+  if (!goal) {
+    throw new Error('scheduler goal is required');
+  }
+  const workerPreferenceRaw = typeof payload.worker_preference === 'string'
+    ? payload.worker_preference.trim()
+    : '';
+  if (workerPreferenceRaw && !MANAGER_WORKER_PREFERENCES.includes(workerPreferenceRaw as typeof MANAGER_WORKER_PREFERENCES[number])) {
+    throw new Error('scheduler worker_preference is invalid');
+  }
+
+  return {
+    name,
+    goal,
+    cadence: validateScheduleCadence(payload.cadence),
+    worker_preference: workerPreferenceRaw
+      ? workerPreferenceRaw as ScheduleWorkerPreference
+      : undefined,
+    start_immediately: payload.start_immediately === true,
+  };
+}
+
 export interface AppServices {
   chat?: ChatService | null;
   controlRoom?: ControlRoomService | null;
+  scheduler?: MissionScheduler | null;
 }
 
 const NO_STORE_HEADERS = {
@@ -233,6 +316,37 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
     app.post('/control-room/api/missions/:id/actions', async (c) => {
       const body = validateControlRoomActionRequest(await readJsonBody(c));
       return c.json(await services.controlRoom!.runAction(c.req.param('id'), body));
+    });
+  }
+
+  if (services.scheduler) {
+    app.get('/operator/schedules', (c) => c.json({
+      schedules: services.scheduler!.listSchedules(),
+    }, 200, NO_STORE_HEADERS));
+    app.post('/operator/schedules', async (c) => {
+      const body = validateSchedulerCreateRequest(await readJsonBody(c));
+      return c.json({
+        schedule: services.scheduler!.createSchedule(body),
+      }, 200, NO_STORE_HEADERS);
+    });
+    app.post('/operator/schedules/:id/pause', (c) => c.json({
+      schedule: services.scheduler!.pauseSchedule(c.req.param('id')),
+    }, 200, NO_STORE_HEADERS));
+    app.post('/operator/schedules/:id/resume', (c) => c.json({
+      schedule: services.scheduler!.resumeSchedule(c.req.param('id')),
+    }, 200, NO_STORE_HEADERS));
+    app.post('/operator/schedules/:id/run-now', async (c) => c.json({
+      run: await services.scheduler!.runNow(c.req.param('id')),
+    }, 200, NO_STORE_HEADERS));
+    app.post('/operator/scheduler/tick', async (c) => {
+      const payload = await readJsonBody(c);
+      const limitRaw = payload && typeof payload === 'object'
+        ? Number((payload as Record<string, unknown>).limit ?? 3)
+        : 3;
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 3;
+      return c.json({
+        report: await services.scheduler!.tick(limit),
+      }, 200, NO_STORE_HEADERS);
     });
   }
 

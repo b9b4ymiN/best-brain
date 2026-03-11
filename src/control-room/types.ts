@@ -51,6 +51,7 @@ export interface ControlRoomLaunchRequest {
   goal: string;
   dry_run: boolean;
   no_execute?: boolean;
+  worker_preference?: Exclude<WorkerId, 'verifier'> | 'auto';
 }
 
 export interface ControlRoomMissionSummary {

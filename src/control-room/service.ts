@@ -685,7 +685,7 @@ export class ControlRoomService {
     try {
       const result = await manager.run({
         goal: request.goal,
-        worker_preference: 'auto',
+        worker_preference: request.worker_preference ?? 'auto',
         mission_id: overrides.mission_id ?? null,
         dry_run: request.dry_run,
         no_execute: request.no_execute ?? false,

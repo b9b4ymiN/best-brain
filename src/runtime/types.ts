@@ -9,6 +9,72 @@ export const RUNTIME_SESSION_STATUSES = [
 
 export type RuntimeSessionStatus = (typeof RUNTIME_SESSION_STATUSES)[number];
 
+export const SCHEDULE_WORKER_PREFERENCES = [
+  'auto',
+  'claude',
+  'codex',
+  'shell',
+  'browser',
+  'mail',
+] as const;
+
+export type ScheduleWorkerPreference = (typeof SCHEDULE_WORKER_PREFERENCES)[number];
+
+export const SCHEDULE_CADENCE_KINDS = [
+  'daily',
+  'interval',
+] as const;
+
+export type ScheduleCadenceKind = (typeof SCHEDULE_CADENCE_KINDS)[number];
+
+export interface DailyScheduleCadence {
+  kind: 'daily';
+  time_hhmm: string;
+  timezone: string;
+}
+
+export interface IntervalScheduleCadence {
+  kind: 'interval';
+  every_minutes: number;
+}
+
+export type ScheduleCadence = DailyScheduleCadence | IntervalScheduleCadence;
+
+export const SCHEDULE_RUN_STATUSES = [
+  'idle',
+  'running',
+  'verified_complete',
+  'verification_failed',
+  'rejected',
+  'failed',
+] as const;
+
+export type ScheduleRunStatus = (typeof SCHEDULE_RUN_STATUSES)[number];
+
+export interface ScheduledMissionRecord {
+  id: string;
+  name: string;
+  goal: string;
+  worker_preference: ScheduleWorkerPreference;
+  cadence_kind: ScheduleCadenceKind;
+  cadence_config: ScheduleCadence;
+  enabled: boolean;
+  paused: boolean;
+  run_lock: boolean;
+  run_lock_token: string | null;
+  run_count: number;
+  success_count: number;
+  failure_count: number;
+  last_status: ScheduleRunStatus;
+  last_error: string | null;
+  last_run_mission_id: string | null;
+  last_run_started_at: number | null;
+  last_run_finished_at: number | null;
+  next_run_at: number;
+  created_at: number;
+  updated_at: number;
+}
+
 export const RUNTIME_PROCESS_STATUSES = [
   'queued',
   'running',

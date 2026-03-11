@@ -192,6 +192,10 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 **Goal**: System can work autonomously on the user's machine — scheduled missions, background tasks, self-initiated work.
 
 ### Step 22: Scheduled Mission Execution (*depends on Step 15*)
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/runtime/scheduler.ts`, `src/runtime/types.ts`, `src/db/schema.ts`, `src/db/client.ts`, `src/http/app.ts`, `src/server.ts`, `scripts/scheduler.ts`
+- **Action (actual)**: Added persistent recurring mission scheduler with SQLite-backed schedules, run-lock/idempotency, server-side polling, and operator commands (`create/list/pause/resume/run-now/tick`) over HTTP + CLI. Scheduled runs execute through existing manager/control-room rails (no bypass path).
+- **Verification (actual)**: `tests/scheduler.test.ts` + `tests/scheduler-http.test.ts` pass; full suite `bun run test` passes with scheduler routes and execution paths active.
 - **Files**: `src/runtime/` (new scheduler), `src/manager/kernel.ts`
 - **Action**: Cron-like scheduler for recurring missions (e.g., daily Thai equities scan at 09:00). Operator defines schedule + approval policy (auto-approve if confidence >X, else queue for review)
 - **Verification**: Schedule daily mission → runs at configured time → result appears in control room

@@ -209,6 +209,30 @@ export const BASE_SCHEMA_STATEMENTS = [
     created_at INTEGER NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_learning_events_created ON learning_events(created_at DESC)`,
+  `CREATE TABLE IF NOT EXISTS scheduled_missions (
+    id TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    goal TEXT NOT NULL,
+    worker_preference TEXT NOT NULL DEFAULT 'auto',
+    cadence_kind TEXT NOT NULL,
+    cadence_config TEXT NOT NULL,
+    enabled INTEGER NOT NULL DEFAULT 1,
+    paused INTEGER NOT NULL DEFAULT 0,
+    run_lock INTEGER NOT NULL DEFAULT 0,
+    run_lock_token TEXT,
+    run_count INTEGER NOT NULL DEFAULT 0,
+    success_count INTEGER NOT NULL DEFAULT 0,
+    failure_count INTEGER NOT NULL DEFAULT 0,
+    last_status TEXT NOT NULL DEFAULT 'idle',
+    last_error TEXT,
+    last_run_mission_id TEXT,
+    last_run_started_at INTEGER,
+    last_run_finished_at INTEGER,
+    next_run_at INTEGER NOT NULL,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_scheduled_missions_next_run ON scheduled_missions(enabled, paused, run_lock, next_run_at ASC)`,
 ];
 
 export const POST_MIGRATION_SCHEMA_STATEMENTS = [

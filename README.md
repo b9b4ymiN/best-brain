@@ -109,6 +109,11 @@ bun run smoke:bootstrap:proof -- --os-label windows
 bun run smoke:mcp
 bun run smoke:claude
 bun run manager -- "Plan the next mission using the latest mission proof."
+bun run scheduler list
+bun run scheduler create --name="Daily Thai scanner" --goal="Run Thai equities scanner and return verified report." --daily=09:00 --worker=auto
+bun run scheduler run-now --id=<schedule_id>
+bun run scheduler pause --id=<schedule_id>
+bun run scheduler resume --id=<schedule_id>
 bun run smoke:manager
 bun run smoke:manager:thin
 bun run smoke:manager:claude
@@ -171,6 +176,15 @@ Control room:
 - `POST /control-room/api/launch`
 - `GET /control-room/api/missions/:id`
 - `POST /control-room/api/missions/:id/actions`
+
+Operator scheduler:
+
+- `GET /operator/schedules`
+- `POST /operator/schedules`
+- `POST /operator/schedules/:id/pause`
+- `POST /operator/schedules/:id/resume`
+- `POST /operator/schedules/:id/run-now`
+- `POST /operator/scheduler/tick`
 
 ## Normal usage
 
@@ -276,6 +290,28 @@ For deterministic local proof, use:
 ```bash
 bun run proof:control-room
 ```
+
+### Scheduled mission flow (Phase 11 Step 22)
+
+Start the local server (scheduler polling starts automatically):
+
+```bash
+bun run server
+```
+
+Create and inspect schedules from CLI:
+
+```bash
+bun run scheduler create --name="Daily Thai scanner" --goal="Run Thai equities scanner and return verified report." --daily=09:00 --worker=auto
+bun run scheduler list
+bun run scheduler run-now --id=<schedule_id>
+```
+
+Notes:
+
+- schedule state is persisted in SQLite (`scheduled_missions`)
+- scheduled runs go through the same manager + control-room rails (no bypass path)
+- polling interval can be tuned with `BEST_BRAIN_SCHEDULER_INTERVAL_MS` (default `30000`)
 
 ## Repo direction
 

@@ -14,6 +14,12 @@ import type {
   VerificationArtifactRegistrySnapshot,
   VerificationCheck,
 } from '../types.ts';
+import type {
+  ScheduleCadence,
+  ScheduleRunStatus,
+  ScheduleWorkerPreference,
+  ScheduledMissionRecord,
+} from '../runtime/types.ts';
 import {
   defaultMemoryLayer,
   defaultMemoryScope,
@@ -138,6 +144,32 @@ function asRetrievalTraceRecord(row: RawRow): RetrievalTraceRecord {
     ranking_contribution: parseJson<RetrievalTraceRecord['ranking_contribution']>(row.ranking_contribution as string, []),
     final_selected_set: parseJson<RetrievalTraceRecord['final_selected_set']>(row.final_selected_set as string, []),
     created_at: Number(row.created_at),
+  };
+}
+
+function asScheduledMissionRecord(row: RawRow): ScheduledMissionRecord {
+  return {
+    id: String(row.id),
+    name: String(row.name),
+    goal: String(row.goal),
+    worker_preference: (row.worker_preference ? String(row.worker_preference) : 'auto') as ScheduleWorkerPreference,
+    cadence_kind: String(row.cadence_kind) as ScheduleCadence['kind'],
+    cadence_config: parseJson<ScheduleCadence>(row.cadence_config as string, { kind: 'daily', time_hhmm: '09:00', timezone: 'local' }),
+    enabled: Number(row.enabled ?? 1) === 1,
+    paused: Number(row.paused ?? 0) === 1,
+    run_lock: Number(row.run_lock ?? 0) === 1,
+    run_lock_token: row.run_lock_token ? String(row.run_lock_token) : null,
+    run_count: Number(row.run_count ?? 0),
+    success_count: Number(row.success_count ?? 0),
+    failure_count: Number(row.failure_count ?? 0),
+    last_status: (row.last_status ? String(row.last_status) : 'idle') as ScheduleRunStatus,
+    last_error: row.last_error ? String(row.last_error) : null,
+    last_run_mission_id: row.last_run_mission_id ? String(row.last_run_mission_id) : null,
+    last_run_started_at: row.last_run_started_at == null ? null : Number(row.last_run_started_at),
+    last_run_finished_at: row.last_run_finished_at == null ? null : Number(row.last_run_finished_at),
+    next_run_at: Number(row.next_run_at),
+    created_at: Number(row.created_at),
+    updated_at: Number(row.updated_at),
   };
 }
 
@@ -1008,6 +1040,193 @@ export class BrainStore {
         toJson(event.payload),
         event.createdAt,
       );
+  }
+
+  listScheduledMissions(): ScheduledMissionRecord[] {
+    const rows = this.sqlite
+      .prepare('SELECT * FROM scheduled_missions ORDER BY next_run_at ASC, created_at ASC')
+      .all() as RawRow[];
+    return rows.map(asScheduledMissionRecord);
+  }
+
+  getScheduledMission(id: string): ScheduledMissionRecord | null {
+    const row = this.sqlite.prepare('SELECT * FROM scheduled_missions WHERE id = ?').get(id) as RawRow | null;
+    return row ? asScheduledMissionRecord(row) : null;
+  }
+
+  insertScheduledMission(input: {
+    id?: string;
+    name: string;
+    goal: string;
+    workerPreference: ScheduleWorkerPreference;
+    cadenceKind: ScheduleCadence['kind'];
+    cadenceConfig: ScheduleCadence;
+    nextRunAt: number;
+    createdAt: number;
+  }): ScheduledMissionRecord {
+    const id = input.id ?? createId('sched');
+    this.sqlite
+      .prepare(
+        `INSERT INTO scheduled_missions (
+          id, name, goal, worker_preference, cadence_kind, cadence_config, enabled, paused, run_lock, run_lock_token,
+          run_count, success_count, failure_count, last_status, last_error, last_run_mission_id,
+          last_run_started_at, last_run_finished_at, next_run_at, created_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 1, 0, 0, NULL, 0, 0, 0, 'idle', NULL, NULL, NULL, NULL, ?, ?, ?)`,
+      )
+      .run(
+        id,
+        input.name,
+        input.goal,
+        input.workerPreference,
+        input.cadenceKind,
+        toJson(input.cadenceConfig),
+        input.nextRunAt,
+        input.createdAt,
+        input.createdAt,
+      );
+
+    const created = this.getScheduledMission(id);
+    if (!created) {
+      throw new Error(`failed to load created schedule: ${id}`);
+    }
+    return created;
+  }
+
+  setScheduledMissionPaused(id: string, paused: boolean, timestamp: number): ScheduledMissionRecord | null {
+    const updateResult = this.sqlite
+      .prepare(
+        `UPDATE scheduled_missions
+         SET paused = ?, run_lock = CASE WHEN ? = 1 THEN 0 ELSE run_lock END,
+             run_lock_token = CASE WHEN ? = 1 THEN NULL ELSE run_lock_token END,
+             last_status = CASE WHEN ? = 1 AND last_status = 'running' THEN 'idle' ELSE last_status END,
+             updated_at = ?
+         WHERE id = ?`,
+      )
+      .run(paused ? 1 : 0, paused ? 1 : 0, paused ? 1 : 0, paused ? 1 : 0, timestamp, id) as { changes?: number };
+
+    if (Number(updateResult?.changes ?? 0) === 0) {
+      return null;
+    }
+
+    return this.getScheduledMission(id);
+  }
+
+  scheduleMissionRunNow(id: string, timestamp: number): ScheduledMissionRecord | null {
+    const updateResult = this.sqlite
+      .prepare(
+        `UPDATE scheduled_missions
+         SET next_run_at = ?, updated_at = ?
+         WHERE id = ? AND enabled = 1`,
+      )
+      .run(timestamp, timestamp, id) as { changes?: number };
+
+    if (Number(updateResult?.changes ?? 0) === 0) {
+      return null;
+    }
+
+    return this.getScheduledMission(id);
+  }
+
+  private claimScheduleById(id: string, timestamp: number): ScheduledMissionRecord | null {
+    const lockToken = createId('slock');
+    const updateResult = this.sqlite
+      .prepare(
+        `UPDATE scheduled_missions
+         SET run_lock = 1,
+             run_lock_token = ?,
+             last_status = 'running',
+             last_error = NULL,
+             last_run_started_at = ?,
+             updated_at = ?
+         WHERE id = ?
+           AND enabled = 1
+           AND paused = 0
+           AND run_lock = 0`,
+      )
+      .run(lockToken, timestamp, timestamp, id) as { changes?: number };
+
+    if (Number(updateResult?.changes ?? 0) === 0) {
+      return null;
+    }
+
+    return this.getScheduledMission(id);
+  }
+
+  claimDueScheduledMissions(timestamp: number, limit = 3): ScheduledMissionRecord[] {
+    const due = this.sqlite
+      .prepare(
+        `SELECT id
+         FROM scheduled_missions
+         WHERE enabled = 1
+           AND paused = 0
+           AND run_lock = 0
+           AND next_run_at <= ?
+         ORDER BY next_run_at ASC, created_at ASC
+         LIMIT ?`,
+      )
+      .all(timestamp, limit) as Array<{ id: string }>;
+
+    const claimed: ScheduledMissionRecord[] = [];
+    for (const row of due) {
+      const schedule = this.claimScheduleById(String(row.id), timestamp);
+      if (schedule) {
+        claimed.push(schedule);
+      }
+    }
+    return claimed;
+  }
+
+  claimScheduledMissionById(id: string, timestamp: number): ScheduledMissionRecord | null {
+    return this.claimScheduleById(id, timestamp);
+  }
+
+  completeScheduledMissionRun(input: {
+    scheduleId: string;
+    lockToken: string;
+    status: ScheduleRunStatus;
+    errorMessage?: string | null;
+    missionId?: string | null;
+    finishedAt: number;
+    nextRunAt: number;
+  }): ScheduledMissionRecord | null {
+    const successIncrement = input.status === 'verified_complete' ? 1 : 0;
+    const failureIncrement = input.status === 'verified_complete' ? 0 : 1;
+    const updateResult = this.sqlite
+      .prepare(
+        `UPDATE scheduled_missions
+         SET run_lock = 0,
+             run_lock_token = NULL,
+             run_count = run_count + 1,
+             success_count = success_count + ?,
+             failure_count = failure_count + ?,
+             last_status = ?,
+             last_error = ?,
+             last_run_mission_id = ?,
+             last_run_finished_at = ?,
+             next_run_at = ?,
+             updated_at = ?
+         WHERE id = ?
+           AND run_lock = 1
+           AND run_lock_token = ?`,
+      )
+      .run(
+        successIncrement,
+        failureIncrement,
+        input.status,
+        input.errorMessage ?? null,
+        input.missionId ?? null,
+        input.finishedAt,
+        input.nextRunAt,
+        input.finishedAt,
+        input.scheduleId,
+        input.lockToken,
+      ) as { changes?: number };
+
+    if (Number(updateResult?.changes ?? 0) === 0) {
+      return null;
+    }
+
+    return this.getScheduledMission(input.scheduleId);
   }
 
   getPreferredFormatMemory(): MemoryRecord | null {
