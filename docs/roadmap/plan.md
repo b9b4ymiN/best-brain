@@ -74,11 +74,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ### Step 7: Manager Beta — Multi-Pattern Missions (*parallel with Step 4-6*)
 - **Files**: `src/manager/mission-compiler.ts`, `src/manager/playbook.ts`, `src/proving/`
+- **Status**: Completed on 2026-03-11
 - **Action**: Extend mission compiler beyond Thai equities — support `repo_change_mission`, `analysis_reporting_mission`, `command_execution_mission` with proper playbooks, derivation, and verifier checklists
-- **Verification**: `bun run smoke:manager` passes for at least 3 mission kinds; proving harness validates all patterns
+- **Verification**: `bun run smoke:manager` passes for 3 mission kinds (`repo_change_mission`, `analysis_reporting_mission`, `command_execution_mission`); `bun run proof:proving` validates multi-pattern definitions and acceptance runs
 
 ### Step 8: Ambiguity Detector Hardening (*parallel with Step 7*)
 - **File**: `src/manager/goal-ambiguity.ts`
+- **Status**: Completed on 2026-03-11
 - **Action**: Add test cases for edge cases: mixed-language goals, multi-objective goals, implicit constraints. Ensure ambiguity detector blocks correctly without over-blocking
 - **Verification**: ≥20 ambiguity test cases pass; false-block rate <5%
 

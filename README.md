@@ -110,6 +110,7 @@ bun run smoke:mcp
 bun run smoke:claude
 bun run manager -- "Plan the next mission using the latest mission proof."
 bun run smoke:manager
+bun run smoke:manager:thin
 bun run smoke:manager:claude
 bun run smoke:manager:codex
 bun run smoke:manager:ambiguity
@@ -233,6 +234,12 @@ Manager alpha now also blocks materially ambiguous execution goals before dispat
 
 ```bash
 bun run smoke:manager:ambiguity
+```
+
+To verify manager beta multi-pattern mission compilation (repo change, analysis reporting, command execution), run:
+
+```bash
+bun run smoke:manager
 ```
 
 ### Control room flow

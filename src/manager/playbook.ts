@@ -9,6 +9,8 @@ import type { ManagerDecision, ManagerInput } from './types.ts';
 const CODE_HINTS = ['repo', 'code', 'typescript', 'bun', 'test', 'file', 'script', 'server', 'patch', 'implement'];
 const REPORT_HINTS = ['report', 'summary', 'summarize', 'analysis', 'review', 'plan'];
 const REPO_CHANGE_HINTS = ['repo', 'code', 'file', 'script', 'server', 'typescript', 'patch', 'implement', 'fix'];
+const COMMAND_EXECUTION_HINTS = ['run', 'execute', 'command', 'terminal', 'shell', 'powershell', 'cli', 'build', 'lint', 'smoke'];
+const IMPLEMENTATION_HINTS = ['implement', 'edit', 'fix', 'write', 'patch', 'scaffold', 'refactor', 'modify'];
 
 function includesAny(goal: string, hints: string[]): boolean {
   const tokens = tokenize(goal);
@@ -20,18 +22,32 @@ function toPlaybookSlug(value: string): string {
 }
 
 function inferMissionKind(goal: string, decision: ManagerDecision): string {
+  const hasExplicitCommand = goal.includes('`');
+  const hasCommandIntent = hasExplicitCommand || includesAny(goal, COMMAND_EXECUTION_HINTS);
+  const hasAnalysisIntent = includesAny(goal, REPORT_HINTS);
+  const hasImplementationIntent = includesAny(goal, IMPLEMENTATION_HINTS);
+  const hasRepoChangeSignals = includesAny(goal, REPO_CHANGE_HINTS) || includesAny(goal, CODE_HINTS);
+
   if (decision.kind === 'chat') {
     return 'owner_guidance';
   }
-  if (decision.selected_worker === 'shell' && goal.includes('`') && !includesAny(goal, REPO_CHANGE_HINTS)) {
+
+  if (decision.selected_worker === 'shell' && hasCommandIntent && !hasImplementationIntent) {
     return decision.kind === 'mission' ? 'command_execution_mission' : 'command_execution_task';
   }
-  if (includesAny(goal, CODE_HINTS)) {
-    return 'repo_change_mission';
-  }
-  if (includesAny(goal, REPORT_HINTS)) {
+
+  if (hasAnalysisIntent && !hasImplementationIntent) {
     return 'analysis_reporting_mission';
   }
+
+  if (hasImplementationIntent || hasRepoChangeSignals) {
+    return 'repo_change_mission';
+  }
+
+  if (hasCommandIntent && !hasRepoChangeSignals) {
+    return decision.kind === 'mission' ? 'command_execution_mission' : 'command_execution_task';
+  }
+
   return decision.kind === 'mission' ? 'general_mission' : 'general_task';
 }
 

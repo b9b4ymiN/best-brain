@@ -66,8 +66,60 @@ const stockPlaybook: MissionPlaybook = {
   ],
 };
 
+const analysisPlaybook: MissionPlaybook = {
+  ...genericPlaybook,
+  id: 'playbook_analysis_reporting_mission',
+  slug: 'analysis-reporting-mission',
+  title: 'Analysis reporting mission',
+  mission_kind: 'analysis_reporting_mission',
+  preferred_workers: ['claude', 'verifier'],
+  verifier_checklist: [
+    {
+      id: 'check_note_evidence',
+      name: 'Owner-facing note evidence exists',
+      required: true,
+      artifact_kind: 'note',
+      detail: 'Analysis-reporting runs must produce an owner-facing note.',
+    },
+    {
+      id: 'check_analysis_scope',
+      name: 'Analysis scope is grounded in available context',
+      required: true,
+      artifact_kind: null,
+      detail: 'The output must stay grounded in mission context and citations.',
+    },
+  ],
+};
+
+const commandPlaybook: MissionPlaybook = {
+  ...genericPlaybook,
+  id: 'playbook_command_execution_mission',
+  slug: 'command-execution-mission',
+  title: 'Command execution mission',
+  mission_kind: 'command_execution_mission',
+  preferred_workers: ['shell', 'verifier'],
+  verifier_checklist: [
+    {
+      id: 'check_note_evidence',
+      name: 'Owner-facing note evidence exists',
+      required: true,
+      artifact_kind: 'note',
+      detail: 'Command execution runs must produce an owner-facing note.',
+    },
+    {
+      id: 'check_command_trace',
+      name: 'Command trace is recorded',
+      required: true,
+      artifact_kind: null,
+      detail: 'Verification must include command/check trace records.',
+    },
+  ],
+};
+
 const genericDefinition = resolveProvingMissionDefinition(genericPlaybook);
 const stockDefinition = resolveProvingMissionDefinition(stockPlaybook);
+const analysisDefinition = resolveProvingMissionDefinition(analysisPlaybook);
+const commandDefinition = resolveProvingMissionDefinition(commandPlaybook);
 
 function reportDocument(contractId: string, verificationStatus: MissionReportDocument['verification_status'], blockedReason: string): MissionReportDocument {
   return {
@@ -113,6 +165,34 @@ const blockedRun: AcceptanceRunDefinition = {
   expected_evidence_types: [],
   expected_check_names: [],
   expected_blocked_reason: 'no_available_input_adapter',
+  hidden_human_steps_allowed: false,
+};
+
+const analysisRun: AcceptanceRunDefinition = {
+  id: 'run_success_analysis_reporting',
+  mission_definition_id: analysisDefinition.id,
+  goal: 'Analyze project status and produce an owner-facing summary with evidence.',
+  run_class: 'success',
+  input_fixtures: { cwd: process.cwd() },
+  expected_path: ['context_review', 'data_selection', 'primary_work', 'verification_gate', 'final_report'],
+  expected_final_status: 'verified_complete',
+  expected_evidence_types: ['note'],
+  expected_check_names: ['Owner-facing note evidence exists', 'Analysis scope is grounded in available context'],
+  expected_blocked_reason: null,
+  hidden_human_steps_allowed: false,
+};
+
+const commandRun: AcceptanceRunDefinition = {
+  id: 'run_success_command_execution',
+  mission_definition_id: commandDefinition.id,
+  goal: 'Run a local command and return a proof note with verification checks.',
+  run_class: 'success',
+  input_fixtures: { cwd: process.cwd() },
+  expected_path: ['context_review', 'data_selection', 'primary_work', 'verification_gate', 'final_report'],
+  expected_final_status: 'verified_complete',
+  expected_evidence_types: ['note'],
+  expected_check_names: ['Owner-facing note evidence exists', 'Command trace is recorded'],
+  expected_blocked_reason: null,
   hidden_human_steps_allowed: false,
 };
 
@@ -210,6 +290,58 @@ const results = [
     hidden_human_steps_detected: false,
   }),
   evaluateAcceptanceRun({
+    definition: analysisDefinition,
+    run: analysisRun,
+    adapter_decisions: successAdapters,
+    actual_final_status: 'verified_complete',
+    blocked_reason: null,
+    evidence: [{ type: 'note', ref: 'proof://analysis-note' }],
+    verification_checks: [
+      { name: 'Owner-facing note evidence exists', passed: true },
+      { name: 'Analysis scope is grounded in available context', passed: true },
+    ],
+    report: {
+      ...reportDocument(analysisDefinition.report_contract.id, 'verified_complete', ''),
+      evidence: [{ type: 'note', ref: 'proof://analysis-note' }],
+      verification_checks: [
+        { name: 'Owner-facing note evidence exists', passed: true },
+        { name: 'Analysis scope is grounded in available context', passed: true },
+      ],
+      sections: {
+        ...reportDocument(analysisDefinition.report_contract.id, 'verified_complete', '').sections,
+        evidence_summary: 'note:proof://analysis-note',
+        checks_summary: 'Owner-facing note evidence exists:pass | Analysis scope is grounded in available context:pass',
+      },
+    },
+    hidden_human_steps_detected: false,
+  }),
+  evaluateAcceptanceRun({
+    definition: commandDefinition,
+    run: commandRun,
+    adapter_decisions: successAdapters,
+    actual_final_status: 'verified_complete',
+    blocked_reason: null,
+    evidence: [{ type: 'note', ref: 'proof://command-note' }],
+    verification_checks: [
+      { name: 'Owner-facing note evidence exists', passed: true },
+      { name: 'Command trace is recorded', passed: true },
+    ],
+    report: {
+      ...reportDocument(commandDefinition.report_contract.id, 'verified_complete', ''),
+      evidence: [{ type: 'note', ref: 'proof://command-note' }],
+      verification_checks: [
+        { name: 'Owner-facing note evidence exists', passed: true },
+        { name: 'Command trace is recorded', passed: true },
+      ],
+      sections: {
+        ...reportDocument(commandDefinition.report_contract.id, 'verified_complete', '').sections,
+        evidence_summary: 'note:proof://command-note',
+        checks_summary: 'Owner-facing note evidence exists:pass | Command trace is recorded:pass',
+      },
+    },
+    hidden_human_steps_detected: false,
+  }),
+  evaluateAcceptanceRun({
     definition: stockDefinition,
     run: blockedRun,
     adapter_decisions: unavailableMarketAdapters,
@@ -263,12 +395,12 @@ const results = [
 const summary = summarizeAcceptanceHarness(results);
 const payload = {
   generated_at: new Date().toISOString(),
-  mission_definitions: [genericDefinition, stockDefinition],
-  acceptance_runs: [successRun, blockedRun, staleRun, retryableRun],
+  mission_definitions: [genericDefinition, analysisDefinition, commandDefinition, stockDefinition],
+  acceptance_runs: [successRun, analysisRun, commandRun, blockedRun, staleRun, retryableRun],
   results,
   summary: {
     proving_mission_definition_valid: true,
-    supported_definition_count: 2,
+    supported_definition_count: 4,
     generic_acceptance_harness_pass_rate: summary.pass_rate,
     blocked_reason_accuracy: summary.blocked_reason_accuracy,
     report_contract_completeness: summary.report_contract_completeness,

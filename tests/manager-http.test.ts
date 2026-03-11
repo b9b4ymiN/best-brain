@@ -283,7 +283,7 @@ describe('manager alpha via brain HTTP', () => {
 
     try {
       const result = await runtime.run({
-        goal: 'Run `bun --version` and prove the repo change is complete for this project.',
+        goal: 'Implement the repo change for this project, run `bun --version`, and prove completion with evidence.',
         worker_preference: 'shell',
         mission_id: 'mission_http_shell_restore',
         output_mode: 'json',
