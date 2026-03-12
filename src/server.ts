@@ -11,9 +11,13 @@ import type { ScheduledMissionRecord } from './runtime/types.ts';
 import { AutonomousTaskQueue } from './runtime/task-queue.ts';
 import type { QueueExecutionResult } from './runtime/task-queue.ts';
 import { RuntimeHealthMonitor } from './runtime/health.ts';
+import { OperatorSafetyController } from './runtime/safety.ts';
 
 const brain = await BestBrain.open();
 let server: ReturnType<typeof Bun.serve>;
+const operatorSafety = new OperatorSafetyController({
+  dataDir: brain.config.dataDir,
+});
 const managerFactory = () => new ManagerRuntime({
   brain: new BrainHttpAdapter({
     baseUrl: `http://127.0.0.1:${server.port}`,
@@ -52,6 +56,7 @@ const controlRoom = new ControlRoomService({
   memoryQualityProvider: () => brain.getMemoryQualityMetrics(),
   systemHealthProvider: () => healthMonitor?.getLatestSnapshot() ?? null,
   recentAlertsProvider: () => healthMonitor?.listRecentAlerts(20) ?? [],
+  operatorSafetyProvider: () => operatorSafety.getState(),
   followupQueueEnqueue: (result) => {
     taskQueue?.enqueueFollowupsFromResult(result);
   },
@@ -62,6 +67,8 @@ const chat = new ChatService({
 });
 const scheduler = new MissionScheduler({
   store: brain.store,
+  isExecutionAllowed: () => operatorSafety.isExecutionAllowed(),
+  blockedReason: () => operatorSafety.getState().reason ?? 'operator safety stop is active',
   runMission: async (schedule: ScheduledMissionRecord) => {
     const view = await controlRoom.launchMission({
       goal: schedule.goal,
@@ -88,6 +95,8 @@ const scheduler = new MissionScheduler({
 });
 taskQueue = new AutonomousTaskQueue({
   store: brain.store,
+  isExecutionAllowed: () => operatorSafety.isExecutionAllowed(),
+  blockedReason: () => operatorSafety.getState().reason ?? 'operator safety stop is active',
   executeTask: async (item) => {
     if (item.parent_mission_id) {
       try {
@@ -122,7 +131,7 @@ healthMonitor = new RuntimeHealthMonitor({
     }
   },
 });
-const app = createApp(brain, { chat, controlRoom, scheduler, taskQueue });
+const app = createApp(brain, { chat, controlRoom, scheduler, taskQueue, operatorSafety });
 
 server = Bun.serve({
   port: brain.config.port,

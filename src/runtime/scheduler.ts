@@ -62,12 +62,15 @@ export interface SchedulerTickReport {
   claimed_count: number;
   processed_count: number;
   skipped: boolean;
+  blocked_reason: string | null;
   runs: ScheduledMissionRunReport[];
 }
 
 export interface MissionSchedulerOptions {
   store: BrainStore;
   runMission: (schedule: ScheduledMissionRecord) => Promise<ScheduledMissionExecutionResult>;
+  isExecutionAllowed?: () => boolean;
+  blockedReason?: () => string;
   now?: () => number;
   logger?: (message: string, data?: Record<string, unknown>) => void;
 }
@@ -75,6 +78,8 @@ export interface MissionSchedulerOptions {
 export class MissionScheduler {
   private readonly store: BrainStore;
   private readonly runMission: MissionSchedulerOptions['runMission'];
+  private readonly isExecutionAllowed: () => boolean;
+  private readonly blockedReason: () => string;
   private readonly now: () => number;
   private readonly logger: MissionSchedulerOptions['logger'] | null;
   private pollTimer: Timer | null = null;
@@ -83,6 +88,8 @@ export class MissionScheduler {
   constructor(options: MissionSchedulerOptions) {
     this.store = options.store;
     this.runMission = options.runMission;
+    this.isExecutionAllowed = options.isExecutionAllowed ?? (() => true);
+    this.blockedReason = options.blockedReason ?? (() => 'scheduler execution is paused by operator safety stop');
     this.now = options.now ?? (() => Date.now());
     this.logger = options.logger ?? null;
   }
@@ -140,6 +147,9 @@ export class MissionScheduler {
   }
 
   async runNow(scheduleId: string): Promise<ScheduledMissionRunReport> {
+    if (!this.isExecutionAllowed()) {
+      throw new Error(this.blockedReason());
+    }
     const timestamp = this.now();
     const updated = this.store.scheduleMissionRunNow(scheduleId, timestamp);
     if (!updated) {
@@ -154,6 +164,17 @@ export class MissionScheduler {
 
   async tick(limit = 3): Promise<SchedulerTickReport> {
     const startedAt = this.now();
+    if (!this.isExecutionAllowed()) {
+      return {
+        started_at: startedAt,
+        finished_at: this.now(),
+        claimed_count: 0,
+        processed_count: 0,
+        skipped: true,
+        blocked_reason: this.blockedReason(),
+        runs: [],
+      };
+    }
     if (this.tickActive) {
       return {
         started_at: startedAt,
@@ -161,6 +182,7 @@ export class MissionScheduler {
         claimed_count: 0,
         processed_count: 0,
         skipped: true,
+        blocked_reason: null,
         runs: [],
       };
     }
@@ -179,6 +201,7 @@ export class MissionScheduler {
         claimed_count: claimed.length,
         processed_count: runs.length,
         skipped: false,
+        blocked_reason: null,
         runs,
       };
     } finally {

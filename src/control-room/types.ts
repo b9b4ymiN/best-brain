@@ -5,6 +5,7 @@ import type { RuntimeArtifactRecord } from '../runtime/types.ts';
 import type { AutonomyDecision, AutonomyLevel, AutonomyPolicyConfig } from '../policies/autonomy.ts';
 import type { SystemHealthAlert, SystemHealthSnapshot } from '../runtime/health.ts';
 import type { ScheduledMissionRecord, TaskQueueItemRecord } from '../runtime/types.ts';
+import type { OperatorSafetyState } from '../runtime/safety.ts';
 
 export const CONTROL_ROOM_ACTIONS = [
   'launch_mission',
@@ -167,6 +168,7 @@ export interface OperatorDashboardView {
   generated_at: number;
   active_missions: OperatorActiveMissionView[];
   approval_queue: OperatorApprovalQueueItem[];
+  safety_state: OperatorSafetyState | null;
   autonomy_policy: AutonomyPolicyConfig;
   system_health: SystemHealthSnapshot | null;
   recent_alerts: SystemHealthAlert[];

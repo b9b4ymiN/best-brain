@@ -39,12 +39,15 @@ export interface TaskQueueTickReport {
   finished_at: number;
   processed_count: number;
   skipped: boolean;
+  blocked_reason: string | null;
   items: TaskQueueTickItemReport[];
 }
 
 export interface AutonomousTaskQueueOptions {
   store: BrainStore;
   executeTask: (item: TaskQueueItemRecord) => Promise<QueueExecutionResult>;
+  isExecutionAllowed?: () => boolean;
+  blockedReason?: () => string;
   now?: () => number;
   logger?: (message: string, data?: Record<string, unknown>) => void;
 }
@@ -72,6 +75,8 @@ function retryDelayMs(attemptCount: number): number {
 export class AutonomousTaskQueue {
   private readonly store: BrainStore;
   private readonly executeTask: AutonomousTaskQueueOptions['executeTask'];
+  private readonly isExecutionAllowed: () => boolean;
+  private readonly blockedReason: () => string;
   private readonly now: () => number;
   private readonly logger: AutonomousTaskQueueOptions['logger'] | null;
   private pollTimer: Timer | null = null;
@@ -80,6 +85,8 @@ export class AutonomousTaskQueue {
   constructor(options: AutonomousTaskQueueOptions) {
     this.store = options.store;
     this.executeTask = options.executeTask;
+    this.isExecutionAllowed = options.isExecutionAllowed ?? (() => true);
+    this.blockedReason = options.blockedReason ?? (() => 'task queue execution is paused by operator safety stop');
     this.now = options.now ?? (() => Date.now());
     this.logger = options.logger ?? null;
   }
@@ -180,12 +187,23 @@ export class AutonomousTaskQueue {
 
   async tick(limit = 3): Promise<TaskQueueTickReport> {
     const startedAt = this.now();
+    if (!this.isExecutionAllowed()) {
+      return {
+        started_at: startedAt,
+        finished_at: this.now(),
+        processed_count: 0,
+        skipped: true,
+        blocked_reason: this.blockedReason(),
+        items: [],
+      };
+    }
     if (this.tickActive) {
       return {
         started_at: startedAt,
         finished_at: this.now(),
         processed_count: 0,
         skipped: true,
+        blocked_reason: null,
         items: [],
       };
     }
@@ -206,6 +224,7 @@ export class AutonomousTaskQueue {
         finished_at: this.now(),
         processed_count: reports.length,
         skipped: false,
+        blocked_reason: null,
         items: reports,
       };
     } finally {

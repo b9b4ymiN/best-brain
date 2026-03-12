@@ -11,6 +11,7 @@ import type {
   TaskQueueItemRecord,
 } from '../runtime/types.ts';
 import type { SystemHealthAlert, SystemHealthSnapshot } from '../runtime/health.ts';
+import type { OperatorSafetyState } from '../runtime/safety.ts';
 import {
   applyAutonomyPolicyUpdate,
   defaultAutonomyPolicy,
@@ -81,6 +82,7 @@ export interface ControlRoomServiceOptions {
   memoryQualityProvider?: () => MemoryQualityMetrics;
   systemHealthProvider?: () => SystemHealthSnapshot | null;
   recentAlertsProvider?: () => SystemHealthAlert[];
+  operatorSafetyProvider?: () => OperatorSafetyState | null;
   followupQueueEnqueue?: (result: ManagerRunResult) => void | Promise<void>;
   autonomyPolicyPath?: string;
   now?: () => number;
@@ -588,6 +590,7 @@ export class ControlRoomService {
   private readonly memoryQualityProvider: (() => MemoryQualityMetrics) | null;
   private readonly systemHealthProvider: (() => SystemHealthSnapshot | null) | null;
   private readonly recentAlertsProvider: (() => SystemHealthAlert[]) | null;
+  private readonly operatorSafetyProvider: (() => OperatorSafetyState | null) | null;
   private readonly followupQueueEnqueue: ((result: ManagerRunResult) => void | Promise<void>) | null;
   private readonly now: () => number;
   private autonomyPolicy: AutonomyPolicyConfig;
@@ -600,6 +603,7 @@ export class ControlRoomService {
     this.memoryQualityProvider = options.memoryQualityProvider ?? null;
     this.systemHealthProvider = options.systemHealthProvider ?? null;
     this.recentAlertsProvider = options.recentAlertsProvider ?? null;
+    this.operatorSafetyProvider = options.operatorSafetyProvider ?? null;
     this.followupQueueEnqueue = options.followupQueueEnqueue ?? null;
     this.now = options.now ?? (() => Date.now());
     fs.mkdirSync(this.missionsDir, { recursive: true });
@@ -783,6 +787,7 @@ export class ControlRoomService {
   listOperatorDashboard(input: {
     scheduledMissions?: ScheduledMissionRecord[];
     queuedTasks?: TaskQueueItemRecord[];
+    safetyState?: OperatorSafetyState | null;
   } = {}): OperatorDashboardView {
     const records = this.listMissionRecords();
     const activeMissions: OperatorActiveMissionView[] = [];
@@ -835,6 +840,7 @@ export class ControlRoomService {
       generated_at: this.now(),
       active_missions: activeMissions.sort((left, right) => right.updated_at - left.updated_at),
       approval_queue: approvalQueue.sort((left, right) => right.updated_at - left.updated_at),
+      safety_state: input.safetyState ?? this.operatorSafetyProvider?.() ?? null,
       autonomy_policy: this.autonomyPolicy,
       system_health: this.systemHealthProvider?.() ?? null,
       recent_alerts: this.recentAlertsProvider?.() ?? [],

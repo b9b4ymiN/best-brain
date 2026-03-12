@@ -196,6 +196,12 @@ Operator scheduler:
 - `POST /operator/schedules/:id/run-now`
 - `POST /operator/scheduler/tick`
 
+Operator safety:
+
+- `GET /operator/safety`
+- `POST /operator/safety/stop`
+- `POST /operator/safety/resume`
+
 Operator task queue:
 
 - `GET /operator/queue`
@@ -438,6 +444,23 @@ The proof records:
 - semi-autonomous gating behavior (first run supervised, next routine runs auto-approved)
 - no hidden manual intervention flag
 - operator dashboard stream counts at capture time
+
+### Phase 12 Step 27: operator safety stop rails
+
+Operator can pause all mission execution rails immediately:
+
+- blocks mission launch from control-room
+- blocks scheduler tick/run-now
+- blocks task-queue tick
+- keeps read/inspection endpoints available
+
+Commands:
+
+```bash
+curl -s http://127.0.0.1:47888/operator/safety
+curl -s -X POST http://127.0.0.1:47888/operator/safety/stop -H "content-type: application/json" -d "{\"reason\":\"manual emergency stop\"}"
+curl -s -X POST http://127.0.0.1:47888/operator/safety/resume -H "content-type: application/json" -d "{\"reason\":\"resume after inspection\"}"
+```
 
 ## Repo direction
 

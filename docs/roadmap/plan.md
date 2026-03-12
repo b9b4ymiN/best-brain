@@ -244,6 +244,19 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ---
 
+## PHASE 12: Operator Safety Rails (Windows-first)
+
+**Goal**: provide an immediate global safety stop that pauses execution rails without losing observability.
+
+### Step 27: Emergency Stop Gate for Mission Execution
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/runtime/safety.ts`, `src/runtime/scheduler.ts`, `src/runtime/task-queue.ts`, `src/http/app.ts`, `src/server.ts`, `src/control-room/service.ts`, `src/control-room/types.ts`, `src/control-room/page.ts`, `tests/operator-safety.test.ts`, `tests/operator-safety-http.test.ts`
+- **Action (actual)**: Added persistent operator safety controller (`emergency_stop`) and wired it into control-room launch, scheduler tick/run-now, and task-queue tick. Added operator safety HTTP endpoints and control-room operator panel controls to stop/resume execution.
+- **Verification (actual)**: `tests/operator-safety.test.ts` + `tests/operator-safety-http.test.ts` pass; full suite remains green.
+- **Verification**: Activate safety stop -> launch/tick paths return blocked status -> resume -> execution paths run normally.
+
+---
+
 ## Verification & Quality Gates (All Phases)
 
 1. **After Phase 0**: `bun run typecheck && bun run test && bun run scorecard:program` — all green, 0 failures

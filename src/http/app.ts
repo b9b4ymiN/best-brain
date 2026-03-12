@@ -8,6 +8,7 @@ import { renderControlRoomPage } from '../control-room/page.ts';
 import type { ControlRoomService } from '../control-room/service.ts';
 import type { MissionScheduler } from '../runtime/scheduler.ts';
 import type { AutonomousTaskQueue } from '../runtime/task-queue.ts';
+import type { OperatorSafetyController } from '../runtime/safety.ts';
 import {
   CONTROL_ROOM_ACTIONS,
   type OperatorOverrideRequest,
@@ -299,11 +300,23 @@ function validateTaskQueueEnqueueRequest(input: unknown): {
   };
 }
 
+function validateOperatorSafetyRequest(input: unknown): { reason?: string; updated_by?: string } {
+  if (!input || typeof input !== 'object') {
+    return {};
+  }
+  const payload = input as Record<string, unknown>;
+  return {
+    reason: typeof payload.reason === 'string' ? payload.reason.trim() : undefined,
+    updated_by: typeof payload.updated_by === 'string' ? payload.updated_by.trim() : undefined,
+  };
+}
+
 export interface AppServices {
   chat?: ChatService | null;
   controlRoom?: ControlRoomService | null;
   scheduler?: MissionScheduler | null;
   taskQueue?: AutonomousTaskQueue | null;
+  operatorSafety?: OperatorSafetyController | null;
 }
 
 const NO_STORE_HEADERS = {
@@ -314,6 +327,13 @@ const NO_STORE_HEADERS = {
 
 export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   const app = new Hono();
+  const safetyController = services.operatorSafety ?? null;
+  const isExecutionPaused = (): boolean => safetyController?.getState().emergency_stop === true;
+  const blockedErrorPayload = (): { error: string } => {
+    const state = safetyController?.getState();
+    const reason = state?.reason ?? 'operator safety stop is active';
+    return { error: `operator safety stop is active: ${reason}` };
+  };
 
   if (services.chat) {
     app.get('/', (c) => c.html(renderChatPage(), 200, NO_STORE_HEADERS));
@@ -374,6 +394,24 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
 
   app.get('/health', (c) => c.json(brain.health()));
 
+  if (safetyController) {
+    app.get('/operator/safety', (c) => c.json({
+      safety: safetyController.getState(),
+    }, 200, NO_STORE_HEADERS));
+    app.post('/operator/safety/stop', async (c) => {
+      const body = validateOperatorSafetyRequest(await readJsonBody(c));
+      return c.json({
+        safety: safetyController.activate(body.reason ?? null, body.updated_by ?? 'operator'),
+      }, 200, NO_STORE_HEADERS);
+    });
+    app.post('/operator/safety/resume', async (c) => {
+      const body = validateOperatorSafetyRequest(await readJsonBody(c));
+      return c.json({
+        safety: safetyController.resume(body.reason ?? null, body.updated_by ?? 'operator'),
+      }, 200, NO_STORE_HEADERS);
+    });
+  }
+
   app.post('/brain/consult', async (c) => {
     const body = validateConsultRequest(await readJsonBody(c));
     return c.json(await brain.consult(body));
@@ -424,6 +462,7 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
       services.controlRoom!.listOperatorDashboard({
         scheduledMissions: services.scheduler?.listSchedules() ?? [],
         queuedTasks: services.taskQueue?.listItems() ?? [],
+        safetyState: safetyController?.getState() ?? null,
       }),
     ));
     app.post('/control-room/api/operator/override', async (c) => {
@@ -466,6 +505,9 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
       return c.json(services.controlRoom!.listHistory(filters));
     });
     app.post('/control-room/api/launch', async (c) => {
+      if (isExecutionPaused()) {
+        return c.json(blockedErrorPayload(), 423, NO_STORE_HEADERS);
+      }
       const body = validateControlRoomLaunchRequest(await readJsonBody(c));
       return c.json(await services.controlRoom!.launchMission(body));
     });
@@ -478,6 +520,9 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
     });
     app.post('/control-room/api/missions/:id/actions', async (c) => {
       const body = validateControlRoomActionRequest(await readJsonBody(c));
+      if (isExecutionPaused() && (body.action === 'retry_mission' || body.action === 'resume_mission')) {
+        return c.json(blockedErrorPayload(), 423, NO_STORE_HEADERS);
+      }
       return c.json(await services.controlRoom!.runAction(c.req.param('id'), body));
     });
   }
@@ -498,10 +543,28 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
     app.post('/operator/schedules/:id/resume', (c) => c.json({
       schedule: services.scheduler!.resumeSchedule(c.req.param('id')),
     }, 200, NO_STORE_HEADERS));
-    app.post('/operator/schedules/:id/run-now', async (c) => c.json({
-      run: await services.scheduler!.runNow(c.req.param('id')),
-    }, 200, NO_STORE_HEADERS));
+    app.post('/operator/schedules/:id/run-now', async (c) => {
+      if (isExecutionPaused()) {
+        return c.json(blockedErrorPayload(), 423, NO_STORE_HEADERS);
+      }
+      return c.json({
+        run: await services.scheduler!.runNow(c.req.param('id')),
+      }, 200, NO_STORE_HEADERS);
+    });
     app.post('/operator/scheduler/tick', async (c) => {
+      if (isExecutionPaused()) {
+        return c.json({
+          report: {
+            started_at: Date.now(),
+            finished_at: Date.now(),
+            claimed_count: 0,
+            processed_count: 0,
+            skipped: true,
+            blocked_reason: blockedErrorPayload().error,
+            runs: [],
+          },
+        }, 423, NO_STORE_HEADERS);
+      }
       const payload = await readJsonBody(c);
       const limitRaw = payload && typeof payload === 'object'
         ? Number((payload as Record<string, unknown>).limit ?? 3)
@@ -524,6 +587,18 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
       }, 200, NO_STORE_HEADERS);
     });
     app.post('/operator/queue/tick', async (c) => {
+      if (isExecutionPaused()) {
+        return c.json({
+          report: {
+            started_at: Date.now(),
+            finished_at: Date.now(),
+            processed_count: 0,
+            skipped: true,
+            blocked_reason: blockedErrorPayload().error,
+            items: [],
+          },
+        }, 423, NO_STORE_HEADERS);
+      }
       const payload = await readJsonBody(c);
       const limitRaw = payload && typeof payload === 'object'
         ? Number((payload as Record<string, unknown>).limit ?? 3)

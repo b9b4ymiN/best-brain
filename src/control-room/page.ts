@@ -251,6 +251,7 @@ export function renderControlRoomPage(): string {
               <small id="operatorGeneratedAt">n/a</small>
             </div>
             <div id="operatorSummary" class="item"></div>
+            <div id="operatorSafetyActions" class="actions"></div>
             <div class="two-line">
               <strong>Active missions</strong>
               <small id="operatorActiveCount">0</small>
@@ -370,6 +371,7 @@ export function renderControlRoomPage(): string {
         const operator = state.operatorDashboard;
         const generatedAtEl = document.getElementById('operatorGeneratedAt');
         const summaryEl = document.getElementById('operatorSummary');
+        const safetyActionsEl = document.getElementById('operatorSafetyActions');
         const activeCountEl = document.getElementById('operatorActiveCount');
         const activeListEl = document.getElementById('operatorActiveList');
         const approvalCountEl = document.getElementById('operatorApprovalCount');
@@ -382,6 +384,7 @@ export function renderControlRoomPage(): string {
         if (!operator) {
           if (generatedAtEl) generatedAtEl.textContent = 'n/a';
           if (summaryEl) summaryEl.innerHTML = '<small>Operator streams unavailable.</small>';
+          if (safetyActionsEl) safetyActionsEl.innerHTML = '';
           if (activeCountEl) activeCountEl.textContent = '0';
           if (approvalCountEl) approvalCountEl.textContent = '0';
           if (scheduleCountEl) scheduleCountEl.textContent = '0';
@@ -407,6 +410,13 @@ export function renderControlRoomPage(): string {
             + ' â€¢ routine threshold=' + (policy.routine_min_verified_runs ?? 'n/a')
             + (overridePreview ? ' â€¢ overrides: ' + overridePreview : '')
             + '</small>';
+        }
+
+        if (safetyActionsEl) {
+          const safetyState = operator.safety_state || null;
+          safetyActionsEl.innerHTML = safetyState?.emergency_stop
+            ? '<button id="operatorResumeSafety">Resume execution</button>'
+            : '<button class="secondary" id="operatorStopSafety">Emergency stop</button>';
         }
 
         const activeMissions = operator.active_missions || [];
@@ -511,6 +521,40 @@ export function renderControlRoomPage(): string {
             await refresh(missionId);
           });
         });
+        const stopButton = document.getElementById('operatorStopSafety');
+        if (stopButton) {
+          stopButton.addEventListener('click', async () => {
+            const reason = window.prompt('Emergency stop reason:', 'Operator emergency stop from control room.') ?? '';
+            const response = await fetch('/operator/safety/stop', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ reason }),
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+              window.alert(payload.error || 'Unable to activate emergency stop.');
+              return;
+            }
+            await loadOperatorDashboard();
+          });
+        }
+        const resumeButton = document.getElementById('operatorResumeSafety');
+        if (resumeButton) {
+          resumeButton.addEventListener('click', async () => {
+            const reason = window.prompt('Resume note (optional):', 'Operator resumed execution.') ?? '';
+            const response = await fetch('/operator/safety/resume', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ reason }),
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+              window.alert(payload.error || 'Unable to resume execution.');
+              return;
+            }
+            await loadOperatorDashboard();
+          });
+        }
       }
 
       function formatDuration(value) {
