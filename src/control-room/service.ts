@@ -4,6 +4,15 @@ import type { MemoryQualityMetrics, MissionStatus } from '../types.ts';
 import type { ManagerRuntime } from '../manager/runtime.ts';
 import type { ManagerRunResult } from '../manager/types.ts';
 import type { RuntimeArtifactRecord, RuntimeEventRecord, RuntimeWorkerTaskRun } from '../runtime/types.ts';
+import {
+  applyAutonomyPolicyUpdate,
+  defaultAutonomyPolicy,
+  evaluateAutonomyDecision,
+  normalizeAutonomyPolicy,
+  type AutonomyDecision,
+  type AutonomyPolicyConfig,
+  type AutonomyPolicyUpdateInput,
+} from '../policies/autonomy.ts';
 import { MISSION_PHASE_KEYS } from './types.ts';
 import type {
   ControlRoomHistoryFilter,
@@ -49,6 +58,7 @@ interface StoredMissionRecord {
   operator_events: StoredOperatorEvent[];
   operator_review: OperatorReviewView;
   status_override: MissionStatus | null;
+  autonomy: AutonomyDecision | null;
 }
 
 export interface ControlRoomManagerFactory {
@@ -60,6 +70,7 @@ export interface ControlRoomServiceOptions {
   managerFactory: ControlRoomManagerFactory;
   memoryQualityProvider?: () => MemoryQualityMetrics;
   followupQueueEnqueue?: (result: ManagerRunResult) => void | Promise<void>;
+  autonomyPolicyPath?: string;
   now?: () => number;
 }
 
@@ -424,6 +435,7 @@ export function buildMissionConsoleView(
   operatorReview: OperatorReviewView,
   operatorEvents: StoredOperatorEvent[] = [],
   statusOverride: MissionStatus | null = null,
+  autonomy: AutonomyDecision | null = null,
 ): MissionConsoleView {
   const missionStatus = resolveMissionStatus(result, statusOverride);
   const artifacts = result.runtime_bundle?.artifacts ?? [];
@@ -461,6 +473,7 @@ export function buildMissionConsoleView(
     artifacts,
     final_report_artifact: finalReportArtifact,
     verdict,
+    autonomy,
     operator_review: operatorReview,
     allowed_actions: buildAllowedActions(result, operatorReview, statusOverride),
     updated_at: updatedAt,
@@ -491,27 +504,70 @@ function buildMissionSummary(record: StoredMissionRecord): ControlRoomMissionSum
 }
 
 function createInitialOperatorReview(): OperatorReviewView {
+  return createOperatorReview('pending', null, null);
+}
+
+function createOperatorReview(
+  status: OperatorReviewView['status'],
+  note: string | null,
+  timestamp: number | null,
+): OperatorReviewView {
   return {
-    status: 'pending',
-    note: null,
-    updated_at: null,
+    status,
+    note,
+    updated_at: timestamp,
+  };
+}
+
+function normalizeStoredAutonomyDecision(input: unknown): AutonomyDecision | null {
+  if (!input || typeof input !== 'object') {
+    return null;
+  }
+  const payload = input as Partial<AutonomyDecision>;
+  if (typeof payload.mission_kind !== 'string' || typeof payload.reason !== 'string') {
+    return null;
+  }
+  if (
+    payload.mission_status == null
+    || payload.configured_level == null
+    || payload.effective_level == null
+  ) {
+    return null;
+  }
+  return {
+    mission_kind: payload.mission_kind,
+    mission_status: payload.mission_status,
+    configured_level: payload.configured_level,
+    effective_level: payload.effective_level,
+    prior_verified_runs: Number(payload.prior_verified_runs ?? 0),
+    is_routine: payload.is_routine === true,
+    requires_operator_approval: payload.requires_operator_approval === true,
+    auto_approved: payload.auto_approved === true,
+    alert_required: payload.alert_required === true,
+    reason: payload.reason,
+    evaluated_at: Number(payload.evaluated_at ?? Date.now()),
   };
 }
 
 export class ControlRoomService {
   private readonly missionsDir: string;
+  private readonly autonomyPolicyPath: string;
   private readonly managerFactory: ControlRoomManagerFactory;
   private readonly memoryQualityProvider: (() => MemoryQualityMetrics) | null;
   private readonly followupQueueEnqueue: ((result: ManagerRunResult) => void | Promise<void>) | null;
   private readonly now: () => number;
+  private autonomyPolicy: AutonomyPolicyConfig;
 
   constructor(options: ControlRoomServiceOptions) {
     this.missionsDir = path.join(options.dataDir, 'control-room', 'missions');
+    this.autonomyPolicyPath = options.autonomyPolicyPath
+      ?? path.join(options.dataDir, 'control-room', 'autonomy-policy.json');
     this.managerFactory = options.managerFactory;
     this.memoryQualityProvider = options.memoryQualityProvider ?? null;
     this.followupQueueEnqueue = options.followupQueueEnqueue ?? null;
     this.now = options.now ?? (() => Date.now());
     fs.mkdirSync(this.missionsDir, { recursive: true });
+    this.autonomyPolicy = this.loadAutonomyPolicy();
   }
 
   private queueFollowups(result: ManagerRunResult): void {
@@ -521,6 +577,38 @@ export class ControlRoomService {
     void Promise.resolve(this.followupQueueEnqueue(result)).catch(() => {
       // Queue writes should not break control-room mission persistence.
     });
+  }
+
+  private loadAutonomyPolicy(): AutonomyPolicyConfig {
+    if (!fs.existsSync(this.autonomyPolicyPath)) {
+      const created = defaultAutonomyPolicy(this.now);
+      this.writeAutonomyPolicy(created);
+      return created;
+    }
+
+    try {
+      const raw = JSON.parse(fs.readFileSync(this.autonomyPolicyPath, 'utf8')) as unknown;
+      return normalizeAutonomyPolicy(raw, this.now);
+    } catch {
+      const fallback = defaultAutonomyPolicy(this.now);
+      this.writeAutonomyPolicy(fallback);
+      return fallback;
+    }
+  }
+
+  private writeAutonomyPolicy(policy: AutonomyPolicyConfig): void {
+    fs.mkdirSync(path.dirname(this.autonomyPolicyPath), { recursive: true });
+    fs.writeFileSync(this.autonomyPolicyPath, JSON.stringify(policy, null, 2));
+  }
+
+  getAutonomyPolicy(): AutonomyPolicyConfig {
+    return this.autonomyPolicy;
+  }
+
+  updateAutonomyPolicy(update: AutonomyPolicyUpdateInput): AutonomyPolicyConfig {
+    this.autonomyPolicy = applyAutonomyPolicyUpdate(this.autonomyPolicy, update, this.now);
+    this.writeAutonomyPolicy(this.autonomyPolicy);
+    return this.autonomyPolicy;
   }
 
   private missionPath(missionId: string): string {
@@ -545,6 +633,7 @@ export class ControlRoomService {
       operator_events: Array.isArray(parsed.operator_events) ? parsed.operator_events : [],
       operator_review: parsed.operator_review ?? createInitialOperatorReview(),
       status_override: parsed.status_override ?? null,
+      autonomy: parsed.autonomy ? normalizeStoredAutonomyDecision(parsed.autonomy) : null,
     };
   }
 
@@ -552,18 +641,53 @@ export class ControlRoomService {
     fs.writeFileSync(this.missionPath(record.mission_id), JSON.stringify(record, null, 2));
   }
 
+  private countPriorVerifiedRunsByKind(
+    missionKind: string,
+    records: StoredMissionRecord[],
+  ): number {
+    let count = 0;
+    for (const record of records) {
+      for (const run of record.runs) {
+        if (run.result.mission_brief.mission_kind === missionKind && run.result.verification_result?.status === 'verified_complete') {
+          count += 1;
+        }
+      }
+    }
+    return count;
+  }
+
   private persistRun(goal: string, run: StoredMissionRun): StoredMissionRecord {
     const missionId = run.result.mission_brief.mission_id;
     const existing = this.readRecord(missionId);
+    const existingRecords = this.listMissionRecords();
     const timestamp = this.now();
+    const priorVerifiedRuns = this.countPriorVerifiedRunsByKind(
+      run.result.mission_brief.mission_kind,
+      existingRecords,
+    );
+    const autonomy = evaluateAutonomyDecision({
+      policy: this.autonomyPolicy,
+      mission_kind: run.result.mission_brief.mission_kind,
+      mission_status: resolveMissionStatus(run.result, null),
+      prior_verified_runs: priorVerifiedRuns,
+      now: this.now,
+    });
+    const operatorReview = autonomy.auto_approved
+      ? createOperatorReview(
+          'approved',
+          `Auto-approved by autonomy policy (${autonomy.effective_level}). ${autonomy.reason}`,
+          timestamp,
+        )
+      : createInitialOperatorReview();
     const record: StoredMissionRecord = existing
       ? {
           ...existing,
           goal,
           updated_at: timestamp,
           runs: [...existing.runs, run],
-          operator_review: createInitialOperatorReview(),
+          operator_review: operatorReview,
           status_override: null,
+          autonomy,
         }
       : {
           mission_id: missionId,
@@ -572,8 +696,9 @@ export class ControlRoomService {
           updated_at: timestamp,
           runs: [run],
           operator_events: [],
-          operator_review: createInitialOperatorReview(),
+          operator_review: operatorReview,
           status_override: null,
+          autonomy,
         };
     this.writeRecord(record);
     return record;
@@ -588,7 +713,7 @@ export class ControlRoomService {
     };
     const record = this.persistRun(goal, run);
     this.queueFollowups(result);
-    return buildMissionConsoleView(result, record.operator_review, record.operator_events, record.status_override);
+    return buildMissionConsoleView(result, record.operator_review, record.operator_events, record.status_override, record.autonomy);
   }
 
   listDashboard(): ControlRoomDashboardView {
@@ -612,6 +737,7 @@ export class ControlRoomService {
       missions: summaries,
       available_statuses: availableStatuses,
       available_mission_kinds: availableMissionKinds,
+      autonomy_policy: this.autonomyPolicy,
       memory_health: memoryHealth,
     };
   }
@@ -663,6 +789,7 @@ export class ControlRoomService {
         return {
           ...summary,
           run_count: record.runs.length,
+          autonomy_level: record.autonomy?.effective_level ?? null,
           comparison: this.comparisonForRecord(record),
         };
       })
@@ -687,7 +814,13 @@ export class ControlRoomService {
     if (!latestRun) {
       return null;
     }
-    return buildMissionConsoleView(latestRun.result, record.operator_review, record.operator_events, record.status_override);
+    return buildMissionConsoleView(
+      latestRun.result,
+      record.operator_review,
+      record.operator_events,
+      record.status_override,
+      record.autonomy,
+    );
   }
 
   private async runManagerMission(
@@ -722,7 +855,7 @@ export class ControlRoomService {
     });
     const record = this.persistRun(request.goal, run);
     this.queueFollowups(run.result);
-    return buildMissionConsoleView(run.result, record.operator_review, record.operator_events);
+    return buildMissionConsoleView(run.result, record.operator_review, record.operator_events, null, record.autonomy);
   }
 
   async runAction(missionId: string, request: ControlRoomActionRequest): Promise<ControlRoomActionResult> {
@@ -741,6 +874,7 @@ export class ControlRoomService {
       record.operator_review,
       record.operator_events,
       record.status_override,
+      record.autonomy,
     );
     if (!currentView.allowed_actions.includes(request.action)) {
       throw new Error(`control-room action is not allowed for this mission: ${request.action}`);
@@ -755,17 +889,14 @@ export class ControlRoomService {
         mission_id: missionId,
         action: request.action,
       });
-      record.runs.push(rerun);
-      record.updated_at = this.now();
-      record.operator_review = createInitialOperatorReview();
-      record.status_override = null;
-      this.writeRecord(record);
+      const persisted = this.persistRun(record.goal, rerun);
       this.queueFollowups(rerun.result);
       const view = buildMissionConsoleView(
         rerun.result,
-        record.operator_review,
-        record.operator_events,
-        record.status_override,
+        persisted.operator_review,
+        persisted.operator_events,
+        persisted.status_override,
+        persisted.autonomy,
       );
       return {
         accepted: true,
@@ -784,15 +915,15 @@ export class ControlRoomService {
         created_at: this.now(),
       };
       record.operator_events.push(event);
-      record.operator_review = {
-        status: request.action === 'approve_verdict'
+      record.operator_review = createOperatorReview(
+        request.action === 'approve_verdict'
           ? 'approved'
           : request.action === 'cancel_mission'
             ? 'cancelled'
             : 'rejected',
-        note: event.note,
-        updated_at: event.created_at,
-      };
+        event.note,
+        event.created_at,
+      );
       if (request.action === 'cancel_mission') {
         record.status_override = 'rejected';
       }
@@ -803,6 +934,7 @@ export class ControlRoomService {
         record.operator_review,
         record.operator_events,
         record.status_override,
+        record.autonomy,
       );
       return {
         accepted: true,

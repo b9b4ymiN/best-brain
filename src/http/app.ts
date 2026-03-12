@@ -10,6 +10,7 @@ import type { MissionScheduler } from '../runtime/scheduler.ts';
 import type { AutonomousTaskQueue } from '../runtime/task-queue.ts';
 import {
   CONTROL_ROOM_ACTIONS,
+  type ControlRoomAutonomyPolicyUpdateRequest,
   type ControlRoomActionRequest,
   type ControlRoomHistoryFilter,
   type ControlRoomLaunchRequest,
@@ -87,6 +88,62 @@ function validateControlRoomHistoryFilter(input: Record<string, string | undefin
     date_from: dateFrom,
     date_to: dateTo,
   };
+}
+
+function validateControlRoomAutonomyPolicyUpdateRequest(input: unknown): ControlRoomAutonomyPolicyUpdateRequest {
+  if (!input || typeof input !== 'object') {
+    throw new Error('control-room autonomy policy request must be an object');
+  }
+  const payload = input as Record<string, unknown>;
+  const update: ControlRoomAutonomyPolicyUpdateRequest = {};
+
+  if (payload.default_level != null) {
+    if (
+      payload.default_level !== 'supervised'
+      && payload.default_level !== 'semi_autonomous'
+      && payload.default_level !== 'autonomous'
+    ) {
+      throw new Error('control-room autonomy default_level is invalid');
+    }
+    update.default_level = payload.default_level;
+  }
+
+  if (payload.routine_min_verified_runs != null) {
+    const value = Number(payload.routine_min_verified_runs);
+    if (!Number.isFinite(value) || value < 0) {
+      throw new Error('control-room autonomy routine_min_verified_runs must be >= 0');
+    }
+    update.routine_min_verified_runs = Math.floor(value);
+  }
+
+  if (payload.mission_kind_levels != null) {
+    if (typeof payload.mission_kind_levels !== 'object' || Array.isArray(payload.mission_kind_levels)) {
+      throw new Error('control-room autonomy mission_kind_levels must be an object');
+    }
+    const entries = Object.entries(payload.mission_kind_levels as Record<string, unknown>);
+    const normalized: Record<string, 'supervised' | 'semi_autonomous' | 'autonomous'> = {};
+    for (const [missionKind, rawLevel] of entries) {
+      const key = missionKind.trim();
+      if (!key) {
+        continue;
+      }
+      if (rawLevel !== 'supervised' && rawLevel !== 'semi_autonomous' && rawLevel !== 'autonomous') {
+        throw new Error(`control-room autonomy level is invalid for mission kind ${key}`);
+      }
+      normalized[key] = rawLevel;
+    }
+    update.mission_kind_levels = normalized;
+  }
+
+  if (
+    update.default_level == null
+    && update.routine_min_verified_runs == null
+    && update.mission_kind_levels == null
+  ) {
+    throw new Error('control-room autonomy update must include at least one field');
+  }
+
+  return update;
 }
 
 function validateChatMessageRequest(input: unknown): ChatMessageRequest {
@@ -347,6 +404,15 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   if (services.controlRoom) {
     app.get('/control-room', (c) => c.html(renderControlRoomPage()));
     app.get('/control-room/api/overview', (c) => c.json(services.controlRoom!.listDashboard()));
+    app.get('/control-room/api/autonomy-policy', (c) => c.json({
+      policy: services.controlRoom!.getAutonomyPolicy(),
+    }));
+    app.post('/control-room/api/autonomy-policy', async (c) => {
+      const body = validateControlRoomAutonomyPolicyUpdateRequest(await readJsonBody(c));
+      return c.json({
+        policy: services.controlRoom!.updateAutonomyPolicy(body),
+      });
+    });
     app.get('/control-room/api/history', (c) => {
       const filters = validateControlRoomHistoryFilter({
         status: c.req.query('status'),

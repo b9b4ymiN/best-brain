@@ -566,6 +566,19 @@ const missionConsoleView: MissionConsoleView = {
     checks_passed: 2,
     checks_total: 2,
   },
+  autonomy: {
+    mission_kind: playbook.mission_kind,
+    mission_status: 'verified_complete',
+    configured_level: 'semi_autonomous',
+    effective_level: 'semi_autonomous',
+    prior_verified_runs: 2,
+    is_routine: true,
+    requires_operator_approval: false,
+    auto_approved: true,
+    alert_required: false,
+    reason: 'Semi-autonomous mode auto-approves routine missions.',
+    evaluated_at: now + 26_500,
+  },
   operator_review: {
     status: 'approved',
     note: 'The control-room operator accepted the verified verdict.',
@@ -592,6 +605,14 @@ const dashboardView: ControlRoomDashboardView = {
   }],
   available_statuses: ['verified_complete'],
   available_mission_kinds: [playbook.mission_kind],
+  autonomy_policy: {
+    default_level: 'semi_autonomous',
+    mission_kind_levels: {
+      [playbook.mission_kind]: 'semi_autonomous',
+    },
+    routine_min_verified_runs: 1,
+    updated_at: now + 10_000,
+  },
   memory_health: {
     generated_at: now + 27_000,
     active_memory_count: 24,

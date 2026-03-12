@@ -176,6 +176,8 @@ Control room:
 
 - `GET /control-room`
 - `GET /control-room/api/overview`
+- `GET /control-room/api/autonomy-policy`
+- `POST /control-room/api/autonomy-policy`
 - `GET /control-room/api/history`
 - `POST /control-room/api/launch`
 - `GET /control-room/api/missions/:id`
@@ -300,6 +302,22 @@ For deterministic local proof, use:
 
 ```bash
 bun run proof:control-room
+```
+
+### Autonomy policy flow (Phase 11 Step 24)
+
+Control-room now supports per-mission-kind autonomy levels:
+
+- `supervised`: always require operator approval after verified completion
+- `semi_autonomous`: auto-approve routine mission kinds, gate novel ones
+- `autonomous`: auto-approve verified runs within policy bounds
+
+Example policy updates:
+
+```bash
+curl -s http://127.0.0.1:47888/control-room/api/autonomy-policy
+curl -s -X POST http://127.0.0.1:47888/control-room/api/autonomy-policy -H "content-type: application/json" -d "{\"default_level\":\"semi_autonomous\",\"routine_min_verified_runs\":1}"
+curl -s -X POST http://127.0.0.1:47888/control-room/api/autonomy-policy -H "content-type: application/json" -d "{\"mission_kind_levels\":{\"command_execution_mission\":\"supervised\"}}"
 ```
 
 ### Scheduled mission flow (Phase 11 Step 22)

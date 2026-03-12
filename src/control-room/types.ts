@@ -2,6 +2,7 @@ import type { MemoryQualityMetrics, MissionStatus } from '../types.ts';
 import type { MissionTaskGraph } from '../manager/graph.ts';
 import type { WorkerId } from '../workers/types.ts';
 import type { RuntimeArtifactRecord } from '../runtime/types.ts';
+import type { AutonomyDecision, AutonomyLevel, AutonomyPolicyConfig } from '../policies/autonomy.ts';
 
 export const CONTROL_ROOM_ACTIONS = [
   'launch_mission',
@@ -126,6 +127,7 @@ export interface MissionConsoleView {
   artifacts: RuntimeArtifactRecord[];
   final_report_artifact: RuntimeArtifactRecord | null;
   verdict: JudgeVerdictView | null;
+  autonomy: AutonomyDecision | null;
   operator_review: OperatorReviewView;
   allowed_actions: ControlRoomAction[];
   updated_at: number;
@@ -136,6 +138,7 @@ export interface ControlRoomDashboardView {
   missions: ControlRoomMissionSummary[];
   available_statuses: MissionStatus[];
   available_mission_kinds: string[];
+  autonomy_policy: AutonomyPolicyConfig;
   memory_health: MemoryQualityMetrics | null;
 }
 
@@ -168,6 +171,7 @@ export interface MissionComparisonSummary {
 
 export interface ControlRoomHistoryItem extends ControlRoomMissionSummary {
   run_count: number;
+  autonomy_level: AutonomyLevel | null;
   comparison: MissionComparisonSummary;
 }
 
@@ -175,4 +179,10 @@ export interface ControlRoomHistoryView {
   filters: ControlRoomHistoryFilter;
   total: number;
   items: ControlRoomHistoryItem[];
+}
+
+export interface ControlRoomAutonomyPolicyUpdateRequest {
+  default_level?: AutonomyLevel;
+  mission_kind_levels?: Record<string, AutonomyLevel>;
+  routine_min_verified_runs?: number;
 }

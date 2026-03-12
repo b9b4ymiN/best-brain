@@ -210,6 +210,10 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification**: Mission creates follow-up tasks → tasks execute automatically → results linked to parent mission
 
 ### Step 24: Confidence-Based Autonomy Levels
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/policies/autonomy.ts`, `src/control-room/service.ts`, `src/control-room/types.ts`, `src/http/app.ts`, `tests/autonomy-policy.test.ts`, `tests/control-room-autonomy-http.test.ts`
+- **Action (actual)**: Added autonomy policy engine with three levels (`supervised`, `semi_autonomous`, `autonomous`), per-mission-kind overrides, routine-vs-novel gating via verified run history, and control-room API endpoints to view/update policy. Mission runs now record autonomy decisions and auto-approval behavior deterministically.
+- **Verification (actual)**: `tests/autonomy-policy.test.ts` + `tests/control-room-autonomy-http.test.ts` pass; full suite remains green with policy-enabled control-room flows.
 - **Files**: `src/policies/` (new autonomy policy), `src/manager/runtime.ts`
 - **Action**: Three autonomy levels: supervised (all approval gates), semi-autonomous (auto-approve routine tasks, gate novel ones), autonomous (execute within policy bounds, alert on exceptions). User configures per mission kind
 - **Verification**: Routine mission auto-completes in semi-autonomous mode; novel mission pauses for approval
