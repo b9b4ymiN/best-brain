@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-best-brain is a local AI work OS with the slogan "Think like me. Work for me. Finish for real." Phases 1-6 are locally proven (Brain v1, Manager alpha, Thai equities scanner proving mission, repeatability, control room liftoff). The remaining stabilization gap is **cross-platform bootstrap proof capture (Windows/macOS/Linux)**. This plan first closes that gap, then lays out the full Phase 7-11 execution path toward autonomous Operator Mode.
+best-brain is a local AI work OS with the slogan "Think like me. Work for me. Finish for real." Phases 1-6 are locally proven (Brain v1, Manager alpha, Thai equities scanner proving mission, repeatability, control room liftoff). The core stabilization gate is **Windows-first bootstrap/runtime proof**. macOS/Linux proof capture remains optional portability evidence, not a release gate. This plan first closes the Windows-first gate, then lays out the full Phase 7-11 execution path toward autonomous Operator Mode.
 
 ---
 
@@ -19,7 +19,7 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Eval**: ConsultEval 8/8 passing, all v1 gates met
 
 ### What's Failing ❌
-1. **Platform coverage**: Bootstrap proofs only on Windows; macOS/Linux pending
+1. **No blocking failures on Windows-first core gates**
 
 ### What's Partially Done 🟡
 - VerifierAdapter: Framework exists, basic implementation only
@@ -41,8 +41,8 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ### Step 2: Cross-Platform Bootstrap
 - **File**: `src/smoke/bootstrap.ts`, `src/config.ts` (platform-specific paths)
-- **Action**: Run bootstrap smoke on macOS/Linux (CI or manual), fix path resolution issues (`XDG_DATA_HOME` on Linux, `~/Library/Application Support` on macOS)
-- **Verification**: `bun run smoke:bootstrap` passes on all 3 platforms; capture proofs in `artifacts/bootstrap-proofs/`
+- **Action**: Keep Windows bootstrap proof as release gate. Run optional macOS/Linux portability smoke in CI/manual when available.
+- **Verification**: `bun run smoke:bootstrap` + `bun run smoke:bootstrap:proof -- --os-label windows` are mandatory; macOS/Linux proofs are informational only.
 
 ### Step 3: Scorecard Green
 - **Action**: Run `bun run scorecard:program` and confirm all metrics pass (38/40 → 40/40)

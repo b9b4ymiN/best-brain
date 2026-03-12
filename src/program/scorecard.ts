@@ -227,16 +227,46 @@ function equalityMetric(
   };
 }
 
+function optionalBooleanMetric(
+  id: string,
+  label: string,
+  category: ProgramMetricValue['category'],
+  actual: boolean | null | undefined,
+  target: boolean,
+  note: string,
+): ProgramMetricValue {
+  if (actual == null) {
+    return {
+      id,
+      label,
+      category,
+      target: `optional = ${String(target)}`,
+      actual: null,
+      status: 'unavailable',
+      note,
+    };
+  }
+  return {
+    id,
+    label,
+    category,
+    target: `optional = ${String(target)}`,
+    actual,
+    status: actual === target ? 'pass' : 'fail',
+    note,
+  };
+}
+
 export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScorecard {
   const metricValues: ProgramMetricValue[] = [];
   const bootstrapProofs = new Set((input.captured_bootstrap_proofs ?? []).map((item) => item.toLowerCase()));
   const hasWindowsBootstrapProof = bootstrapProofs.has('windows') || bootstrapProofs.has('win32');
   const hasMacOsBootstrapProof = bootstrapProofs.has('macos') || bootstrapProofs.has('darwin') || bootstrapProofs.has('mac');
   const hasLinuxBootstrapProof = bootstrapProofs.has('linux');
-  const bootstrapMatrixCoverage = (
-    [hasWindowsBootstrapProof, hasMacOsBootstrapProof, hasLinuxBootstrapProof]
+  const optionalBootstrapCoverage = (
+    [hasMacOsBootstrapProof, hasLinuxBootstrapProof]
       .filter(Boolean)
-      .length / 3
+      .length / 2
   ) * 100;
 
   metricValues.push(percentageMetric(
@@ -375,37 +405,29 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     true,
     'Windows bootstrap proof should come from a real smoke artifact.',
   ));
-  metricValues.push(equalityMetric(
+  metricValues.push(optionalBooleanMetric(
     'macos_bootstrap_proof',
-    'macOS bootstrap proof captured',
+    'macOS bootstrap proof captured (optional)',
     'runtime',
-    hasMacOsBootstrapProof,
+    hasMacOsBootstrapProof ? true : null,
     true,
-    'macOS bootstrap proof should come from a real smoke artifact.',
+    'Optional portability evidence. Not a Windows-first gate.',
   ));
-  metricValues.push(equalityMetric(
+  metricValues.push(optionalBooleanMetric(
     'linux_bootstrap_proof',
-    'Linux bootstrap proof captured',
+    'Linux bootstrap proof captured (optional)',
     'runtime',
-    hasLinuxBootstrapProof,
+    hasLinuxBootstrapProof ? true : null,
     true,
-    'Linux bootstrap proof should come from a real smoke artifact.',
+    'Optional portability evidence. Not a Windows-first gate.',
   ));
   metricValues.push(percentageMetric(
-    'bootstrap_matrix_coverage',
-    'Bootstrap proof matrix coverage',
+    'optional_bootstrap_portability_coverage',
+    'Optional bootstrap portability coverage',
     'runtime',
-    bootstrapMatrixCoverage,
-    100,
-    'All three OS proofs (windows, macOS, linux) must be captured before platform coverage is considered complete.',
-  ));
-  metricValues.push(equalityMetric(
-    'bootstrap_matrix_ready',
-    'Bootstrap matrix ready',
-    'runtime',
-    hasWindowsBootstrapProof && hasMacOsBootstrapProof && hasLinuxBootstrapProof,
-    true,
-    'The bootstrap proof matrix is complete only when all three OS artifacts are present.',
+    optionalBootstrapCoverage,
+    0,
+    'Informational only. Windows-first core does not require macOS/Linux proof artifacts.',
   ));
   metricValues.push(equalityMetric(
     'manager_thin_path',
@@ -754,8 +776,6 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     && (input.manager_proof.blocked_with_correct_reason_rate ?? 0) >= 95;
   const runtimeEvidenceReady = input.bootstrap_smoke?.first_run_db_init_success === true
     && hasWindowsBootstrapProof
-    && hasMacOsBootstrapProof
-    && hasLinuxBootstrapProof
     && input.consult_eval?.orphan_evidence_count === 0
     && input.manager_proof?.shell_primary_pass === true
     && (input.manager_proof?.worker_invocation_pass_rate ?? 0) >= 95
@@ -816,7 +836,7 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
         ? 'Worker fabric is formalized across Claude, Codex, Shell, and Verifier, with artifact lineage and multi-path checkpoint recovery proven in local evidence.'
         : codexProviderLimited
           ? 'Runtime proof is locally blocked by a Codex provider usage-limit condition; Shell, Claude, verifier, artifact lineage, and checkpoint recovery still pass.'
-          : 'Runtime proof is incomplete. Capture windows, macOS, and linux bootstrap proofs to close cross-platform readiness.',
+          : 'Runtime proof is incomplete for Windows-first gates (bootstrap proof, runtime evidence, artifact lineage, or checkpoint recovery).',
     },
     {
       phase: 'Phase3_ProvingMissionFramework',

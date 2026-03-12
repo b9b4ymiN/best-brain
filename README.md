@@ -497,11 +497,12 @@ Generate the current program scorecard with:
 bun run scorecard:program
 ```
 
-Check cross-platform bootstrap proof coverage:
+Check bootstrap proof coverage (Windows required, macOS/Linux optional):
 
 ```bash
 bun run proof:bootstrap:matrix
-bun run proof:bootstrap:matrix -- --require-all
+# optional strict portability gate:
+# bun run proof:bootstrap:matrix -- --require-all
 ```
 
 ## Docs

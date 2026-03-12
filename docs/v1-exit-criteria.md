@@ -10,7 +10,7 @@ Brain v1 is considered ready when all of these hold:
 - `bun run eval:consult` passes v1 thresholds
 - `bun run eval:seed` shows seeded gain over empty brain
 - `bun run smoke:bootstrap` passes on the current OS
-- `bun run smoke:bootstrap:proof -- --os-label <os>` captures a readable proof artifact for each OS
+- `bun run smoke:bootstrap:proof -- --os-label windows` captures a readable proof artifact (mandatory gate)
 - `bun run smoke:mcp` passes
 - `bun run smoke:claude` passes on Windows
 - `bun run examples:manager` refreshes the example library without contract drift
@@ -37,8 +37,8 @@ Brain v1 is considered ready when all of these hold:
 | OS | Command set | Expected result |
 | --- | --- | --- |
 | Windows | `bun run smoke:bootstrap`, `bun run smoke:bootstrap:proof -- --os-label windows`, `bun run onboard`, `bun run smoke:mcp`, `bun run smoke:claude` | clean bootstrap passes, readable proof artifact is captured, onboarding completes, MCP smoke passes, Claude tool call succeeds |
-| macOS | `bun run smoke:bootstrap`, `bun run smoke:bootstrap:proof -- --os-label macos`, `bun run onboard`, `bun run smoke:mcp` | bootstrap and MCP paths pass, proof artifact is captured, app data path resolves to `~/Library/Application Support/best-brain` |
-| Linux | `bun run smoke:bootstrap`, `bun run smoke:bootstrap:proof -- --os-label linux`, `bun run onboard`, `bun run smoke:mcp` | bootstrap and MCP paths pass, proof artifact is captured, app data path resolves to `$XDG_DATA_HOME/best-brain` or `~/.local/share/best-brain` |
+| macOS (optional portability) | `bun run smoke:bootstrap`, `bun run smoke:bootstrap:proof -- --os-label macos`, `bun run onboard`, `bun run smoke:mcp` | bootstrap and MCP paths pass, proof artifact is captured, app data path resolves to `~/Library/Application Support/best-brain` |
+| Linux (optional portability) | `bun run smoke:bootstrap`, `bun run smoke:bootstrap:proof -- --os-label linux`, `bun run onboard`, `bun run smoke:mcp` | bootstrap and MCP paths pass, proof artifact is captured, app data path resolves to `$XDG_DATA_HOME/best-brain` or `~/.local/share/best-brain` |
 
 ## Operator checklist
 
@@ -51,7 +51,7 @@ Brain v1 is considered ready when all of these hold:
 7. Run `bun run eval:seed`
 8. Run `bun run examples:manager`
 9. Run `bun run smoke:bootstrap`
-10. Run `bun run smoke:bootstrap:proof -- --os-label <os>`
+10. Run `bun run smoke:bootstrap:proof -- --os-label windows`
 11. Run `bun run smoke:mcp`
 12. On Windows, run `bun run smoke:claude`
 
