@@ -296,6 +296,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: operator dashboard HTTP test asserts `worker_cli_unavailable` recovery action appears when diagnostics report unavailable codex CLI.
 - **Verification**: operator dashboard now returns concrete recovery guidance without opening separate endpoints/logs.
 
+### Step 33: Operator Launch Preflight for Worker Readiness
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/http/app.ts`, `src/control-room/page.ts`, `tests/control-room-preflight-http.test.ts`, `package.json`, `README.md`, `docs/operators/windows-operator-runbook.md`
+- **Action (actual)**: Added `POST /control-room/api/operator/preflight` and wired control-room launch flow to call preflight first. Explicit worker launches are blocked when requested CLI worker is unavailable; auto mode returns advisories without blocking.
+- **Verification (actual)**: new preflight HTTP test covers unavailable explicit worker blocking, auto advisory behavior, and safety-stop blocking.
+- **Verification**: operators get deterministic launch guardrails before execution starts.
+
 ---
 
 ## Verification & Quality Gates (All Phases)

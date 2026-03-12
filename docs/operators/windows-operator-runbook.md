@@ -75,7 +75,21 @@ Expected behavior:
 - control-room operator dashboard mirrors this data in its inline worker diagnostics section
 - control-room operator dashboard also shows recovery actions (`recovery_actions`) for blocked safety state, unavailable CLI workers, and active health alerts
 
-## 7. Troubleshooting (Windows)
+## 7. Run launch preflight before manual mission launch
+
+```bash
+curl -s -X POST http://127.0.0.1:47888/control-room/api/operator/preflight \
+  -H "content-type: application/json" \
+  -d "{\"goal\":\"Run a mission\",\"worker_preference\":\"codex\"}"
+```
+
+Expected behavior:
+
+- status `423` when safety stop is active
+- status `423` when selected worker is unavailable
+- status `200` with advisories for `worker_preference=auto`
+
+## 8. Troubleshooting (Windows)
 
 If `claude` or `codex` is missing from PATH:
 

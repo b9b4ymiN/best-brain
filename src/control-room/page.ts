@@ -203,6 +203,17 @@ export function renderControlRoomPage(): string {
             </label>
             <label><input id="dryRun" type="checkbox" /> Dry run</label>
             <label><input id="noExecute" type="checkbox" /> No execute</label>
+            <label class="two-line">
+              <span>Worker preference</span>
+              <select id="workerPreference">
+                <option value="auto">auto</option>
+                <option value="claude">claude</option>
+                <option value="codex">codex</option>
+                <option value="shell">shell</option>
+                <option value="browser">browser</option>
+                <option value="mail">mail</option>
+              </select>
+            </label>
             <button id="launch">Launch mission</button>
           </div>
         </div>
@@ -803,11 +814,29 @@ export function renderControlRoomPage(): string {
       }
 
       document.getElementById('launch').addEventListener('click', async () => {
+        const workerPreference = document.getElementById('workerPreference')?.value || 'auto';
         const payload = {
           goal: document.getElementById('goal').value.trim(),
           dry_run: document.getElementById('dryRun').checked,
           no_execute: document.getElementById('noExecute').checked,
+          worker_preference: workerPreference,
         };
+        const preflightResponse = await fetch('/control-room/api/operator/preflight', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({
+            goal: payload.goal,
+            worker_preference: workerPreference,
+          }),
+        });
+        const preflightPayload = await preflightResponse.json();
+        if (!preflightResponse.ok) {
+          const blockerLines = (preflightPayload.blockers || [])
+            .map((blocker) => '- ' + blocker.message)
+            .join('\\n');
+          window.alert(blockerLines || preflightPayload.error || 'Preflight blocked this launch.');
+          return;
+        }
         const response = await fetch('/control-room/api/launch', {
           method: 'POST',
           headers: { 'content-type': 'application/json' },

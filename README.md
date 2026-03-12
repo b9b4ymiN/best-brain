@@ -181,6 +181,7 @@ Control room:
 - `GET /control-room/api/overview`
 - `GET /control-room/api/operator-dashboard`
 - `POST /control-room/api/operator/override`
+- `POST /control-room/api/operator/preflight`
 - `GET /control-room/api/system-health`
 - `GET /control-room/api/autonomy-policy`
 - `POST /control-room/api/autonomy-policy`
@@ -499,6 +500,20 @@ curl -s http://127.0.0.1:47888/operator/workers/diagnostics
 ### Phase 13 Step 32: recovery actions on operator dashboard
 
 `GET /control-room/api/operator-dashboard` now also includes `recovery_actions[]` derived from safety state, unavailable CLI workers, and recent health alerts so operators see actionable next steps immediately.
+
+### Phase 13 Step 33: launch preflight gate for explicit worker selection
+
+Before launch, control-room can call:
+
+```text
+POST /control-room/api/operator/preflight
+```
+
+Behavior:
+
+- blocks launch when safety stop is active
+- blocks launch when an explicitly selected CLI worker is unavailable
+- returns non-blocking advisories for unavailable workers in `auto` mode
 
 ## Repo direction
 

@@ -64,6 +64,35 @@ function validateControlRoomLaunchRequest(input: unknown): ControlRoomLaunchRequ
   };
 }
 
+function validateControlRoomPreflightRequest(input: unknown): {
+  goal: string;
+  worker_preference: ControlRoomLaunchRequest['worker_preference'];
+} {
+  if (!input || typeof input !== 'object') {
+    return {
+      goal: '',
+      worker_preference: undefined,
+    };
+  }
+  const payload = input as Record<string, unknown>;
+  const goal = typeof payload.goal === 'string' ? payload.goal.trim() : '';
+  const workerPreferenceRaw = typeof payload.worker_preference === 'string'
+    ? payload.worker_preference.trim()
+    : '';
+  if (
+    workerPreferenceRaw
+    && !MANAGER_WORKER_PREFERENCES.includes(workerPreferenceRaw as typeof MANAGER_WORKER_PREFERENCES[number])
+  ) {
+    throw new Error('control-room preflight worker_preference is invalid');
+  }
+  return {
+    goal,
+    worker_preference: workerPreferenceRaw
+      ? workerPreferenceRaw as ControlRoomLaunchRequest['worker_preference']
+      : undefined,
+  };
+}
+
 function validateControlRoomActionRequest(input: unknown): ControlRoomActionRequest {
   if (!input || typeof input !== 'object') {
     throw new Error('control-room action request must be an object');
@@ -489,6 +518,74 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
         action: 'cancel_mission',
         note: body.note ?? 'Operator override pause from dashboard.',
       }));
+    });
+    app.post('/control-room/api/operator/preflight', async (c) => {
+      const body = validateControlRoomPreflightRequest(await readJsonBody(c));
+      const safetyState = safetyController?.getState() ?? null;
+      const diagnostics = services.workerDiagnostics
+        ? await services.workerDiagnostics.collect()
+        : null;
+
+      const blockers: Array<{
+        code: 'safety_stop' | 'worker_unavailable';
+        message: string;
+        worker: string | null;
+        command_hint: string | null;
+      }> = [];
+      const advisories: Array<{
+        code: 'worker_unavailable';
+        message: string;
+        worker: string;
+        command_hint: string | null;
+      }> = [];
+
+      if (safetyState?.emergency_stop) {
+        blockers.push({
+          code: 'safety_stop',
+          message: safetyState.reason
+            ? `operator safety stop is active: ${safetyState.reason}`
+            : 'operator safety stop is active',
+          worker: null,
+          command_hint: 'POST /operator/safety/resume',
+        });
+      }
+
+      const requestedWorker = body.worker_preference;
+      const entries = diagnostics?.entries ?? [];
+      const unavailableCliEntries = entries.filter((entry) => entry.execution_mode === 'cli' && !entry.available);
+      for (const entry of unavailableCliEntries) {
+        advisories.push({
+          code: 'worker_unavailable',
+          message: `${entry.worker} is unavailable: ${entry.detail}`,
+          worker: entry.worker,
+          command_hint: `Install or re-link ${entry.worker} CLI in PATH, then run bun run diagnostics:workers.`,
+        });
+      }
+
+      if (
+        requestedWorker
+        && requestedWorker !== 'auto'
+        && requestedWorker !== 'browser'
+        && requestedWorker !== 'mail'
+      ) {
+        const requestedEntry = entries.find((entry) => entry.worker === requestedWorker);
+        if (requestedEntry && !requestedEntry.available) {
+          blockers.push({
+            code: 'worker_unavailable',
+            message: `${requestedWorker} is unavailable: ${requestedEntry.detail}`,
+            worker: requestedWorker,
+            command_hint: `Install or re-link ${requestedWorker} CLI in PATH, then run bun run diagnostics:workers.`,
+          });
+        }
+      }
+
+      return c.json({
+        blocked: blockers.length > 0,
+        goal: body.goal,
+        worker_preference: requestedWorker ?? 'auto',
+        blockers,
+        advisories,
+      }, blockers.length > 0 ? 423 : 200, NO_STORE_HEADERS);
     });
     app.get('/control-room/api/system-health', (c) => {
       const overview = services.controlRoom!.listDashboard();
