@@ -292,14 +292,24 @@ function canFallback(result: WorkerExecutionResult): boolean {
     || result.failure_kind === 'provider_unavailable';
 }
 
-function canRetryOnSameWorker(result: WorkerExecutionResult): boolean {
+function canRetryOnSameWorker(
+  worker: ExecutionRequest['selected_worker'],
+  result: WorkerExecutionResult,
+): boolean {
   if (result.status !== 'failed') {
     return false;
   }
 
-  return result.failure_kind === 'runtime_error'
-    || result.failure_kind === 'worker_unavailable'
-    || result.failure_kind === 'provider_unavailable';
+  if (result.failure_kind === 'runtime_error') {
+    return true;
+  }
+
+  if (result.failure_kind === 'worker_unavailable' || result.failure_kind === 'provider_unavailable') {
+    // Claude outages often hold the process until timeout; fail over quickly to keep missions responsive.
+    return worker !== 'claude';
+  }
+
+  return false;
 }
 
 async function waitBeforeRetry(attempt: number): Promise<void> {
@@ -413,7 +423,7 @@ export class WorkerFabric {
             return buildRuntimeErrorResult(worker, error);
           }
         })();
-        if (!canRetryOnSameWorker(rawResult) || executionAttempts >= MAX_PRIMARY_RETRY_ATTEMPTS) {
+        if (!canRetryOnSameWorker(worker, rawResult) || executionAttempts >= MAX_PRIMARY_RETRY_ATTEMPTS) {
           break;
         }
         await waitBeforeRetry(attempt);
