@@ -361,6 +361,7 @@ describe('manager alpha unit flow', () => {
     expect(routeIntent(makeInput('Use mail worker to draft an email status update and save the draft as evidence.')).selected_worker).toBe('mail');
     expect(routeIntent(makeInput('I want a Thai stock scanner system that matches how I invest.')).selected_worker).toBe('claude');
     expect(routeIntent(makeInput('กรองหุ้น SET 50 ที่ผ่าน NPM > 20 และทำเป็นระบบสแกนด้วยการใช้งาน yfinance')).selected_worker).toBe('shell');
+    expect(routeIntent(makeInput('\u0e01\u0e23\u0e2d\u0e07\u0e2b\u0e38\u0e49\u0e19 SET 50 \u0e17\u0e35\u0e48\u0e1c\u0e48\u0e32\u0e19\u0e1b\u0e31\u0e19\u0e1c\u0e25\u0e2a\u0e39\u0e07 \u0e41\u0e25\u0e30\u0e17\u0e33\u0e40\u0e1b\u0e47\u0e19\u0e23\u0e30\u0e1a\u0e1a\u0e2a\u0e41\u0e01\u0e19\u0e14\u0e49\u0e27\u0e22\u0e01\u0e32\u0e23\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19 yfinance')).selected_worker).toBe('shell');
     expect(routeIntent(makeInput(THAI_TODAY_QUESTION)).kind).toBe('chat');
     expect(routeIntent(makeInput(THAI_MONDAY_FRAGMENT)).kind).toBe('chat');
     expect(routeIntent(makeInput('Implement a new Bun test for this repo.', { worker_preference: 'claude' })).selected_worker).toBe('claude');
@@ -631,6 +632,7 @@ describe('manager alpha unit flow', () => {
     const reasoner = new FakeReasoner({
       kind: 'task',
       chat_mode: null,
+      mission_profile: 'general_task',
       reason: 'The message asks for real work.',
       direct_answer: null,
     });
@@ -666,6 +668,7 @@ describe('manager alpha unit flow', () => {
     const reasoner = new FakeReasoner({
       kind: 'mission',
       chat_mode: null,
+      mission_profile: 'thai_equities_manager_led_scanner',
       reason: 'This goal needs a verified system outcome.',
       direct_answer: null,
     });
@@ -694,6 +697,45 @@ describe('manager alpha unit flow', () => {
 
       expect(result.decision.kind).toBe('mission');
       expect(reasoner.calls).toBe(1);
+      expect(result.mission_brief.mission_kind).toBe('thai_equities_manager_led_scanner');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('AI mission profile can define mission kind without adding a hardcoded route', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'mission',
+      chat_mode: null,
+      mission_profile: 'owner_research_brief_mission',
+      reason: 'This should run as a mission with a custom profile.',
+      direct_answer: null,
+    });
+    const worker = new FakeWorkerAdapter('claude', {
+      summary: 'Compiled an owner research brief with evidence.',
+      status: 'success',
+      artifacts: [{ type: 'note', ref: 'worker://claude/owner-research-brief', description: 'Owner research brief note.' }],
+      proposed_checks: [{ name: 'brief-ready', passed: true }],
+      raw_output: '{}',
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+      workers: { claude: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Build a research brief and return proof.',
+        worker_preference: 'claude',
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('mission');
+      expect(result.decision.mission_profile_hint).toBe('owner_research_brief_mission');
+      expect(result.mission_brief.mission_kind).toBe('owner_research_brief_mission');
+      expect(result.verification_result?.status).toBe('verified_complete');
     } finally {
       await runtime.dispose();
     }
@@ -914,6 +956,28 @@ describe('manager alpha unit flow', () => {
       expect(result.decision.selected_worker).toBe('shell');
       expect(result.mission_brief.mission_kind).toBe('set50_npm_yfinance_scanner');
       expect(result.mission_brief.execution_plan.some((step) => step.includes('run-set50-npm-mission.ts'))).toBe(true);
+      expect(result.worker_result).toBeNull();
+      expect(result.verification_result).toBeNull();
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
+  test('set50 dividend yfinance goals compile into the shell scanner mission without manual hints', async () => {
+    const brain = new FakeBrainAdapter();
+    const runtime = new ManagerRuntime({ brain, workers: {} });
+
+    try {
+      const result = await runtime.run({
+        goal: '\u0e01\u0e23\u0e2d\u0e07\u0e2b\u0e38\u0e49\u0e19 SET 50 \u0e17\u0e35\u0e48\u0e1c\u0e48\u0e32\u0e19\u0e1b\u0e31\u0e19\u0e1c\u0e25\u0e2a\u0e39\u0e07 \u0e41\u0e25\u0e30\u0e17\u0e33\u0e40\u0e1b\u0e47\u0e19\u0e23\u0e30\u0e1a\u0e1a\u0e2a\u0e41\u0e01\u0e19\u0e14\u0e49\u0e27\u0e22\u0e01\u0e32\u0e23\u0e43\u0e0a\u0e49\u0e07\u0e32\u0e19 yfinance',
+        no_execute: true,
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('mission');
+      expect(result.decision.selected_worker).toBe('shell');
+      expect(result.mission_brief.mission_kind).toBe('set50_dividend_yfinance_scanner');
+      expect(result.mission_brief.execution_plan.some((step) => step.includes('run-set50-dividend-mission.ts'))).toBe(true);
       expect(result.worker_result).toBeNull();
       expect(result.verification_result).toBeNull();
     } finally {

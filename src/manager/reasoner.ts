@@ -5,6 +5,7 @@ import { extractCodexStreamMessage, extractJsonText, isSpawnCommandMissing, reso
 export interface ManagerTriageResult {
   kind: ManagerDecisionKind;
   chat_mode: ManagerChatMode | null;
+  mission_profile?: string | null;
   reason: string;
   direct_answer: string | null;
 }
@@ -46,9 +47,12 @@ function buildPrompt(input: {
 
   return [
     'Classify the user message for an assistant router.',
-    'Return JSON only with keys kind, chat_mode, reason, direct_answer.',
+    'Return JSON only with keys kind, chat_mode, mission_profile, reason, direct_answer.',
     'kind must be exactly one of: chat, task, mission.',
     'chat_mode must be direct_chat or chat_memory_update when kind=chat, otherwise null.',
+    'mission_profile must be null for chat.',
+    'When kind is task or mission, mission_profile must be a concise snake_case profile id (for example: general_task, repo_change_mission, analysis_reporting_mission, set50_npm_yfinance_scanner).',
+    'Only use general_task or general_mission when you cannot infer a more specific profile from the user goal.',
     'Use chat when the user should get a direct answer in the same language.',
     'Use chat_memory_update when the user is stating, correcting, or asking to remember owner identity, preferences, style, investor profile, or other durable self-facts.',
     'Use task for bounded real work.',
@@ -61,6 +65,18 @@ function buildPrompt(input: {
   ].join('\n');
 }
 
+function sanitizeMissionProfile(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized.length > 0 ? normalized : null;
+}
+
 function parseTriage(output: string): ManagerTriageResult | null {
   try {
     const payload = JSON.parse(extractJsonText(output)) as Partial<ManagerTriageResult>;
@@ -70,12 +86,16 @@ function parseTriage(output: string): ManagerTriageResult | null {
     const chatMode = payload.kind === 'chat'
       ? (payload.chat_mode === 'chat_memory_update' ? 'chat_memory_update' : 'direct_chat')
       : null;
+    const missionProfile = payload.kind === 'chat'
+      ? null
+      : sanitizeMissionProfile(payload.mission_profile);
     if (typeof payload.reason !== 'string' || payload.reason.trim().length === 0) {
       return null;
     }
     return {
       kind: payload.kind,
       chat_mode: chatMode,
+      mission_profile: missionProfile,
       reason: payload.reason.trim(),
       direct_answer: typeof payload.direct_answer === 'string' && payload.direct_answer.trim().length > 0
         ? payload.direct_answer.trim()

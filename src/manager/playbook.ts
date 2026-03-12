@@ -21,7 +21,32 @@ function toPlaybookSlug(value: string): string {
   return slugify(value.replace(/_/g, ' '));
 }
 
+function normalizeMissionProfileHint(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized.length > 0 ? normalized : null;
+}
+
 function inferMissionKind(goal: string, decision: ManagerDecision): string {
+  const hintedMissionKind = decision.kind === 'chat'
+    ? null
+    : normalizeMissionProfileHint(decision.mission_profile_hint);
+  if (hintedMissionKind) {
+    if (decision.kind === 'task' && hintedMissionKind.endsWith('_mission')) {
+      return hintedMissionKind.replace(/_mission$/, '_task');
+    }
+    if (decision.kind === 'mission' && hintedMissionKind.endsWith('_task')) {
+      return hintedMissionKind.replace(/_task$/, '_mission');
+    }
+    return hintedMissionKind;
+  }
+
   const hasExplicitCommand = goal.includes('`');
   const hasCommandIntent = hasExplicitCommand || includesAny(goal, COMMAND_EXECUTION_HINTS);
   const hasAnalysisIntent = includesAny(goal, REPORT_HINTS);

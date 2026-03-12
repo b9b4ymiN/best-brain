@@ -466,6 +466,25 @@ export function renderChatPage(): string {
       const messageEl = document.getElementById('message');
       const sendButton = document.getElementById('send');
       const FENCE = String.fromCharCode(96).repeat(3);
+      const FALLBACK_ANSWER = 'No displayable answer was produced. Try sending the message again.';
+      const SUMMARY_FIELD_LABELS = {
+        objective: 'Objective',
+        result_summary: 'Result',
+        evidence_summary: 'Evidence',
+        checks_summary: 'Checks',
+        blocked_or_rejected_reason: 'Blocked/rejected',
+        remaining_risks: 'Risks',
+        next_action: 'Next action',
+      };
+      const SUMMARY_FIELD_ORDER = [
+        'objective',
+        'result_summary',
+        'evidence_summary',
+        'checks_summary',
+        'blocked_or_rejected_reason',
+        'remaining_risks',
+        'next_action',
+      ];
 
       function ensureThreadStarted() {
         if (emptyThread) {
@@ -530,6 +549,22 @@ export function renderChatPage(): string {
         return latestText;
       }
 
+      function extractSummaryFromJsonObject(value) {
+        const trimmed = value.trim();
+        if (!trimmed.startsWith('{') || !trimmed.endsWith('}')) {
+          return null;
+        }
+
+        try {
+          const payload = JSON.parse(trimmed);
+          return typeof payload.summary === 'string' && payload.summary.trim()
+            ? payload.summary.trim()
+            : null;
+        } catch {
+          return null;
+        }
+      }
+
       function looksLikeInternalEventLog(value) {
         const trimmed = value.trim();
         return trimmed.startsWith('{"type":"system"')
@@ -539,22 +574,112 @@ export function renderChatPage(): string {
           || trimmed.includes('"msg":{"type":"agent_message"');
       }
 
+      function normalizeStatusPrefix(value) {
+        if (/^verification failed$/i.test(value)) {
+          return 'verification_failed';
+        }
+        if (/^verification rejected$/i.test(value)) {
+          return 'rejected';
+        }
+        if (/^mission blocked$/i.test(value)) {
+          return 'blocked';
+        }
+        return null;
+      }
+
+      function parseMissionSummary(value) {
+        let remaining = value.trim();
+        let status = null;
+        let worker = null;
+
+        const statusMatch = remaining.match(/^(Verification (?:failed|rejected)|Mission blocked)\\.\\s*/i);
+        if (statusMatch) {
+          status = normalizeStatusPrefix(statusMatch[1]);
+          remaining = remaining.slice(statusMatch[0].length).trim();
+        }
+
+        const workerMatch = remaining.match(/^\\[([a-z0-9_-]+)\\]\\s*/i);
+        if (workerMatch) {
+          worker = workerMatch[1].toLowerCase();
+          remaining = remaining.slice(workerMatch[0].length).trim();
+        }
+
+        const fields = new Map();
+        const segments = remaining
+          .split(/\\s+\\|\\s+/)
+          .map((segment) => segment.trim())
+          .filter(Boolean);
+
+        for (const segment of segments) {
+          const fieldMatch = segment.match(/^([a-z_]+)\\s*:\\s*(.+)$/i);
+          if (!fieldMatch) {
+            continue;
+          }
+          const key = fieldMatch[1].toLowerCase();
+          if (!Object.prototype.hasOwnProperty.call(SUMMARY_FIELD_LABELS, key)) {
+            continue;
+          }
+          const rawValue = fieldMatch[2].trim();
+          if (rawValue) {
+            fields.set(key, rawValue);
+          }
+        }
+
+        if (fields.size < 3 || (!fields.has('objective') && !fields.has('result_summary'))) {
+          return null;
+        }
+
+        return {
+          status,
+          worker,
+          fields,
+        };
+      }
+
+      function formatMissionSummary(value) {
+        const parsed = parseMissionSummary(value);
+        if (!parsed) {
+          return value;
+        }
+
+        const lines = ['Mission outcome'];
+        if (parsed.status) {
+          lines.push('- Status: ' + parsed.status);
+        }
+        if (parsed.worker) {
+          lines.push('- Worker: ' + parsed.worker);
+        }
+
+        for (const key of SUMMARY_FIELD_ORDER) {
+          const fieldValue = parsed.fields.get(key);
+          if (!fieldValue) {
+            continue;
+          }
+          if (key === 'blocked_or_rejected_reason' && /^(none|n\\/a|null)$/i.test(fieldValue)) {
+            continue;
+          }
+          lines.push('- ' + SUMMARY_FIELD_LABELS[key] + ': ' + fieldValue);
+        }
+
+        return lines.join('\\n');
+      }
+
       function sanitizeAssistantAnswer(value) {
         const answer = typeof value === 'string' ? value.trim() : '';
         if (!answer) {
-          return 'No displayable answer was produced. Try sending the message again.';
+          return FALLBACK_ANSWER;
         }
 
-        const extracted = extractAnswerFromJsonLines(answer);
+        const extracted = extractAnswerFromJsonLines(answer) || extractSummaryFromJsonObject(answer);
         if (extracted) {
-          return stripFence(extracted);
+          return formatMissionSummary(stripFence(extracted));
         }
 
         if (looksLikeInternalEventLog(answer)) {
-          return 'No displayable answer was produced. Try sending the message again.';
+          return FALLBACK_ANSWER;
         }
 
-        return stripFence(answer);
+        return formatMissionSummary(stripFence(answer));
       }
 
       function formatClock(value) {
@@ -649,6 +774,25 @@ export function renderChatPage(): string {
           || (event.actor === 'brain' && event.stage === 'brain_context' && event.status === 'started');
       }
 
+      function isLowSignalTriageEvent(event) {
+        return (event.stage === 'triage' && event.status === 'started')
+          || (event.stage === 'triage' && event.status === 'failed')
+          || (event.stage === 'triage' && event.title === 'Claude triage started')
+          || (event.stage === 'triage' && event.title === 'Codex triage started');
+      }
+
+      function compactText(value, limit) {
+        const normalized = String(value || '')
+          .replaceAll('\\r', ' ')
+          .replaceAll('\\n', ' ')
+          .replace(/\\s+/g, ' ')
+          .trim();
+        if (normalized.length <= limit) {
+          return normalized;
+        }
+        return normalized.slice(0, Math.max(0, limit - 3)).trimEnd() + '...';
+      }
+
       function shouldRenderTraceEvent(event) {
         if (!event) {
           return false;
@@ -657,6 +801,9 @@ export function renderChatPage(): string {
           return false;
         }
         if (isLowSignalManagerEvent(event) || isLowSignalBrainEvent(event)) {
+          return false;
+        }
+        if (isLowSignalTriageEvent(event)) {
           return false;
         }
         return true;
@@ -690,10 +837,12 @@ export function renderChatPage(): string {
 
         const row = document.createElement('div');
         row.className = 'activity-entry ' + event.status;
+        const title = compactText(event.title, 72);
+        const detail = compactText(event.detail, 160);
         row.innerHTML = ''
           + '<div class="activity-time">' + escapeHtml(formatClock(event.timestamp)) + '</div>'
           + '<div class="activity-actor">' + escapeHtml(event.actor) + '</div>'
-          + '<div class="activity-copy"><strong>' + escapeHtml(event.title) + '</strong><span>' + escapeHtml(event.detail) + '</span></div>';
+          + '<div class="activity-copy"><strong>' + escapeHtml(title) + '</strong><span>' + escapeHtml(detail) + '</span></div>';
         view.activityListEl.appendChild(row);
         view.activityListEl.scrollTop = view.activityListEl.scrollHeight;
 
@@ -824,7 +973,11 @@ export function renderChatPage(): string {
 
         if (view.answerEl) {
           view.answerEl.className = 'message-body pending';
+          view.answerEl.textContent = 'Working...';
           view.answerEl.textContent = 'กำลังทำงาน...';
+        }
+        if (view.answerEl) {
+          view.answerEl.textContent = 'Working...';
         }
         if (view.stateEl) {
           view.stateEl.className = 'state-pill';

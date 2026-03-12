@@ -663,8 +663,13 @@ export class ManagerRuntime {
           : {
               kind: aiTriage.kind,
               chat_mode: aiTriage.kind === 'chat' ? aiTriage.chat_mode : null,
+              mission_profile_hint: aiTriage.kind === 'chat'
+                ? null
+                : (aiTriage.mission_profile ?? null),
               should_execute: aiTriage.kind !== 'chat' && !input.dry_run && !input.no_execute,
-              selected_worker: aiTriage.kind === 'chat' ? null : selectWorker(input.goal, input.worker_preference),
+              selected_worker: aiTriage.kind === 'chat'
+                ? null
+                : selectWorker(input.goal, input.worker_preference, aiTriage.mission_profile ?? null),
               reason: aiTriage.reason,
               verification_required: aiTriage.kind !== 'chat',
               blocked_reason: null,

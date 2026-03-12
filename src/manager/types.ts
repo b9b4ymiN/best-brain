@@ -95,6 +95,7 @@ export interface ManagerRunObserver {
 export interface ManagerDecision {
   kind: ManagerDecisionKind;
   chat_mode: ManagerChatMode | null;
+  mission_profile_hint?: string | null;
   should_execute: boolean;
   selected_worker: ManagerWorker | null;
   reason: string;

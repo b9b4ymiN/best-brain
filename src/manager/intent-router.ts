@@ -1,6 +1,6 @@
 import type { ManagerDecision, ManagerInput, ManagerWorker, ManagerWorkerPreference } from './types.ts';
 import { tokenize } from '../utils/text.ts';
-import { isSet50NpmYfinanceGoal, isThaiEquitiesActualManagerGoal } from '../proving/packs.ts';
+import { isSet50DividendYfinanceGoal, isSet50NpmYfinanceGoal, isThaiEquitiesActualManagerGoal } from '../proving/packs.ts';
 
 const CHAT_HINTS = ['what', 'why', 'explain', 'compare', 'brainstorm', 'think', 'help', 'question'];
 const EXECUTION_HINTS = ['implement', 'edit', 'fix', 'write', 'run', 'ship', 'build', 'execute', 'verify', 'save'];
@@ -73,19 +73,90 @@ function includesAnyText(value: string, hints: string[]): boolean {
   return hints.some((hint) => value.includes(hint));
 }
 
-export function selectWorker(goal: string, preference: ManagerWorkerPreference): ManagerWorker | null {
+function normalizeMissionProfileHint(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+  const normalized = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  return normalized.length > 0 ? normalized : null;
+}
+
+function selectWorkerFromMissionProfile(missionProfileHint: string | null | undefined): ManagerWorker | null {
+  const profile = normalizeMissionProfileHint(missionProfileHint);
+  if (!profile) {
+    return null;
+  }
+
+  if (profile.includes('mail')) {
+    return 'mail';
+  }
+
+  if (profile.includes('browser') || profile.includes('web')) {
+    return 'browser';
+  }
+
+  if (
+    profile.includes('shell')
+    || profile.includes('command')
+    || profile.includes('terminal')
+    || (profile.includes('scanner') && profile.includes('yfinance'))
+  ) {
+    return 'shell';
+  }
+
+  if (
+    profile.includes('repo')
+    || profile.includes('code')
+    || profile.includes('implement')
+    || profile.includes('patch')
+    || profile.includes('refactor')
+  ) {
+    return 'codex';
+  }
+
+  if (
+    profile.includes('analysis')
+    || profile.includes('review')
+    || profile.includes('plan')
+    || profile.includes('strategy')
+  ) {
+    return 'claude';
+  }
+
+  return null;
+}
+
+export function selectWorker(
+  goal: string,
+  preference: ManagerWorkerPreference,
+  missionProfileHint: string | null | undefined = null,
+): ManagerWorker | null {
   if (preference === 'claude' || preference === 'codex' || preference === 'shell' || preference === 'browser' || preference === 'mail') {
     return preference;
+  }
+
+  const workerFromProfile = selectWorkerFromMissionProfile(missionProfileHint);
+  if (workerFromProfile) {
+    return workerFromProfile;
   }
 
   const tokens = tokenize(goal);
   const normalizedGoal = goal.toLowerCase();
   const isActualThaiEquitiesMission = isThaiEquitiesActualManagerGoal(goal);
+  const isSet50DividendYfinanceMission = isSet50DividendYfinanceGoal(goal);
   const isSet50NpmYfinanceMission = isSet50NpmYfinanceGoal(goal);
   const hasExplicitCommand = goal.includes('`');
   const hasImplementationIntent = includesAny(tokens, IMPLEMENT_HINTS);
   const hasBrowserIntent = includesAny(tokens, BROWSER_HINTS) || includesAnyText(normalizedGoal, THAI_BROWSER_HINTS);
   const hasMailIntent = includesAny(tokens, MAIL_HINTS) || includesAnyText(normalizedGoal, THAI_MAIL_HINTS);
+
+  if (isSet50DividendYfinanceMission) {
+    return 'shell';
+  }
 
   if (isSet50NpmYfinanceMission) {
     return 'shell';
@@ -164,6 +235,7 @@ export function routeIntent(input: ManagerInput): ManagerDecision {
   return {
     kind,
     chat_mode: kind === 'chat' ? (chatMode ?? 'direct_chat') : null,
+    mission_profile_hint: null,
     should_execute: kind !== 'chat' && !input.dry_run && !input.no_execute,
     selected_worker: kind === 'chat' ? null : selectWorker(input.goal, input.worker_preference),
     reason,
