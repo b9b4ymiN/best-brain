@@ -1,5 +1,12 @@
 import { describe, expect, test } from 'bun:test';
-import { detectCodexProviderIssue, extractCodexStreamError, extractCodexStreamMessage, isSpawnCommandMissing, resolveSpawnCommand } from '../src/manager/adapters/shared.ts';
+import {
+  detectClaudeProviderIssue,
+  detectCodexProviderIssue,
+  extractCodexStreamError,
+  extractCodexStreamMessage,
+  isSpawnCommandMissing,
+  resolveSpawnCommand,
+} from '../src/manager/adapters/shared.ts';
 
 describe('shared CLI adapter helpers', () => {
   test('detects command-not-found spawn errors', () => {
@@ -42,5 +49,14 @@ describe('shared CLI adapter helpers', () => {
 
     expect(extractCodexStreamError(output)).toBe("You've hit your usage limit. Upgrade to Pro or try again later.");
     expect(detectCodexProviderIssue(output)?.includes('usage limit')).toBe(true);
+  });
+
+  test('detects Claude provider-auth and quota failures', () => {
+    const authOutput = 'Error: authentication required. Please run claude login.';
+    const quotaOutput = 'Rate limit exceeded. Try again in 24h.';
+
+    expect(detectClaudeProviderIssue(authOutput)?.toLowerCase()).toContain('authenticated');
+    expect(detectClaudeProviderIssue(quotaOutput)?.toLowerCase()).toContain('usage');
+    expect(detectClaudeProviderIssue('normal task failure without provider issue')).toBeNull();
   });
 });

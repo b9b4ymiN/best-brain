@@ -1,7 +1,13 @@
 import type { VerificationArtifact, VerificationCheck } from '../../types.ts';
 import type { WorkerAdapter } from './types.ts';
 import type { ExecutionRequest, WorkerExecutionResult } from '../types.ts';
-import { extractJsonText, isSpawnCommandMissing, runCommand, toEnvRecord } from './shared.ts';
+import {
+  detectClaudeProviderIssue,
+  extractJsonText,
+  isSpawnCommandMissing,
+  runCommand,
+  toEnvRecord,
+} from './shared.ts';
 
 function normalizeArtifacts(value: unknown): VerificationArtifact[] {
   if (!Array.isArray(value)) {
@@ -176,13 +182,25 @@ export class ClaudeCliAdapter implements WorkerAdapter {
     }
 
     if (result.exitCode !== 0) {
+      const combinedOutput = [result.stderr, result.stdout].filter(Boolean).join('\n').trim();
+      const providerIssue = detectClaudeProviderIssue(combinedOutput);
+      const failureKind: WorkerExecutionResult['failure_kind'] =
+        providerIssue != null
+          ? 'provider_unavailable'
+          : combinedOutput.length === 0 || result.timedOut
+            ? 'worker_unavailable'
+            : 'task_failed';
+      const summary = providerIssue
+        ?? (failureKind === 'worker_unavailable'
+          ? 'Claude worker is unavailable on this machine right now.'
+          : `Claude worker exited with code ${String(result.exitCode)}.`);
       await observer?.onTrace?.({
         stage: 'worker_claude_command_end',
         actor: 'claude',
         kind: 'command_end',
         status: 'failed',
         title: 'Claude worker failed',
-        detail: `Claude exited with code ${String(result.exitCode)}.`,
+        detail: summary,
         timestamp: Date.now(),
         mission_id: request.mission_id,
         task_id: request.task_id,
@@ -194,18 +212,22 @@ export class ClaudeCliAdapter implements WorkerAdapter {
         exit_code: result.exitCode,
       });
       return {
-        summary: `Claude worker exited with code ${String(result.exitCode)}.`,
+        summary,
         status: 'failed',
-        failure_kind: 'task_failed',
+        failure_kind: failureKind,
         artifacts: [{
           type: 'note',
           ref: 'worker://claude/exit-code',
-          description: result.stderr.trim() || result.stdout.trim() || 'Claude worker failed.',
+          description: combinedOutput || 'Claude worker failed.',
         }],
         proposed_checks: [{
-          name: 'claude-exit-code-zero',
+          name: failureKind === 'provider_unavailable'
+            ? 'claude-provider-available'
+            : failureKind === 'worker_unavailable'
+              ? 'claude-cli-available'
+              : 'claude-exit-code-zero',
           passed: false,
-          detail: `Claude worker exited with code ${String(result.exitCode)}.`,
+          detail: summary,
         }],
         raw_output: [result.stdout, result.stderr].filter(Boolean).join('\n'),
         invocation: {

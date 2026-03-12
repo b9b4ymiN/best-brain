@@ -241,6 +241,46 @@ describe('worker fabric', () => {
     expect(dispatch.task_result.worker).toBe('claude');
   });
 
+  test('falls back from claude to codex when claude is provider-unavailable', async () => {
+    const fabric = new WorkerFabric({
+      claude: new FakeWorkerAdapter('claude', {
+        summary: 'Claude provider is unavailable because authentication is missing on this machine.',
+        status: 'failed',
+        failure_kind: 'provider_unavailable',
+        artifacts: [{ type: 'note', ref: 'worker://claude/provider-unavailable', description: 'auth required' }],
+        proposed_checks: [{ name: 'claude-provider-available', passed: false }],
+        raw_output: 'authentication required',
+      }),
+      codex: new FakeWorkerAdapter('codex', {
+        summary: 'Codex completed the task after fallback.',
+        status: 'success',
+        artifacts: [{ type: 'note', ref: 'worker://codex/fallback-success', description: 'fallback success' }],
+        proposed_checks: [{ name: 'fallback-proof', passed: true }],
+        raw_output: '{"summary":"Codex completed the task after fallback."}',
+      }),
+    }, new FakeVerifierAdapter({
+      mission_id: 'mission_worker_fabric',
+      summary: 'verified',
+      evidence: [],
+      verification_checks: [],
+      status: 'verified_complete',
+    }));
+
+    const dispatch = await fabric.dispatchPrimary(makeExecutionRequest({
+      selected_worker: 'claude',
+      playbook: {
+        ...makeExecutionRequest().playbook,
+        preferred_workers: ['claude', 'codex', 'verifier'],
+      },
+    }));
+    expect(dispatch.requested_worker).toBe('claude');
+    expect(dispatch.executed_worker).toBe('codex');
+    expect(dispatch.manager_result.executed_worker).toBe('codex');
+    expect(dispatch.manager_result.fallback_from).toBe('claude');
+    expect(dispatch.manager_result.attempted_workers).toEqual(['claude', 'codex']);
+    expect(dispatch.task_result.worker).toBe('codex');
+  });
+
   test('does not fall back when the selected worker fails for task reasons', async () => {
     const fabric = new WorkerFabric({
       codex: new FakeWorkerAdapter('codex', {

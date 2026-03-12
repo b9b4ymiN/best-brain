@@ -139,6 +139,39 @@ export function detectCodexProviderIssue(output: string): string | null {
   return null;
 }
 
+export function detectClaudeProviderIssue(output: string): string | null {
+  const normalized = output.toLowerCase();
+  if (
+    normalized.includes('usage limit')
+    || normalized.includes('rate limit')
+    || normalized.includes('quota exceeded')
+    || normalized.includes('try again in')
+  ) {
+    return 'Claude provider is temporarily unavailable because the current account hit a usage or rate limit.';
+  }
+  if (
+    normalized.includes('api key')
+    || normalized.includes('not authenticated')
+    || normalized.includes('authentication required')
+    || normalized.includes('please login')
+    || normalized.includes('please log in')
+    || normalized.includes('run `claude login`')
+    || normalized.includes('run claude login')
+    || normalized.includes('unauthorized')
+    || normalized.includes('forbidden')
+  ) {
+    return 'Claude provider is unavailable because this machine is not authenticated for Claude CLI.';
+  }
+  if (
+    normalized.includes('provider unavailable')
+    || normalized.includes('service unavailable')
+  ) {
+    return 'Claude provider is temporarily unavailable.';
+  }
+
+  return null;
+}
+
 export function resolveNeutralAICwd(): string {
   const dir = path.join(os.tmpdir(), 'best-brain-ai-neutral');
   mkdirSync(dir, { recursive: true });
