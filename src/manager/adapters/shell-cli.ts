@@ -133,7 +133,7 @@ export class ShellCliAdapter implements WorkerAdapter {
       args: request.shell_command.args,
       cwd: request.cwd,
       env: toEnvRecord({}),
-      timeout_ms: 120000,
+      timeout_ms: 300000,
     });
 
     const commandRef = buildCommandRef(request.shell_command.command, request.shell_command.args);

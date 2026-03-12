@@ -8,6 +8,10 @@ const THAI_SCANNER_TEXT = '\u0e2a\u0e41\u0e01\u0e19\u0e2b\u0e38\u0e49\u0e19';
 const THAI_SYSTEM_SCANNER_TEXT = '\u0e23\u0e30\u0e1a\u0e1a\u0e2a\u0e41\u0e01\u0e19\u0e2b\u0e38\u0e49\u0e19';
 const THAI_EQUITIES_TEXT = '\u0e2b\u0e38\u0e49\u0e19\u0e44\u0e17\u0e22';
 const THAI_STOCK_TEXT = '\u0e2b\u0e38\u0e49\u0e19';
+const THAI_SCAN_TEXT = '\u0e2a\u0e41\u0e01\u0e19';
+const THAI_SET50_TEXT = 'set 50';
+const THAI_NPM_TEXT = 'npm';
+const THAI_YFINANCE_TEXT = 'yfinance';
 
 export function isThaiEquitiesStockScannerGoal(goal: string): boolean {
   const tokens = tokenize(goal);
@@ -18,6 +22,37 @@ export function isThaiEquitiesStockScannerGoal(goal: string): boolean {
   const hasThaiScannerText = normalized.includes(THAI_SCANNER_TEXT) || normalized.includes(THAI_SYSTEM_SCANNER_TEXT);
   const hasThaiEquitiesText = normalized.includes(THAI_EQUITIES_TEXT) || normalized.includes(THAI_STOCK_TEXT);
   return (hasScanner && hasThai && hasEquities) || (hasThaiScannerText && hasThaiEquitiesText);
+}
+
+export function isSet50NpmYfinanceGoal(goal: string): boolean {
+  const normalized = goal.toLowerCase();
+  const hasSet50 = /\bset\s*50\b/.test(normalized) || normalized.includes('set50') || normalized.includes(THAI_SET50_TEXT);
+  const hasNpm = /\bnpm\b/.test(normalized) || normalized.includes('net profit margin') || normalized.includes(THAI_NPM_TEXT);
+  const hasYfinance = normalized.includes('yfinance') || normalized.includes(THAI_YFINANCE_TEXT);
+  const hasThaiScanStock = normalized.includes(THAI_STOCK_TEXT) && normalized.includes(THAI_SCAN_TEXT);
+
+  return (hasSet50 || hasThaiScanStock) && hasNpm && hasYfinance;
+}
+
+export function extractSet50NpmThreshold(goal: string): number {
+  const normalized = goal.toLowerCase();
+  const directComparator = normalized.match(/\bnpm\b[^0-9]{0,10}([0-9]+(?:\.[0-9]+)?)/);
+  if (directComparator) {
+    const value = Number.parseFloat(directComparator[1]!);
+    if (Number.isFinite(value) && value > 0 && value <= 100) {
+      return value;
+    }
+  }
+
+  const percentMention = normalized.match(/([0-9]+(?:\.[0-9]+)?)\s*%/);
+  if (percentMention) {
+    const value = Number.parseFloat(percentMention[1]!);
+    if (Number.isFinite(value) && value > 0 && value <= 100) {
+      return value;
+    }
+  }
+
+  return 20;
 }
 
 const DEMO_HINTS = ['demo', 'controlled', 'acceptance mission'];
@@ -152,11 +187,76 @@ export function buildThaiEquitiesActualManagerPlaybook(
   };
 }
 
+export function buildSet50NpmYfinancePlaybook(
+  context: MissionContextBundle,
+): MissionPlaybook {
+  return {
+    id: 'playbook_set50_npm_yfinance_scanner',
+    slug: 'set50-npm-yfinance-scanner',
+    title: 'SET50 NPM yfinance scanner mission',
+    scope: 'domain',
+    mission_kind: 'set50_npm_yfinance_scanner',
+    required_exact_keys: [],
+    preferred_workers: ['shell', 'verifier'],
+    planning_hints: Array.from(new Set([
+      ...context.planning_hints,
+      'Run the SET50 scanner command through shell and capture machine-readable evidence.',
+      'Extract pass-list for NPM threshold and include objective/risk/next action.',
+      'If market fields are missing, return a grounded retryable result instead of claiming completion.',
+    ])).slice(0, 6),
+    report_format: 'Objective, pass list, evidence, checks, risks, next action.',
+    verifier_checklist: [
+      {
+        id: 'check_note_evidence',
+        name: 'Owner-facing note evidence exists',
+        required: true,
+        artifact_kind: 'note',
+        validation_source: 'artifact',
+        detail: 'Scanner runs must produce a concise owner-facing note.',
+      },
+      {
+        id: 'check_report_file',
+        name: 'Scanner report artifact exists',
+        required: true,
+        artifact_kind: 'file',
+        validation_source: 'artifact',
+        detail: 'Scanner runs must save a report file for reproducibility.',
+      },
+      {
+        id: 'check_worker_checks',
+        name: 'Worker and manager checks are recorded',
+        required: true,
+        artifact_kind: null,
+        validation_source: 'any',
+        detail: 'Verification must include explicit checks and outcomes.',
+      },
+    ],
+    repair_heuristics: [
+      {
+        id: 'repair_set50_npm_collect_market_fields',
+        trigger: 'verification_failed',
+        instruction: 'Capture missing market fields and rerun scanner with the same threshold.',
+        max_retries: 2,
+      },
+      {
+        id: 'repair_set50_npm_clarify_threshold',
+        trigger: 'blocked_or_ambiguous',
+        instruction: 'Clarify target threshold and symbol scope before rerun.',
+        max_retries: 1,
+      },
+    ],
+  };
+}
+
 export function resolveRegisteredMissionPlaybook(
   input: ManagerInput,
   context: MissionContextBundle,
   decision: ManagerDecision,
 ): MissionPlaybook | null {
+  if (isSet50NpmYfinanceGoal(input.goal)) {
+    return buildSet50NpmYfinancePlaybook(context);
+  }
+
   if (isThaiEquitiesDemoGoal(input.goal)) {
     return buildThaiEquitiesStockScannerPlaybook(context, decision);
   }
@@ -178,6 +278,18 @@ export function buildMissionShellCommand(brief: MissionBrief): {
   }
 
   if (brief.mission_kind !== 'thai_equities_daily_scanner') {
+    if (brief.mission_kind === 'set50_npm_yfinance_scanner') {
+      const threshold = extractSet50NpmThreshold(brief.goal);
+      const args = [
+        'scripts/run-set50-npm-mission.ts',
+        `--min-npm=${threshold}`,
+      ];
+      return {
+        command: 'bun',
+        args,
+        raw: ['bun', ...args].join(' '),
+      };
+    }
     return null;
   }
 

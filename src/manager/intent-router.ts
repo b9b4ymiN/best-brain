@@ -1,6 +1,6 @@
 import type { ManagerDecision, ManagerInput, ManagerWorker, ManagerWorkerPreference } from './types.ts';
 import { tokenize } from '../utils/text.ts';
-import { isThaiEquitiesActualManagerGoal } from '../proving/packs.ts';
+import { isSet50NpmYfinanceGoal, isThaiEquitiesActualManagerGoal } from '../proving/packs.ts';
 
 const CHAT_HINTS = ['what', 'why', 'explain', 'compare', 'brainstorm', 'think', 'help', 'question'];
 const EXECUTION_HINTS = ['implement', 'edit', 'fix', 'write', 'run', 'ship', 'build', 'execute', 'verify', 'save'];
@@ -81,10 +81,15 @@ export function selectWorker(goal: string, preference: ManagerWorkerPreference):
   const tokens = tokenize(goal);
   const normalizedGoal = goal.toLowerCase();
   const isActualThaiEquitiesMission = isThaiEquitiesActualManagerGoal(goal);
+  const isSet50NpmYfinanceMission = isSet50NpmYfinanceGoal(goal);
   const hasExplicitCommand = goal.includes('`');
   const hasImplementationIntent = includesAny(tokens, IMPLEMENT_HINTS);
   const hasBrowserIntent = includesAny(tokens, BROWSER_HINTS) || includesAnyText(normalizedGoal, THAI_BROWSER_HINTS);
   const hasMailIntent = includesAny(tokens, MAIL_HINTS) || includesAnyText(normalizedGoal, THAI_MAIL_HINTS);
+
+  if (isSet50NpmYfinanceMission) {
+    return 'shell';
+  }
 
   if (isActualThaiEquitiesMission) {
     return hasImplementationIntent ? 'codex' : 'claude';
