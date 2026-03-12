@@ -35,6 +35,7 @@ import type {
   OperatorActiveMissionView,
   OperatorApprovalQueueItem,
   OperatorDashboardView,
+  OperatorRecoveryAction,
   MissionComparisonSummary,
   MissionPhaseSummary,
   MissionTimelineEntry,
@@ -538,6 +539,65 @@ function operatorApprovalReason(status: MissionStatus, operatorReview: OperatorR
   return 'Operator review required.';
 }
 
+function buildOperatorRecoveryActions(input: {
+  safetyState: OperatorSafetyState | null;
+  diagnostics: WorkerDiagnosticsSnapshot | null;
+  recentAlerts: SystemHealthAlert[];
+}): OperatorRecoveryAction[] {
+  const actions: OperatorRecoveryAction[] = [];
+  const seen = new Set<string>();
+
+  const push = (action: OperatorRecoveryAction): void => {
+    if (seen.has(action.id)) {
+      return;
+    }
+    seen.add(action.id);
+    actions.push(action);
+  };
+
+  if (input.safetyState?.emergency_stop) {
+    push({
+      id: 'safety_resume_execution',
+      kind: 'safety',
+      severity: 'warning',
+      title: 'Execution is paused by operator safety stop',
+      detail: input.safetyState.reason ?? 'Safety stop is active; mission execution rails are paused.',
+      command_hint: 'POST /operator/safety/resume',
+    });
+  }
+
+  for (const entry of input.diagnostics?.entries ?? []) {
+    if (entry.available || entry.execution_mode !== 'cli') {
+      continue;
+    }
+    const severity: OperatorRecoveryAction['severity'] = entry.worker === 'shell' ? 'critical' : 'warning';
+    const commandHint = entry.worker === 'shell'
+      ? 'Install or repair bun in PATH, then run bun run diagnostics:workers.'
+      : `Install or re-link ${entry.worker} CLI in PATH, then run bun run diagnostics:workers.`;
+    push({
+      id: `worker_cli_unavailable_${entry.worker}`,
+      kind: 'worker_cli_unavailable',
+      severity,
+      title: `${entry.worker} CLI is unavailable`,
+      detail: entry.detail,
+      command_hint: commandHint,
+    });
+  }
+
+  for (const alert of input.recentAlerts) {
+    push({
+      id: `health_alert_${alert.id}`,
+      kind: 'health_alert',
+      severity: alert.severity,
+      title: `Health alert: ${alert.kind}`,
+      detail: alert.message,
+      command_hint: null,
+    });
+  }
+
+  return actions;
+}
+
 function createInitialOperatorReview(): OperatorReviewView {
   return createOperatorReview('pending', null, null);
 }
@@ -838,15 +898,24 @@ export class ControlRoomService {
       }
     }
 
+    const safetyState = input.safetyState ?? this.operatorSafetyProvider?.() ?? null;
+    const diagnostics = input.workerDiagnostics ?? null;
+    const recentAlerts = this.recentAlertsProvider?.() ?? [];
+
     return {
       generated_at: this.now(),
       active_missions: activeMissions.sort((left, right) => right.updated_at - left.updated_at),
       approval_queue: approvalQueue.sort((left, right) => right.updated_at - left.updated_at),
-      safety_state: input.safetyState ?? this.operatorSafetyProvider?.() ?? null,
-      worker_diagnostics: input.workerDiagnostics ?? null,
+      safety_state: safetyState,
+      worker_diagnostics: diagnostics,
+      recovery_actions: buildOperatorRecoveryActions({
+        safetyState,
+        diagnostics,
+        recentAlerts,
+      }),
       autonomy_policy: this.autonomyPolicy,
       system_health: this.systemHealthProvider?.() ?? null,
-      recent_alerts: this.recentAlertsProvider?.() ?? [],
+      recent_alerts: recentAlerts,
       scheduled_missions: (input.scheduledMissions ?? []).slice().sort((left, right) => right.updated_at - left.updated_at),
       queued_tasks: (input.queuedTasks ?? []).slice().sort((left, right) => right.updated_at - left.updated_at),
     };

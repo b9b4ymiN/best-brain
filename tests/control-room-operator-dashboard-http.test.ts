@@ -169,6 +169,7 @@ describe('control-room operator dashboard HTTP', () => {
         queued_tasks: Array<{ id: string }>;
         autonomy_policy: { default_level: string };
         worker_diagnostics: { entries: Array<{ worker: string; available: boolean }> } | null;
+        recovery_actions: Array<{ kind: string; title: string }>;
       };
       expect(operatorPayload.autonomy_policy.default_level).toBe('supervised');
       expect(operatorPayload.active_missions.some((mission) => mission.mission_id === activeView.mission_id && mission.override_allowed)).toBe(true);
@@ -177,6 +178,7 @@ describe('control-room operator dashboard HTTP', () => {
       expect(operatorPayload.queued_tasks.length).toBeGreaterThan(0);
       expect(operatorPayload.worker_diagnostics?.entries.some((entry) => entry.worker === 'claude' && entry.available)).toBe(true);
       expect(operatorPayload.worker_diagnostics?.entries.some((entry) => entry.worker === 'codex' && !entry.available)).toBe(true);
+      expect(operatorPayload.recovery_actions.some((action) => action.kind === 'worker_cli_unavailable')).toBe(true);
 
       const override = await fetch(`${baseUrl}/control-room/api/operator/override`, {
         method: 'POST',

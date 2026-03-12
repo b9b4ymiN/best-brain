@@ -73,6 +73,7 @@ Expected behavior:
 - `claude`, `codex`, `shell` show CLI availability and probe detail/version
 - `browser`, `mail`, `verifier` show `execution_mode=manager_owned`
 - control-room operator dashboard mirrors this data in its inline worker diagnostics section
+- control-room operator dashboard also shows recovery actions (`recovery_actions`) for blocked safety state, unavailable CLI workers, and active health alerts
 
 ## 7. Troubleshooting (Windows)
 

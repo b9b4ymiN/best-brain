@@ -165,12 +165,22 @@ export interface OperatorApprovalQueueItem {
   updated_at: number;
 }
 
+export interface OperatorRecoveryAction {
+  id: string;
+  kind: 'safety' | 'worker_cli_unavailable' | 'health_alert';
+  severity: 'warning' | 'critical';
+  title: string;
+  detail: string;
+  command_hint: string | null;
+}
+
 export interface OperatorDashboardView {
   generated_at: number;
   active_missions: OperatorActiveMissionView[];
   approval_queue: OperatorApprovalQueueItem[];
   safety_state: OperatorSafetyState | null;
   worker_diagnostics: WorkerDiagnosticsSnapshot | null;
+  recovery_actions: OperatorRecoveryAction[];
   autonomy_policy: AutonomyPolicyConfig;
   system_health: SystemHealthSnapshot | null;
   recent_alerts: SystemHealthAlert[];

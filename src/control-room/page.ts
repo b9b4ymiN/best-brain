@@ -258,6 +258,11 @@ export function renderControlRoomPage(): string {
             </div>
             <div id="operatorWorkerDiagnosticsList" class="list"></div>
             <div class="two-line">
+              <strong>Recovery actions</strong>
+              <small id="operatorRecoveryCount">0</small>
+            </div>
+            <div id="operatorRecoveryList" class="list"></div>
+            <div class="two-line">
               <strong>Active missions</strong>
               <small id="operatorActiveCount">0</small>
             </div>
@@ -379,6 +384,8 @@ export function renderControlRoomPage(): string {
         const safetyActionsEl = document.getElementById('operatorSafetyActions');
         const workerDiagnosticsCountEl = document.getElementById('operatorWorkerDiagnosticsCount');
         const workerDiagnosticsListEl = document.getElementById('operatorWorkerDiagnosticsList');
+        const recoveryCountEl = document.getElementById('operatorRecoveryCount');
+        const recoveryListEl = document.getElementById('operatorRecoveryList');
         const activeCountEl = document.getElementById('operatorActiveCount');
         const activeListEl = document.getElementById('operatorActiveList');
         const approvalCountEl = document.getElementById('operatorApprovalCount');
@@ -394,6 +401,8 @@ export function renderControlRoomPage(): string {
           if (safetyActionsEl) safetyActionsEl.innerHTML = '';
           if (workerDiagnosticsCountEl) workerDiagnosticsCountEl.textContent = '0';
           if (workerDiagnosticsListEl) workerDiagnosticsListEl.innerHTML = '<div class="empty">Diagnostics unavailable.</div>';
+          if (recoveryCountEl) recoveryCountEl.textContent = '0';
+          if (recoveryListEl) recoveryListEl.innerHTML = '<div class="empty">No recovery actions.</div>';
           if (activeCountEl) activeCountEl.textContent = '0';
           if (approvalCountEl) approvalCountEl.textContent = '0';
           if (scheduleCountEl) scheduleCountEl.textContent = '0';
@@ -439,6 +448,24 @@ export function renderControlRoomPage(): string {
               + ' Ã¢â‚¬Â¢ latency ' + entry.latency_ms + 'ms</small><br/>'
               + '<small>' + (entry.version || 'version n/a') + '</small>'
               + '<pre>' + entry.detail + '</pre>'
+              + '</div>').join('');
+          }
+        }
+
+        const recoveryActions = operator.recovery_actions || [];
+        if (recoveryCountEl) {
+          recoveryCountEl.textContent = String(recoveryActions.length);
+        }
+        if (recoveryListEl) {
+          if (recoveryActions.length === 0) {
+            recoveryListEl.innerHTML = '<div class="empty">No recovery actions.</div>';
+          } else {
+            recoveryListEl.innerHTML = recoveryActions.map((action) => ''
+              + '<div class="item">'
+              + '<strong>' + action.title + '</strong><br/>'
+              + '<small>' + action.kind + ' Ã¢â‚¬Â¢ ' + action.severity + '</small>'
+              + '<pre>' + action.detail + '</pre>'
+              + (action.command_hint ? '<small>hint: ' + action.command_hint + '</small>' : '')
               + '</div>').join('');
           }
         }

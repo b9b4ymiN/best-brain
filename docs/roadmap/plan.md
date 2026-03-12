@@ -289,6 +289,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: operator dashboard HTTP test now asserts `worker_diagnostics` payload content; UI renders diagnostics list with availability, mode, version, and latency.
 - **Verification**: operator sees active streams + approvals + schedules + queue + worker readiness from one dashboard call.
 
+### Step 32: Operator Recovery Actions from Diagnostics + Alerts
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/control-room/types.ts`, `src/control-room/service.ts`, `src/control-room/page.ts`, `tests/control-room-operator-dashboard-http.test.ts`, `README.md`, `docs/operators/windows-operator-runbook.md`
+- **Action (actual)**: Added `recovery_actions[]` in operator dashboard payload and UI rendering, derived deterministically from safety-stop state, unavailable CLI worker diagnostics, and recent health alerts.
+- **Verification (actual)**: operator dashboard HTTP test asserts `worker_cli_unavailable` recovery action appears when diagnostics report unavailable codex CLI.
+- **Verification**: operator dashboard now returns concrete recovery guidance without opening separate endpoints/logs.
+
 ---
 
 ## Verification & Quality Gates (All Phases)

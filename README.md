@@ -496,6 +496,10 @@ curl -s http://127.0.0.1:47888/operator/workers/diagnostics
 
 `GET /control-room/api/operator-dashboard` now includes `worker_diagnostics` so control-room can show worker readiness inline without a separate panel/query.
 
+### Phase 13 Step 32: recovery actions on operator dashboard
+
+`GET /control-room/api/operator-dashboard` now also includes `recovery_actions[]` derived from safety state, unavailable CLI workers, and recent health alerts so operators see actionable next steps immediately.
+
 ## Repo direction
 
 The target system architecture has five long-term pillars:
