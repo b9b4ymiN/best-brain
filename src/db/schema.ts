@@ -233,6 +233,28 @@ export const BASE_SCHEMA_STATEMENTS = [
     updated_at INTEGER NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_scheduled_missions_next_run ON scheduled_missions(enabled, paused, run_lock, next_run_at ASC)`,
+  `CREATE TABLE IF NOT EXISTS task_queue_items (
+    id TEXT PRIMARY KEY,
+    parent_mission_id TEXT,
+    goal TEXT NOT NULL,
+    priority TEXT NOT NULL,
+    source TEXT NOT NULL,
+    worker_preference TEXT NOT NULL DEFAULT 'auto',
+    status TEXT NOT NULL DEFAULT 'queued',
+    queued_by TEXT NOT NULL,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    max_attempts INTEGER NOT NULL DEFAULT 3,
+    next_attempt_at INTEGER NOT NULL,
+    run_lock_token TEXT,
+    run_locked_at INTEGER,
+    last_error TEXT,
+    result_mission_id TEXT,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL,
+    started_at INTEGER,
+    completed_at INTEGER
+  )`,
+  `CREATE INDEX IF NOT EXISTS idx_task_queue_claim ON task_queue_items(status, next_attempt_at ASC, priority, created_at ASC)`,
 ];
 
 export const POST_MIGRATION_SCHEMA_STATEMENTS = [

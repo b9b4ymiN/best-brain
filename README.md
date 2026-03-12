@@ -114,6 +114,10 @@ bun run scheduler create --name="Daily Thai scanner" --goal="Run Thai equities s
 bun run scheduler run-now --id=<schedule_id>
 bun run scheduler pause --id=<schedule_id>
 bun run scheduler resume --id=<schedule_id>
+bun run queue list
+bun run queue enqueue --goal="Follow up on latest verified mission with repair-first checks." --priority=urgent --source=manual_enqueue
+bun run queue:tick
+bun run queue cancel --id=<queue_item_id> --reason="operator_cancelled"
 bun run smoke:manager
 bun run smoke:manager:thin
 bun run smoke:manager:claude
@@ -185,6 +189,13 @@ Operator scheduler:
 - `POST /operator/schedules/:id/resume`
 - `POST /operator/schedules/:id/run-now`
 - `POST /operator/scheduler/tick`
+
+Operator task queue:
+
+- `GET /operator/queue`
+- `POST /operator/queue/enqueue`
+- `POST /operator/queue/tick`
+- `POST /operator/queue/:id/cancel`
 
 ## Normal usage
 
@@ -312,6 +323,30 @@ Notes:
 - schedule state is persisted in SQLite (`scheduled_missions`)
 - scheduled runs go through the same manager + control-room rails (no bypass path)
 - polling interval can be tuned with `BEST_BRAIN_SCHEDULER_INTERVAL_MS` (default `30000`)
+
+### Autonomous task queue flow (Phase 11 Step 23)
+
+Start the local server (queue polling starts automatically):
+
+```bash
+bun run server
+```
+
+Queue operator commands:
+
+```bash
+bun run queue enqueue --goal="Retry the latest verification_failed mission with stricter checks." --priority=urgent --source=manual_enqueue
+bun run queue list
+bun run queue:tick
+bun run queue cancel --id=<queue_item_id> --reason="operator_cancelled"
+```
+
+Notes:
+
+- queue state is persisted in SQLite (`task_queue_items`)
+- priority ordering is deterministic (`urgent > scheduled > background`)
+- retryable failures are re-queued with backoff; terminal failures stay `failed`
+- polling interval can be tuned with `BEST_BRAIN_TASK_QUEUE_INTERVAL_MS` (default `20000`)
 
 ## Repo direction
 

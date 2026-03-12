@@ -19,6 +19,9 @@ import type {
   ScheduleRunStatus,
   ScheduleWorkerPreference,
   ScheduledMissionRecord,
+  TaskQueueItemRecord,
+  TaskQueuePriority,
+  TaskQueueStatus,
 } from '../runtime/types.ts';
 import {
   defaultMemoryLayer,
@@ -170,6 +173,30 @@ function asScheduledMissionRecord(row: RawRow): ScheduledMissionRecord {
     next_run_at: Number(row.next_run_at),
     created_at: Number(row.created_at),
     updated_at: Number(row.updated_at),
+  };
+}
+
+function asTaskQueueItemRecord(row: RawRow): TaskQueueItemRecord {
+  return {
+    id: String(row.id),
+    parent_mission_id: row.parent_mission_id ? String(row.parent_mission_id) : null,
+    goal: String(row.goal),
+    priority: String(row.priority) as TaskQueuePriority,
+    source: String(row.source),
+    worker_preference: (row.worker_preference ? String(row.worker_preference) : 'auto') as ScheduleWorkerPreference,
+    status: (row.status ? String(row.status) : 'queued') as TaskQueueStatus,
+    queued_by: String(row.queued_by),
+    attempt_count: Number(row.attempt_count ?? 0),
+    max_attempts: Number(row.max_attempts ?? 3),
+    next_attempt_at: Number(row.next_attempt_at),
+    run_lock_token: row.run_lock_token ? String(row.run_lock_token) : null,
+    run_locked_at: row.run_locked_at == null ? null : Number(row.run_locked_at),
+    last_error: row.last_error ? String(row.last_error) : null,
+    result_mission_id: row.result_mission_id ? String(row.result_mission_id) : null,
+    created_at: Number(row.created_at),
+    updated_at: Number(row.updated_at),
+    started_at: row.started_at == null ? null : Number(row.started_at),
+    completed_at: row.completed_at == null ? null : Number(row.completed_at),
   };
 }
 
@@ -1227,6 +1254,250 @@ export class BrainStore {
     }
 
     return this.getScheduledMission(input.scheduleId);
+  }
+
+  listTaskQueueItems(statuses: TaskQueueStatus[] | null = null): TaskQueueItemRecord[] {
+    if (!statuses || statuses.length === 0) {
+      const rows = this.sqlite
+        .prepare(
+          `SELECT *
+           FROM task_queue_items
+           ORDER BY
+             CASE status
+               WHEN 'running' THEN 0
+               WHEN 'queued' THEN 1
+               WHEN 'failed' THEN 2
+               WHEN 'completed' THEN 3
+               ELSE 4
+             END,
+             next_attempt_at ASC,
+             created_at ASC`,
+        )
+        .all() as RawRow[];
+      return rows.map(asTaskQueueItemRecord);
+    }
+
+    const placeholders = statuses.map(() => '?').join(', ');
+    const rows = this.sqlite
+      .prepare(
+        `SELECT *
+         FROM task_queue_items
+         WHERE status IN (${placeholders})
+         ORDER BY
+           CASE status
+             WHEN 'running' THEN 0
+             WHEN 'queued' THEN 1
+             WHEN 'failed' THEN 2
+             WHEN 'completed' THEN 3
+             ELSE 4
+           END,
+           next_attempt_at ASC,
+           created_at ASC`,
+      )
+      .all(...statuses) as RawRow[];
+    return rows.map(asTaskQueueItemRecord);
+  }
+
+  getTaskQueueItem(id: string): TaskQueueItemRecord | null {
+    const row = this.sqlite.prepare('SELECT * FROM task_queue_items WHERE id = ?').get(id) as RawRow | null;
+    return row ? asTaskQueueItemRecord(row) : null;
+  }
+
+  findOpenTaskQueueDuplicate(input: {
+    parentMissionId: string | null;
+    goal: string;
+    source: string;
+  }): TaskQueueItemRecord | null {
+    const row = this.sqlite
+      .prepare(
+        `SELECT *
+         FROM task_queue_items
+         WHERE COALESCE(parent_mission_id, '') = COALESCE(?, '')
+           AND goal = ?
+           AND source = ?
+           AND status IN ('queued', 'running')
+         ORDER BY created_at DESC
+         LIMIT 1`,
+      )
+      .get(input.parentMissionId, input.goal, input.source) as RawRow | null;
+    return row ? asTaskQueueItemRecord(row) : null;
+  }
+
+  insertTaskQueueItem(input: {
+    id?: string;
+    parentMissionId?: string | null;
+    goal: string;
+    priority: TaskQueuePriority;
+    source: string;
+    workerPreference: ScheduleWorkerPreference;
+    queuedBy: string;
+    maxAttempts?: number;
+    nextAttemptAt: number;
+    createdAt: number;
+  }): TaskQueueItemRecord {
+    const id = input.id ?? createId('queue');
+    this.sqlite
+      .prepare(
+        `INSERT INTO task_queue_items (
+          id, parent_mission_id, goal, priority, source, worker_preference, status, queued_by,
+          attempt_count, max_attempts, next_attempt_at, run_lock_token, run_locked_at, last_error, result_mission_id,
+          created_at, updated_at, started_at, completed_at
+        ) VALUES (?, ?, ?, ?, ?, ?, 'queued', ?, 0, ?, ?, NULL, NULL, NULL, NULL, ?, ?, NULL, NULL)`,
+      )
+      .run(
+        id,
+        input.parentMissionId ?? null,
+        input.goal,
+        input.priority,
+        input.source,
+        input.workerPreference,
+        input.queuedBy,
+        input.maxAttempts ?? 3,
+        input.nextAttemptAt,
+        input.createdAt,
+        input.createdAt,
+      );
+    const created = this.getTaskQueueItem(id);
+    if (!created) {
+      throw new Error(`failed to load created queue item: ${id}`);
+    }
+    return created;
+  }
+
+  claimNextTaskQueueItem(timestamp: number): TaskQueueItemRecord | null {
+    const next = this.sqlite
+      .prepare(
+        `SELECT id
+         FROM task_queue_items
+         WHERE status = 'queued'
+           AND next_attempt_at <= ?
+         ORDER BY
+           CASE priority
+             WHEN 'urgent' THEN 0
+             WHEN 'scheduled' THEN 1
+             ELSE 2
+           END ASC,
+           next_attempt_at ASC,
+           created_at ASC
+         LIMIT 1`,
+      )
+      .get(timestamp) as { id?: string } | null;
+    if (!next?.id) {
+      return null;
+    }
+
+    const lockToken = createId('qlock');
+    const updateResult = this.sqlite
+      .prepare(
+        `UPDATE task_queue_items
+         SET status = 'running',
+             attempt_count = attempt_count + 1,
+             run_lock_token = ?,
+             run_locked_at = ?,
+             started_at = COALESCE(started_at, ?),
+             updated_at = ?,
+             last_error = NULL
+         WHERE id = ?
+           AND status = 'queued'`,
+      )
+      .run(lockToken, timestamp, timestamp, timestamp, String(next.id)) as { changes?: number };
+
+    if (Number(updateResult?.changes ?? 0) === 0) {
+      return null;
+    }
+    return this.getTaskQueueItem(String(next.id));
+  }
+
+  completeTaskQueueItem(input: {
+    id: string;
+    lockToken: string;
+    missionId?: string | null;
+    completedAt: number;
+  }): TaskQueueItemRecord | null {
+    const updateResult = this.sqlite
+      .prepare(
+        `UPDATE task_queue_items
+         SET status = 'completed',
+             run_lock_token = NULL,
+             run_locked_at = NULL,
+             result_mission_id = ?,
+             updated_at = ?,
+             completed_at = ?
+         WHERE id = ?
+           AND status = 'running'
+           AND run_lock_token = ?`,
+      )
+      .run(
+        input.missionId ?? null,
+        input.completedAt,
+        input.completedAt,
+        input.id,
+        input.lockToken,
+      ) as { changes?: number };
+    if (Number(updateResult?.changes ?? 0) === 0) {
+      return null;
+    }
+    return this.getTaskQueueItem(input.id);
+  }
+
+  failTaskQueueItem(input: {
+    id: string;
+    lockToken: string;
+    errorMessage: string;
+    retryAt: number | null;
+    completedAt: number;
+    missionId?: string | null;
+  }): TaskQueueItemRecord | null {
+    const willRetry = input.retryAt != null;
+    const updateResult = this.sqlite
+      .prepare(
+        `UPDATE task_queue_items
+         SET status = ?,
+             run_lock_token = NULL,
+             run_locked_at = NULL,
+             last_error = ?,
+             result_mission_id = COALESCE(?, result_mission_id),
+             next_attempt_at = ?,
+             updated_at = ?,
+             completed_at = ?
+         WHERE id = ?
+           AND status = 'running'
+           AND run_lock_token = ?`,
+      )
+      .run(
+        willRetry ? 'queued' : 'failed',
+        input.errorMessage,
+        input.missionId ?? null,
+        input.retryAt ?? input.completedAt,
+        input.completedAt,
+        willRetry ? null : input.completedAt,
+        input.id,
+        input.lockToken,
+      ) as { changes?: number };
+    if (Number(updateResult?.changes ?? 0) === 0) {
+      return null;
+    }
+    return this.getTaskQueueItem(input.id);
+  }
+
+  cancelTaskQueueItem(id: string, timestamp: number, reason: string | null = null): TaskQueueItemRecord | null {
+    const updateResult = this.sqlite
+      .prepare(
+        `UPDATE task_queue_items
+         SET status = 'cancelled',
+             run_lock_token = NULL,
+             run_locked_at = NULL,
+             last_error = COALESCE(?, last_error),
+             updated_at = ?,
+             completed_at = COALESCE(completed_at, ?)
+         WHERE id = ?
+           AND status IN ('queued', 'running')`,
+      )
+      .run(reason, timestamp, timestamp, id) as { changes?: number };
+    if (Number(updateResult?.changes ?? 0) === 0) {
+      return null;
+    }
+    return this.getTaskQueueItem(id);
   }
 
   getPreferredFormatMemory(): MemoryRecord | null {

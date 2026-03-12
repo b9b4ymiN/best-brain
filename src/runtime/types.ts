@@ -75,6 +75,46 @@ export interface ScheduledMissionRecord {
   updated_at: number;
 }
 
+export const TASK_QUEUE_PRIORITIES = [
+  'urgent',
+  'scheduled',
+  'background',
+] as const;
+
+export type TaskQueuePriority = (typeof TASK_QUEUE_PRIORITIES)[number];
+
+export const TASK_QUEUE_STATUSES = [
+  'queued',
+  'running',
+  'completed',
+  'failed',
+  'cancelled',
+] as const;
+
+export type TaskQueueStatus = (typeof TASK_QUEUE_STATUSES)[number];
+
+export interface TaskQueueItemRecord {
+  id: string;
+  parent_mission_id: string | null;
+  goal: string;
+  priority: TaskQueuePriority;
+  source: string;
+  worker_preference: ScheduleWorkerPreference;
+  status: TaskQueueStatus;
+  queued_by: string;
+  attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: number;
+  run_lock_token: string | null;
+  run_locked_at: number | null;
+  last_error: string | null;
+  result_mission_id: string | null;
+  created_at: number;
+  updated_at: number;
+  started_at: number | null;
+  completed_at: number | null;
+}
+
 export const RUNTIME_PROCESS_STATUSES = [
   'queued',
   'running',

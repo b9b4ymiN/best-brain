@@ -59,6 +59,7 @@ export interface ControlRoomServiceOptions {
   dataDir: string;
   managerFactory: ControlRoomManagerFactory;
   memoryQualityProvider?: () => MemoryQualityMetrics;
+  followupQueueEnqueue?: (result: ManagerRunResult) => void | Promise<void>;
   now?: () => number;
 }
 
@@ -501,14 +502,25 @@ export class ControlRoomService {
   private readonly missionsDir: string;
   private readonly managerFactory: ControlRoomManagerFactory;
   private readonly memoryQualityProvider: (() => MemoryQualityMetrics) | null;
+  private readonly followupQueueEnqueue: ((result: ManagerRunResult) => void | Promise<void>) | null;
   private readonly now: () => number;
 
   constructor(options: ControlRoomServiceOptions) {
     this.missionsDir = path.join(options.dataDir, 'control-room', 'missions');
     this.managerFactory = options.managerFactory;
     this.memoryQualityProvider = options.memoryQualityProvider ?? null;
+    this.followupQueueEnqueue = options.followupQueueEnqueue ?? null;
     this.now = options.now ?? (() => Date.now());
     fs.mkdirSync(this.missionsDir, { recursive: true });
+  }
+
+  private queueFollowups(result: ManagerRunResult): void {
+    if (!this.followupQueueEnqueue) {
+      return;
+    }
+    void Promise.resolve(this.followupQueueEnqueue(result)).catch(() => {
+      // Queue writes should not break control-room mission persistence.
+    });
   }
 
   private missionPath(missionId: string): string {
@@ -575,6 +587,7 @@ export class ControlRoomService {
       result,
     };
     const record = this.persistRun(goal, run);
+    this.queueFollowups(result);
     return buildMissionConsoleView(result, record.operator_review, record.operator_events, record.status_override);
   }
 
@@ -708,6 +721,7 @@ export class ControlRoomService {
       action: 'launch_mission',
     });
     const record = this.persistRun(request.goal, run);
+    this.queueFollowups(run.result);
     return buildMissionConsoleView(run.result, record.operator_review, record.operator_events);
   }
 
@@ -746,6 +760,7 @@ export class ControlRoomService {
       record.operator_review = createInitialOperatorReview();
       record.status_override = null;
       this.writeRecord(record);
+      this.queueFollowups(rerun.result);
       const view = buildMissionConsoleView(
         rerun.result,
         record.operator_review,

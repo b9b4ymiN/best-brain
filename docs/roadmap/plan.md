@@ -201,6 +201,10 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification**: Schedule daily mission → runs at configured time → result appears in control room
 
 ### Step 23: Autonomous Task Queue (*depends on Step 22*)
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/runtime/task-queue.ts`, `src/runtime/types.ts`, `src/db/schema.ts`, `src/db/client.ts`, `src/http/app.ts`, `src/server.ts`, `src/control-room/service.ts`, `scripts/queue.ts`
+- **Action (actual)**: Added persistent autonomous task queue with SQLite-backed queue items, priority-based claiming (`urgent > scheduled > background`), retry backoff, operator HTTP+CLI controls, queue polling on server startup, and follow-up task enqueue hooks from control-room mission results.
+- **Verification (actual)**: `tests/task-queue.test.ts` + `tests/task-queue-http.test.ts` pass; `bun run test` includes queue runtime + route coverage.
 - **Files**: `src/runtime/`, `src/manager/`
 - **Action**: Background task queue: system identifies pending tasks from mission context, queues them, executes when resources available. Priority system: urgent > scheduled > background
 - **Verification**: Mission creates follow-up tasks → tasks execute automatically → results linked to parent mission

@@ -7,6 +7,7 @@ import type { BestBrain } from '../services/brain.ts';
 import { renderControlRoomPage } from '../control-room/page.ts';
 import type { ControlRoomService } from '../control-room/service.ts';
 import type { MissionScheduler } from '../runtime/scheduler.ts';
+import type { AutonomousTaskQueue } from '../runtime/task-queue.ts';
 import {
   CONTROL_ROOM_ACTIONS,
   type ControlRoomActionRequest,
@@ -173,10 +174,63 @@ function validateSchedulerCreateRequest(input: unknown): {
   };
 }
 
+function validateTaskQueueEnqueueRequest(input: unknown): {
+  parent_mission_id?: string | null;
+  goal: string;
+  priority: 'urgent' | 'scheduled' | 'background';
+  source: string;
+  worker_preference?: ScheduleWorkerPreference;
+  queued_by?: string;
+  max_attempts?: number;
+} {
+  if (!input || typeof input !== 'object') {
+    throw new Error('task queue enqueue request must be an object');
+  }
+  const payload = input as Record<string, unknown>;
+  const goal = typeof payload.goal === 'string' ? payload.goal.trim() : '';
+  if (!goal) {
+    throw new Error('task queue goal is required');
+  }
+  const priorityRaw = typeof payload.priority === 'string' ? payload.priority.trim() : 'background';
+  if (!['urgent', 'scheduled', 'background'].includes(priorityRaw)) {
+    throw new Error('task queue priority is invalid');
+  }
+  const source = typeof payload.source === 'string' && payload.source.trim().length > 0
+    ? payload.source.trim()
+    : 'manual_enqueue';
+  const workerPreferenceRaw = typeof payload.worker_preference === 'string'
+    ? payload.worker_preference.trim()
+    : '';
+  if (workerPreferenceRaw && !MANAGER_WORKER_PREFERENCES.includes(workerPreferenceRaw as typeof MANAGER_WORKER_PREFERENCES[number])) {
+    throw new Error('task queue worker_preference is invalid');
+  }
+  const maxAttempts = payload.max_attempts == null ? undefined : Number(payload.max_attempts);
+  if (maxAttempts != null && (!Number.isFinite(maxAttempts) || maxAttempts <= 0)) {
+    throw new Error('task queue max_attempts must be > 0');
+  }
+
+  return {
+    parent_mission_id: typeof payload.parent_mission_id === 'string' && payload.parent_mission_id.trim().length > 0
+      ? payload.parent_mission_id.trim()
+      : null,
+    goal,
+    priority: priorityRaw as 'urgent' | 'scheduled' | 'background',
+    source,
+    worker_preference: workerPreferenceRaw
+      ? workerPreferenceRaw as ScheduleWorkerPreference
+      : undefined,
+    queued_by: typeof payload.queued_by === 'string' && payload.queued_by.trim().length > 0
+      ? payload.queued_by.trim()
+      : undefined,
+    max_attempts: maxAttempts == null ? undefined : Math.floor(maxAttempts),
+  };
+}
+
 export interface AppServices {
   chat?: ChatService | null;
   controlRoom?: ControlRoomService | null;
   scheduler?: MissionScheduler | null;
+  taskQueue?: AutonomousTaskQueue | null;
 }
 
 const NO_STORE_HEADERS = {
@@ -346,6 +400,37 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
       const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 3;
       return c.json({
         report: await services.scheduler!.tick(limit),
+      }, 200, NO_STORE_HEADERS);
+    });
+  }
+
+  if (services.taskQueue) {
+    app.get('/operator/queue', (c) => c.json({
+      items: services.taskQueue!.listItems(),
+    }, 200, NO_STORE_HEADERS));
+    app.post('/operator/queue/enqueue', async (c) => {
+      const body = validateTaskQueueEnqueueRequest(await readJsonBody(c));
+      return c.json({
+        item: services.taskQueue!.enqueue(body),
+      }, 200, NO_STORE_HEADERS);
+    });
+    app.post('/operator/queue/tick', async (c) => {
+      const payload = await readJsonBody(c);
+      const limitRaw = payload && typeof payload === 'object'
+        ? Number((payload as Record<string, unknown>).limit ?? 3)
+        : 3;
+      const limit = Number.isFinite(limitRaw) && limitRaw > 0 ? Math.floor(limitRaw) : 3;
+      return c.json({
+        report: await services.taskQueue!.tick(limit),
+      }, 200, NO_STORE_HEADERS);
+    });
+    app.post('/operator/queue/:id/cancel', async (c) => {
+      const payload = await readJsonBody(c);
+      const reason = payload && typeof payload === 'object' && typeof (payload as Record<string, unknown>).reason === 'string'
+        ? ((payload as Record<string, unknown>).reason as string).trim()
+        : null;
+      return c.json({
+        item: services.taskQueue!.cancel(c.req.param('id'), reason),
       }, 200, NO_STORE_HEADERS);
     });
   }

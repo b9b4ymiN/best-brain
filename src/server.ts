@@ -8,6 +8,8 @@ import { LocalCliManagerReasoner } from './manager/reasoner.ts';
 import { ManagerRuntime } from './manager/runtime.ts';
 import { MissionScheduler } from './runtime/scheduler.ts';
 import type { ScheduledMissionRecord } from './runtime/types.ts';
+import { AutonomousTaskQueue } from './runtime/task-queue.ts';
+import type { QueueExecutionResult } from './runtime/task-queue.ts';
 
 const brain = await BestBrain.open();
 let server: ReturnType<typeof Bun.serve>;
@@ -26,10 +28,29 @@ const managerFactory = () => new ManagerRuntime({
     },
   }),
 });
+function toQueueExecutionResult(view: { mission_id: string; status: string; verdict: { summary: string } | null }, fallbackMessage: string): QueueExecutionResult {
+  return {
+    mission_id: view.mission_id,
+    status: view.status === 'verified_complete'
+      ? 'verified_complete'
+      : view.status === 'verification_failed'
+        ? 'verification_failed'
+        : view.status === 'rejected'
+          ? 'rejected'
+          : 'failed',
+    final_message: view.verdict?.summary ?? fallbackMessage,
+    retryable: view.status === 'verification_failed',
+  };
+}
+
+let taskQueue: AutonomousTaskQueue | null = null;
 const controlRoom = new ControlRoomService({
   dataDir: brain.config.dataDir,
   managerFactory,
   memoryQualityProvider: () => brain.getMemoryQualityMetrics(),
+  followupQueueEnqueue: (result) => {
+    taskQueue?.enqueueFollowupsFromResult(result);
+  },
 });
 const chat = new ChatService({
   managerFactory,
@@ -61,7 +82,33 @@ const scheduler = new MissionScheduler({
     console.log(`[scheduler] ${message}`, data ? JSON.stringify(data) : '');
   },
 });
-const app = createApp(brain, { chat, controlRoom, scheduler });
+taskQueue = new AutonomousTaskQueue({
+  store: brain.store,
+  executeTask: async (item) => {
+    if (item.parent_mission_id) {
+      try {
+        const actionResult = await controlRoom.runAction(item.parent_mission_id, {
+          action: 'retry_mission',
+          note: 'Queued follow-up retry from autonomous task queue.',
+        });
+        return toQueueExecutionResult(actionResult.view, actionResult.message);
+      } catch {
+        // Fall back to launching by goal when parent mission cannot be retried.
+      }
+    }
+    const view = await controlRoom.launchMission({
+      goal: item.goal,
+      dry_run: false,
+      no_execute: false,
+      worker_preference: item.worker_preference,
+    });
+    return toQueueExecutionResult(view, `Mission finished with status ${view.status}.`);
+  },
+  logger: (message, data) => {
+    console.log(`[task-queue] ${message}`, data ? JSON.stringify(data) : '');
+  },
+});
+const app = createApp(brain, { chat, controlRoom, scheduler, taskQueue });
 
 server = Bun.serve({
   port: brain.config.port,
@@ -69,5 +116,6 @@ server = Bun.serve({
 });
 
 scheduler.startPolling(Number(process.env.BEST_BRAIN_SCHEDULER_INTERVAL_MS || 30_000));
+taskQueue.startPolling(Number(process.env.BEST_BRAIN_TASK_QUEUE_INTERVAL_MS || 20_000));
 
 console.log(`best-brain HTTP server listening on http://localhost:${server.port}`);
