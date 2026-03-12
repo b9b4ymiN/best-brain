@@ -67,11 +67,15 @@ function validateControlRoomLaunchRequest(input: unknown): ControlRoomLaunchRequ
 function validateControlRoomPreflightRequest(input: unknown): {
   goal: string;
   worker_preference: ControlRoomLaunchRequest['worker_preference'];
+  dry_run: boolean;
+  no_execute: boolean;
 } {
   if (!input || typeof input !== 'object') {
     return {
       goal: '',
       worker_preference: undefined,
+      dry_run: false,
+      no_execute: false,
     };
   }
   const payload = input as Record<string, unknown>;
@@ -90,6 +94,92 @@ function validateControlRoomPreflightRequest(input: unknown): {
     worker_preference: workerPreferenceRaw
       ? workerPreferenceRaw as ControlRoomLaunchRequest['worker_preference']
       : undefined,
+    dry_run: payload.dry_run === true,
+    no_execute: payload.no_execute === true,
+  };
+}
+
+interface ControlRoomPreflightEvaluation {
+  blocked: boolean;
+  goal: string;
+  worker_preference: ControlRoomLaunchRequest['worker_preference'] | 'auto';
+  blockers: Array<{
+    code: 'safety_stop' | 'worker_unavailable';
+    message: string;
+    worker: string | null;
+    command_hint: string | null;
+  }>;
+  advisories: Array<{
+    code: 'worker_unavailable';
+    message: string;
+    worker: string;
+    command_hint: string | null;
+  }>;
+}
+
+function evaluateControlRoomPreflight(input: {
+  goal: string;
+  worker_preference: ControlRoomLaunchRequest['worker_preference'];
+  dry_run: boolean;
+  no_execute: boolean;
+  safetyState: { emergency_stop: boolean; reason: string | null } | null;
+  diagnosticsEntries: Array<{
+    worker: string;
+    available: boolean;
+    execution_mode: string;
+    detail: string;
+  }>;
+}): ControlRoomPreflightEvaluation {
+  const blockers: ControlRoomPreflightEvaluation['blockers'] = [];
+  const advisories: ControlRoomPreflightEvaluation['advisories'] = [];
+  const shouldExecute = !input.dry_run && !input.no_execute;
+  const requestedWorker = input.worker_preference;
+
+  if (input.safetyState?.emergency_stop) {
+    blockers.push({
+      code: 'safety_stop',
+      message: input.safetyState.reason
+        ? `operator safety stop is active: ${input.safetyState.reason}`
+        : 'operator safety stop is active',
+      worker: null,
+      command_hint: 'POST /operator/safety/resume',
+    });
+  }
+
+  const unavailableCliEntries = input.diagnosticsEntries.filter((entry) => entry.execution_mode === 'cli' && !entry.available);
+  for (const entry of unavailableCliEntries) {
+    advisories.push({
+      code: 'worker_unavailable',
+      message: `${entry.worker} is unavailable: ${entry.detail}`,
+      worker: entry.worker,
+      command_hint: `Install or re-link ${entry.worker} CLI in PATH, then run bun run diagnostics:workers.`,
+    });
+  }
+
+  if (
+    shouldExecute
+    && requestedWorker
+    && requestedWorker !== 'auto'
+    && requestedWorker !== 'browser'
+    && requestedWorker !== 'mail'
+  ) {
+    const requestedEntry = input.diagnosticsEntries.find((entry) => entry.worker === requestedWorker);
+    if (requestedEntry && !requestedEntry.available) {
+      blockers.push({
+        code: 'worker_unavailable',
+        message: `${requestedWorker} is unavailable: ${requestedEntry.detail}`,
+        worker: requestedWorker,
+        command_hint: `Install or re-link ${requestedWorker} CLI in PATH, then run bun run diagnostics:workers.`,
+      });
+    }
+  }
+
+  return {
+    blocked: blockers.length > 0,
+    goal: input.goal,
+    worker_preference: requestedWorker ?? 'auto',
+    blockers,
+    advisories,
   };
 }
 
@@ -525,67 +615,18 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
       const diagnostics = services.workerDiagnostics
         ? await services.workerDiagnostics.collect()
         : null;
-
-      const blockers: Array<{
-        code: 'safety_stop' | 'worker_unavailable';
-        message: string;
-        worker: string | null;
-        command_hint: string | null;
-      }> = [];
-      const advisories: Array<{
-        code: 'worker_unavailable';
-        message: string;
-        worker: string;
-        command_hint: string | null;
-      }> = [];
-
-      if (safetyState?.emergency_stop) {
-        blockers.push({
-          code: 'safety_stop',
-          message: safetyState.reason
-            ? `operator safety stop is active: ${safetyState.reason}`
-            : 'operator safety stop is active',
-          worker: null,
-          command_hint: 'POST /operator/safety/resume',
-        });
-      }
-
-      const requestedWorker = body.worker_preference;
-      const entries = diagnostics?.entries ?? [];
-      const unavailableCliEntries = entries.filter((entry) => entry.execution_mode === 'cli' && !entry.available);
-      for (const entry of unavailableCliEntries) {
-        advisories.push({
-          code: 'worker_unavailable',
-          message: `${entry.worker} is unavailable: ${entry.detail}`,
-          worker: entry.worker,
-          command_hint: `Install or re-link ${entry.worker} CLI in PATH, then run bun run diagnostics:workers.`,
-        });
-      }
-
-      if (
-        requestedWorker
-        && requestedWorker !== 'auto'
-        && requestedWorker !== 'browser'
-        && requestedWorker !== 'mail'
-      ) {
-        const requestedEntry = entries.find((entry) => entry.worker === requestedWorker);
-        if (requestedEntry && !requestedEntry.available) {
-          blockers.push({
-            code: 'worker_unavailable',
-            message: `${requestedWorker} is unavailable: ${requestedEntry.detail}`,
-            worker: requestedWorker,
-            command_hint: `Install or re-link ${requestedWorker} CLI in PATH, then run bun run diagnostics:workers.`,
-          });
-        }
-      }
-
-      return c.json({
-        blocked: blockers.length > 0,
+      const evaluation = evaluateControlRoomPreflight({
         goal: body.goal,
-        worker_preference: requestedWorker ?? 'auto',
-        blockers,
-        advisories,
-      }, blockers.length > 0 ? 423 : 200, NO_STORE_HEADERS);
+        worker_preference: body.worker_preference,
+        dry_run: body.dry_run,
+        no_execute: body.no_execute,
+        safetyState: safetyState ? {
+          emergency_stop: safetyState.emergency_stop,
+          reason: safetyState.reason,
+        } : null,
+        diagnosticsEntries: diagnostics?.entries ?? [],
+      });
+      return c.json(evaluation, evaluation.blocked ? 423 : 200, NO_STORE_HEADERS);
     });
     app.get('/control-room/api/system-health', (c) => {
       const overview = services.controlRoom!.listDashboard();
@@ -617,6 +658,27 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
         return c.json(blockedErrorPayload(), 423, NO_STORE_HEADERS);
       }
       const body = validateControlRoomLaunchRequest(await readJsonBody(c));
+      const diagnostics = services.workerDiagnostics
+        ? await services.workerDiagnostics.collect()
+        : null;
+      const safetyState = safetyController?.getState() ?? null;
+      const preflight = evaluateControlRoomPreflight({
+        goal: body.goal,
+        worker_preference: body.worker_preference,
+        dry_run: body.dry_run,
+        no_execute: body.no_execute ?? false,
+        safetyState: safetyState ? {
+          emergency_stop: safetyState.emergency_stop,
+          reason: safetyState.reason,
+        } : null,
+        diagnosticsEntries: diagnostics?.entries ?? [],
+      });
+      if (preflight.blocked) {
+        return c.json({
+          error: preflight.blockers[0]?.message ?? 'control-room launch preflight blocked execution',
+          ...preflight,
+        }, 423, NO_STORE_HEADERS);
+      }
       return c.json(await services.controlRoom!.launchMission(body));
     });
     app.get('/control-room/api/missions/:id', (c) => {

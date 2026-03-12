@@ -303,6 +303,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: new preflight HTTP test covers unavailable explicit worker blocking, auto advisory behavior, and safety-stop blocking.
 - **Verification**: operators get deterministic launch guardrails before execution starts.
 
+### Step 34: Server-side Launch Guard + Plan-only Preflight Semantics
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/http/app.ts`, `src/control-room/page.ts`, `tests/control-room-preflight-http.test.ts`, `README.md`, `docs/operators/windows-operator-runbook.md`
+- **Action (actual)**: Refactored control-room preflight evaluation into shared server logic and applied it to both `/control-room/api/operator/preflight` and `/control-room/api/launch` to prevent client bypass. Added `dry_run/no_execute` aware behavior so explicit unavailable CLI workers block only when execution is requested.
+- **Verification (actual)**: preflight/launch HTTP tests now cover no-execute advisory behavior plus launch-path blocking when explicit unavailable worker is requested for execution.
+- **Verification**: any client path (UI or direct HTTP) receives identical readiness gating before mission execution.
+
 ---
 
 ## Verification & Quality Gates (All Phases)

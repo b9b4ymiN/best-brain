@@ -170,6 +170,55 @@ describe('control-room preflight HTTP', () => {
       expect(autoPayload.blocked).toBe(false);
       expect(autoPayload.advisories.some((advisory) => advisory.code === 'worker_unavailable' && advisory.worker === 'codex')).toBe(true);
 
+      const noExecutePreflight = await fetch(`${baseUrl}/control-room/api/operator/preflight`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          goal: 'Plan only with codex selected',
+          worker_preference: 'codex',
+          no_execute: true,
+        }),
+      });
+      expect(noExecutePreflight.status).toBe(200);
+      const noExecutePreflightPayload = await noExecutePreflight.json() as {
+        blocked: boolean;
+        advisories: Array<{ code: string; worker: string }>;
+      };
+      expect(noExecutePreflightPayload.blocked).toBe(false);
+      expect(noExecutePreflightPayload.advisories.some((advisory) => advisory.code === 'worker_unavailable' && advisory.worker === 'codex')).toBe(true);
+
+      const launchBypass = await fetch(`${baseUrl}/control-room/api/launch`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          goal: 'Run with unavailable codex',
+          dry_run: false,
+          no_execute: false,
+          worker_preference: 'codex',
+        }),
+      });
+      expect(launchBypass.status).toBe(423);
+      const launchBypassPayload = await launchBypass.json() as {
+        error: string;
+        blockers: Array<{ code: string; worker: string | null }>;
+      };
+      expect(launchBypassPayload.error.length).toBeGreaterThan(0);
+      expect(launchBypassPayload.blockers.some((blocker) => blocker.code === 'worker_unavailable' && blocker.worker === 'codex')).toBe(true);
+
+      const noExecuteLaunch = await fetch(`${baseUrl}/control-room/api/launch`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          goal: 'Plan only with unavailable codex',
+          dry_run: false,
+          no_execute: true,
+          worker_preference: 'codex',
+        }),
+      });
+      expect(noExecuteLaunch.status).toBe(200);
+      const noExecuteLaunchPayload = await noExecuteLaunch.json() as { mission_id: string };
+      expect(noExecuteLaunchPayload.mission_id.startsWith('mission_')).toBe(true);
+
       safety.activate('paused for preflight test', 'test');
       const blockedBySafety = await fetch(`${baseUrl}/control-room/api/operator/preflight`, {
         method: 'POST',

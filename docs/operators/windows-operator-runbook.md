@@ -88,6 +88,8 @@ Expected behavior:
 - status `423` when safety stop is active
 - status `423` when selected worker is unavailable
 - status `200` with advisories for `worker_preference=auto`
+- status `200` with advisories when `dry_run=true` or `no_execute=true` (plan-only launch)
+- `/control-room/api/launch` re-checks preflight server-side, so direct launch calls cannot bypass worker readiness gates
 
 ## 8. Troubleshooting (Windows)
 

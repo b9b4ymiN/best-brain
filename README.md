@@ -515,6 +515,15 @@ Behavior:
 - blocks launch when an explicitly selected CLI worker is unavailable
 - returns non-blocking advisories for unavailable workers in `auto` mode
 
+### Phase 13 Step 34: server-side launch preflight enforcement
+
+`POST /control-room/api/launch` now re-runs the same preflight evaluation server-side to prevent bypassing preflight from any client.
+
+Additional behavior:
+
+- `dry_run=true` or `no_execute=true` does not block launch on unavailable explicit CLI workers
+- execution launches (`dry_run=false` and `no_execute=false`) remain blocked on unavailable explicit CLI workers
+
 ## Repo direction
 
 The target system architecture has five long-term pillars:

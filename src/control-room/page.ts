@@ -826,6 +826,8 @@ export function renderControlRoomPage(): string {
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({
             goal: payload.goal,
+            dry_run: payload.dry_run,
+            no_execute: payload.no_execute,
             worker_preference: workerPreference,
           }),
         });
