@@ -10,6 +10,7 @@ import type { MissionScheduler } from '../runtime/scheduler.ts';
 import type { AutonomousTaskQueue } from '../runtime/task-queue.ts';
 import {
   CONTROL_ROOM_ACTIONS,
+  type OperatorOverrideRequest,
   type ControlRoomAutonomyPolicyUpdateRequest,
   type ControlRoomActionRequest,
   type ControlRoomHistoryFilter,
@@ -144,6 +145,21 @@ function validateControlRoomAutonomyPolicyUpdateRequest(input: unknown): Control
   }
 
   return update;
+}
+
+function validateOperatorOverrideRequest(input: unknown): OperatorOverrideRequest {
+  if (!input || typeof input !== 'object') {
+    throw new Error('operator override request must be an object');
+  }
+  const payload = input as Record<string, unknown>;
+  const missionId = typeof payload.mission_id === 'string' ? payload.mission_id.trim() : '';
+  if (!missionId) {
+    throw new Error('operator override mission_id is required');
+  }
+  return {
+    mission_id: missionId,
+    note: typeof payload.note === 'string' ? payload.note.trim() : undefined,
+  };
 }
 
 function validateChatMessageRequest(input: unknown): ChatMessageRequest {
@@ -404,6 +420,26 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   if (services.controlRoom) {
     app.get('/control-room', (c) => c.html(renderControlRoomPage()));
     app.get('/control-room/api/overview', (c) => c.json(services.controlRoom!.listDashboard()));
+    app.get('/control-room/api/operator-dashboard', (c) => c.json(
+      services.controlRoom!.listOperatorDashboard({
+        scheduledMissions: services.scheduler?.listSchedules() ?? [],
+        queuedTasks: services.taskQueue?.listItems() ?? [],
+      }),
+    ));
+    app.post('/control-room/api/operator/override', async (c) => {
+      const body = validateOperatorOverrideRequest(await readJsonBody(c));
+      const mission = services.controlRoom!.getMissionView(body.mission_id);
+      if (!mission) {
+        return c.json({ error: 'control-room mission not found' }, 404);
+      }
+      if (mission.status !== 'in_progress' && mission.status !== 'awaiting_verification') {
+        return c.json({ error: 'operator override is only allowed for active missions' }, 400);
+      }
+      return c.json(await services.controlRoom!.runAction(body.mission_id, {
+        action: 'cancel_mission',
+        note: body.note ?? 'Operator override pause from dashboard.',
+      }));
+    });
     app.get('/control-room/api/system-health', (c) => {
       const overview = services.controlRoom!.listDashboard();
       return c.json({

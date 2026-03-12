@@ -244,6 +244,34 @@ export function renderControlRoomPage(): string {
             <small id="historyCount">0 items</small>
           </div>
           <div id="historyList" class="mission-list"></div>
+
+          <div class="panel stack" style="margin-top: 12px;">
+            <div class="two-line">
+              <h3>Operator dashboard</h3>
+              <small id="operatorGeneratedAt">n/a</small>
+            </div>
+            <div id="operatorSummary" class="item"></div>
+            <div class="two-line">
+              <strong>Active missions</strong>
+              <small id="operatorActiveCount">0</small>
+            </div>
+            <div id="operatorActiveList" class="list"></div>
+            <div class="two-line">
+              <strong>Approval queue</strong>
+              <small id="operatorApprovalCount">0</small>
+            </div>
+            <div id="operatorApprovalList" class="list"></div>
+            <div class="two-line">
+              <strong>Scheduled missions</strong>
+              <small id="operatorScheduleCount">0</small>
+            </div>
+            <div id="operatorScheduleList" class="list"></div>
+            <div class="two-line">
+              <strong>Queued tasks</strong>
+              <small id="operatorQueueCount">0</small>
+            </div>
+            <div id="operatorQueueList" class="list"></div>
+          </div>
         </aside>
 
         <section id="detail" class="grid">
@@ -255,6 +283,7 @@ export function renderControlRoomPage(): string {
     <script>
       const state = {
         dashboard: null,
+        operatorDashboard: null,
         history: null,
         selectedMissionId: null,
         selectedMissionStatus: null,
@@ -337,6 +366,153 @@ export function renderControlRoomPage(): string {
         }
       }
 
+      function renderOperatorDashboard() {
+        const operator = state.operatorDashboard;
+        const generatedAtEl = document.getElementById('operatorGeneratedAt');
+        const summaryEl = document.getElementById('operatorSummary');
+        const activeCountEl = document.getElementById('operatorActiveCount');
+        const activeListEl = document.getElementById('operatorActiveList');
+        const approvalCountEl = document.getElementById('operatorApprovalCount');
+        const approvalListEl = document.getElementById('operatorApprovalList');
+        const scheduleCountEl = document.getElementById('operatorScheduleCount');
+        const scheduleListEl = document.getElementById('operatorScheduleList');
+        const queueCountEl = document.getElementById('operatorQueueCount');
+        const queueListEl = document.getElementById('operatorQueueList');
+
+        if (!operator) {
+          if (generatedAtEl) generatedAtEl.textContent = 'n/a';
+          if (summaryEl) summaryEl.innerHTML = '<small>Operator streams unavailable.</small>';
+          if (activeCountEl) activeCountEl.textContent = '0';
+          if (approvalCountEl) approvalCountEl.textContent = '0';
+          if (scheduleCountEl) scheduleCountEl.textContent = '0';
+          if (queueCountEl) queueCountEl.textContent = '0';
+          if (activeListEl) activeListEl.innerHTML = '<div class="empty">No active missions.</div>';
+          if (approvalListEl) approvalListEl.innerHTML = '<div class="empty">No pending approvals.</div>';
+          if (scheduleListEl) scheduleListEl.innerHTML = '<div class="empty">No schedules configured.</div>';
+          if (queueListEl) queueListEl.innerHTML = '<div class="empty">No queued tasks.</div>';
+          return;
+        }
+
+        if (generatedAtEl) generatedAtEl.textContent = formatTime(operator.generated_at);
+        if (summaryEl) {
+          const policy = operator.autonomy_policy || {};
+          const missionKindOverrides = policy.mission_kind_levels || {};
+          const overridePreview = Object.entries(missionKindOverrides)
+            .slice(0, 3)
+            .map(([kind, level]) => kind + ':' + level)
+            .join(' | ');
+          summaryEl.innerHTML = ''
+            + '<small>'
+            + 'autonomy=' + (policy.default_level || 'n/a')
+            + ' â€¢ routine threshold=' + (policy.routine_min_verified_runs ?? 'n/a')
+            + (overridePreview ? ' â€¢ overrides: ' + overridePreview : '')
+            + '</small>';
+        }
+
+        const activeMissions = operator.active_missions || [];
+        if (activeCountEl) activeCountEl.textContent = String(activeMissions.length);
+        if (activeListEl) {
+          if (activeMissions.length === 0) {
+            activeListEl.innerHTML = '<div class="empty">No active missions.</div>';
+          } else {
+            activeListEl.innerHTML = activeMissions.map((mission) => {
+              const overrideButton = mission.override_allowed
+                ? '<button class="secondary" data-override-mission="' + mission.mission_id + '">Override pause</button>'
+                : '';
+              return ''
+                + '<div class="item">'
+                + '<strong>' + mission.goal + '</strong><br/>'
+                + '<small>' + mission.mission_id + ' â€¢ ' + mission.mission_kind + ' â€¢ autonomy '
+                + (mission.autonomy_level || 'n/a') + '</small><br/>'
+                + '<span class="' + badgeClass(mission.status) + '">' + mission.status + '</span>'
+                + '<div class="actions" style="margin-top:8px;">'
+                + '<button class="secondary" data-open-mission="' + mission.mission_id + '">Open</button>'
+                + overrideButton
+                + '</div>'
+                + '</div>';
+            }).join('');
+          }
+        }
+
+        const approvalQueue = operator.approval_queue || [];
+        if (approvalCountEl) approvalCountEl.textContent = String(approvalQueue.length);
+        if (approvalListEl) {
+          if (approvalQueue.length === 0) {
+            approvalListEl.innerHTML = '<div class="empty">No pending approvals.</div>';
+          } else {
+            approvalListEl.innerHTML = approvalQueue.map((item) => ''
+              + '<div class="item">'
+              + '<strong>' + item.goal + '</strong><br/>'
+              + '<small>' + item.mission_id + ' â€¢ ' + item.mission_kind + ' â€¢ ' + item.status + '</small>'
+              + '<pre>' + item.reason + '</pre>'
+              + '<div class="actions"><button class="secondary" data-open-mission="' + item.mission_id + '">Inspect</button></div>'
+              + '</div>').join('');
+          }
+        }
+
+        const schedules = operator.scheduled_missions || [];
+        if (scheduleCountEl) scheduleCountEl.textContent = String(schedules.length);
+        if (scheduleListEl) {
+          if (schedules.length === 0) {
+            scheduleListEl.innerHTML = '<div class="empty">No schedules configured.</div>';
+          } else {
+            scheduleListEl.innerHTML = schedules.slice(0, 5).map((schedule) => ''
+              + '<div class="item">'
+              + '<strong>' + schedule.name + '</strong><br/>'
+              + '<small>' + schedule.id + ' â€¢ ' + (schedule.enabled && !schedule.paused ? 'enabled' : 'paused') + '</small><br/>'
+              + '<small>next run: ' + formatTime(schedule.next_run_at) + ' â€¢ last: ' + schedule.last_status + '</small>'
+              + '</div>').join('');
+          }
+        }
+
+        const queueItems = operator.queued_tasks || [];
+        if (queueCountEl) queueCountEl.textContent = String(queueItems.length);
+        if (queueListEl) {
+          if (queueItems.length === 0) {
+            queueListEl.innerHTML = '<div class="empty">No queued tasks.</div>';
+          } else {
+            queueListEl.innerHTML = queueItems.slice(0, 6).map((item) => ''
+              + '<div class="item">'
+              + '<strong>' + item.priority + ' â€¢ ' + item.status + '</strong><br/>'
+              + '<small>' + item.id + ' â€¢ attempts ' + item.attempt_count + '/' + item.max_attempts + '</small>'
+              + '<pre>' + item.goal + '</pre>'
+              + '</div>').join('');
+          }
+        }
+
+        document.querySelectorAll('[data-open-mission]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const missionId = button.dataset.openMission;
+            if (missionId) {
+              loadMission(missionId).catch((error) => window.console.error(error));
+            }
+          });
+        });
+        document.querySelectorAll('[data-override-mission]').forEach((button) => {
+          button.addEventListener('click', async () => {
+            const missionId = button.dataset.overrideMission;
+            if (!missionId) {
+              return;
+            }
+            const note = window.prompt('Override note (optional):', 'Operator override pause from dashboard.') ?? '';
+            const response = await fetch('/control-room/api/operator/override', {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({
+                mission_id: missionId,
+                note,
+              }),
+            });
+            const payload = await response.json();
+            if (!response.ok) {
+              window.alert(payload.error || 'Operator override failed.');
+              return;
+            }
+            await refresh(missionId);
+          });
+        });
+      }
+
       function formatDuration(value) {
         if (typeof value !== 'number' || !Number.isFinite(value)) {
           return 'n/a';
@@ -391,6 +567,12 @@ export function renderControlRoomPage(): string {
         const response = await fetch('/control-room/api/history?' + params.toString());
         state.history = await response.json();
         renderHistory();
+      }
+
+      async function loadOperatorDashboard() {
+        const response = await fetch('/control-room/api/operator-dashboard');
+        state.operatorDashboard = await response.json();
+        renderOperatorDashboard();
       }
 
       function renderDetail(view) {
@@ -501,6 +683,7 @@ export function renderControlRoomPage(): string {
           state.selectedMissionId = state.dashboard.latest_mission_id;
         }
         renderDashboard();
+        await loadOperatorDashboard();
         await loadHistory();
         if (state.selectedMissionId) {
           await loadMission(state.selectedMissionId);
@@ -547,16 +730,15 @@ export function renderControlRoomPage(): string {
       }
 
       setInterval(() => {
-        if (!state.selectedMissionId) {
-          return;
-        }
-        if (state.selectedMissionStatus === 'in_progress' || state.selectedMissionStatus === 'awaiting_verification') {
+        if (state.selectedMissionId && (state.selectedMissionStatus === 'in_progress' || state.selectedMissionStatus === 'awaiting_verification')) {
           loadMission(state.selectedMissionId).catch((error) => window.console.error(error));
         }
+        loadOperatorDashboard().catch((error) => window.console.error(error));
       }, 1500);
 
       loadDashboard().catch((error) => {
         renderDetail(null);
+        renderOperatorDashboard();
         window.console.error(error);
       });
     </script>

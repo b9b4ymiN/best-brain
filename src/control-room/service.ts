@@ -3,7 +3,13 @@ import path from 'path';
 import type { MemoryQualityMetrics, MissionStatus } from '../types.ts';
 import type { ManagerRuntime } from '../manager/runtime.ts';
 import type { ManagerRunResult } from '../manager/types.ts';
-import type { RuntimeArtifactRecord, RuntimeEventRecord, RuntimeWorkerTaskRun } from '../runtime/types.ts';
+import type {
+  RuntimeArtifactRecord,
+  RuntimeEventRecord,
+  RuntimeWorkerTaskRun,
+  ScheduledMissionRecord,
+  TaskQueueItemRecord,
+} from '../runtime/types.ts';
 import type { SystemHealthAlert, SystemHealthSnapshot } from '../runtime/health.ts';
 import {
   applyAutonomyPolicyUpdate,
@@ -24,6 +30,9 @@ import type {
   ControlRoomActionResult,
   ControlRoomDashboardView,
   ControlRoomLaunchRequest,
+  OperatorActiveMissionView,
+  OperatorApprovalQueueItem,
+  OperatorDashboardView,
   MissionComparisonSummary,
   MissionPhaseSummary,
   MissionTimelineEntry,
@@ -506,6 +515,26 @@ function buildMissionSummary(record: StoredMissionRecord): ControlRoomMissionSum
   };
 }
 
+function isOperatorActiveStatus(status: MissionStatus): boolean {
+  return status === 'in_progress' || status === 'awaiting_verification';
+}
+
+function operatorApprovalReason(status: MissionStatus, operatorReview: OperatorReviewView): string {
+  if (status === 'awaiting_verification') {
+    return 'Mission is waiting for verification completion.';
+  }
+  if (status === 'verification_failed') {
+    return 'Verification failed and requires operator review before rerun.';
+  }
+  if (status === 'verified_complete' && operatorReview.status !== 'approved') {
+    return 'Mission is verified but pending explicit operator approval.';
+  }
+  if (status === 'rejected') {
+    return 'Mission was rejected and requires operator decision for resume/retry.';
+  }
+  return 'Operator review required.';
+}
+
 function createInitialOperatorReview(): OperatorReviewView {
   return createOperatorReview('pending', null, null);
 }
@@ -748,6 +777,69 @@ export class ControlRoomService {
       system_health: this.systemHealthProvider?.() ?? null,
       recent_alerts: this.recentAlertsProvider?.() ?? [],
       memory_health: memoryHealth,
+    };
+  }
+
+  listOperatorDashboard(input: {
+    scheduledMissions?: ScheduledMissionRecord[];
+    queuedTasks?: TaskQueueItemRecord[];
+  } = {}): OperatorDashboardView {
+    const records = this.listMissionRecords();
+    const activeMissions: OperatorActiveMissionView[] = [];
+    const approvalQueue: OperatorApprovalQueueItem[] = [];
+
+    for (const record of records) {
+      const latestRun = record.runs.at(-1);
+      if (!latestRun) {
+        continue;
+      }
+      const status = resolveMissionStatus(latestRun.result, record.status_override);
+      const summary = buildMissionSummary(record);
+      const view = buildMissionConsoleView(
+        latestRun.result,
+        record.operator_review,
+        record.operator_events,
+        record.status_override,
+        record.autonomy,
+      );
+
+      if (isOperatorActiveStatus(status)) {
+        const overrideAllowed = view.allowed_actions.includes('cancel_mission');
+        activeMissions.push({
+          ...summary,
+          autonomy_level: record.autonomy?.effective_level ?? null,
+          override_allowed: overrideAllowed,
+          override_action: overrideAllowed ? 'cancel_mission' : null,
+        });
+      }
+
+      const requiresApproval = status === 'awaiting_verification'
+        || status === 'verification_failed'
+        || status === 'rejected'
+        || (status === 'verified_complete' && record.operator_review.status !== 'approved');
+      if (requiresApproval) {
+        approvalQueue.push({
+          mission_id: record.mission_id,
+          goal: record.goal,
+          status,
+          mission_kind: latestRun.result.mission_brief.mission_kind,
+          reason: operatorApprovalReason(status, record.operator_review),
+          allowed_actions: view.allowed_actions,
+          operator_review: record.operator_review,
+          updated_at: record.updated_at,
+        });
+      }
+    }
+
+    return {
+      generated_at: this.now(),
+      active_missions: activeMissions.sort((left, right) => right.updated_at - left.updated_at),
+      approval_queue: approvalQueue.sort((left, right) => right.updated_at - left.updated_at),
+      autonomy_policy: this.autonomyPolicy,
+      system_health: this.systemHealthProvider?.() ?? null,
+      recent_alerts: this.recentAlertsProvider?.() ?? [],
+      scheduled_missions: (input.scheduledMissions ?? []).slice().sort((left, right) => right.updated_at - left.updated_at),
+      queued_tasks: (input.queuedTasks ?? []).slice().sort((left, right) => right.updated_at - left.updated_at),
     };
   }
 

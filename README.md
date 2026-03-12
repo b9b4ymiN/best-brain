@@ -176,6 +176,8 @@ Control room:
 
 - `GET /control-room`
 - `GET /control-room/api/overview`
+- `GET /control-room/api/operator-dashboard`
+- `POST /control-room/api/operator/override`
 - `GET /control-room/api/system-health`
 - `GET /control-room/api/autonomy-policy`
 - `POST /control-room/api/autonomy-policy`
@@ -387,6 +389,31 @@ Tune polling interval:
 
 ```bash
 BEST_BRAIN_HEALTH_INTERVAL_MS=30000 bun run server
+```
+
+### Operator dashboard flow (Phase 11 Step 26)
+
+The control-room now exposes an operator-focused dashboard that aggregates:
+
+- active missions (`in_progress`, `awaiting_verification`)
+- approval queue (awaiting verification, verification failed, verified-but-not-approved, rejected)
+- autonomy policy and mission-kind overrides
+- system health + recent alerts
+- scheduled missions + task queue state
+
+Endpoints:
+
+```text
+GET /control-room/api/operator-dashboard
+POST /control-room/api/operator/override
+```
+
+One-click override pauses any running mission through kernel rails:
+
+```bash
+curl -s -X POST http://127.0.0.1:47888/control-room/api/operator/override \
+  -H "content-type: application/json" \
+  -d "{\"mission_id\":\"mission_xxx\",\"note\":\"Operator override pause\"}"
 ```
 
 ## Repo direction

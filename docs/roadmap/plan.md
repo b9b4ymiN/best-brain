@@ -228,6 +228,10 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification**: Simulate worker down → alert appears in control room within 30s
 
 ### Step 26: Operator Dashboard (*depends on Step 22-25*)
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/control-room/page.ts`, `src/control-room/service.ts`, `src/control-room/types.ts`, `src/http/app.ts`, `tests/control-room-operator-dashboard-http.test.ts`
+- **Action (actual)**: Added dedicated operator dashboard surface with active-mission stream, approval queue, autonomy policy summary, system-health/alert context, scheduler snapshot, and task-queue snapshot. Added one-click operator override endpoint that pauses running missions through existing kernel action rails (`cancel_mission`) without bypassing policy.
+- **Verification (actual)**: `tests/control-room-operator-dashboard-http.test.ts` passes (dashboard aggregation + override pause), full suite remains green.
 - **Files**: `src/control-room/` (operator view)
 - **Action**: Dedicated operator view showing: active missions, scheduled tasks, autonomy level per kind, system health, recent alerts, approval queue. One-click override for any running mission
 - **Verification**: Full operator dashboard with 3+ active streams visible; override pauses mission correctly

@@ -4,6 +4,7 @@ import type { WorkerId } from '../workers/types.ts';
 import type { RuntimeArtifactRecord } from '../runtime/types.ts';
 import type { AutonomyDecision, AutonomyLevel, AutonomyPolicyConfig } from '../policies/autonomy.ts';
 import type { SystemHealthAlert, SystemHealthSnapshot } from '../runtime/health.ts';
+import type { ScheduledMissionRecord, TaskQueueItemRecord } from '../runtime/types.ts';
 
 export const CONTROL_ROOM_ACTIONS = [
   'launch_mission',
@@ -145,6 +146,34 @@ export interface ControlRoomDashboardView {
   memory_health: MemoryQualityMetrics | null;
 }
 
+export interface OperatorActiveMissionView extends ControlRoomMissionSummary {
+  autonomy_level: AutonomyLevel | null;
+  override_allowed: boolean;
+  override_action: 'cancel_mission' | null;
+}
+
+export interface OperatorApprovalQueueItem {
+  mission_id: string;
+  goal: string;
+  status: MissionStatus;
+  mission_kind: string;
+  reason: string;
+  allowed_actions: ControlRoomAction[];
+  operator_review: OperatorReviewView;
+  updated_at: number;
+}
+
+export interface OperatorDashboardView {
+  generated_at: number;
+  active_missions: OperatorActiveMissionView[];
+  approval_queue: OperatorApprovalQueueItem[];
+  autonomy_policy: AutonomyPolicyConfig;
+  system_health: SystemHealthSnapshot | null;
+  recent_alerts: SystemHealthAlert[];
+  scheduled_missions: ScheduledMissionRecord[];
+  queued_tasks: TaskQueueItemRecord[];
+}
+
 export interface ControlRoomActionRequest {
   action: ControlRoomAction;
   note?: string;
@@ -188,4 +217,9 @@ export interface ControlRoomAutonomyPolicyUpdateRequest {
   default_level?: AutonomyLevel;
   mission_kind_levels?: Record<string, AutonomyLevel>;
   routine_min_verified_runs?: number;
+}
+
+export interface OperatorOverrideRequest {
+  mission_id: string;
+  note?: string;
 }
