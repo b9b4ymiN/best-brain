@@ -262,6 +262,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: `tests/shared-cli.test.ts` includes ENOENT message/cause cases (`uv_spawn 'claude'`/`'codex'`) and passes.
 - **Verification**: On Windows without Claude/Codex in PATH, manager/chat degrades to non-worker fallback instead of surfacing raw spawn errors.
 
+### Step 29: Phase 12 Safety Proof Capture (Windows operator path)
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `scripts/capture-phase12-proof.ts`, `package.json`, `README.md`
+- **Action (actual)**: Added deterministic Phase 12 proof harness that runs real HTTP operator paths (`/operator/safety/*`, `/control-room/api/launch`, scheduler tick, queue tick) through blocked and resumed states, then writes a reproducible artifact.
+- **Verification (actual)**: `bun run proof:phase12` emits `artifacts/phase12-safety.latest.json` with blocked/resume invariants and produced IDs.
+- **Verification**: Safety stop blocks execution rails with `423` while preserving dashboard readability, then resume restores launch/scheduler/queue execution.
+
 ---
 
 ## Verification & Quality Gates (All Phases)

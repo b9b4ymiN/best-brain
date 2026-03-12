@@ -131,6 +131,7 @@ bun run proof:phase4
 bun run proof:phase5
 bun run proof:phase6
 bun run proof:phase11
+bun run proof:phase12
 bun run proof:control-room
 bun run proof:chat-memory
 bun run examples:program
@@ -462,6 +463,24 @@ curl -s -X POST http://127.0.0.1:47888/operator/safety/stop -H "content-type: ap
 curl -s -X POST http://127.0.0.1:47888/operator/safety/resume -H "content-type: application/json" -d "{\"reason\":\"resume after inspection\"}"
 ```
 
+### Phase 12 Step 28: Windows CLI missing-path resilience
+
+On Windows, missing `claude`/`codex` binaries now degrade to worker-unavailable fallback instead of leaking raw `uv_spawn ... ENOENT` errors.
+
+### Phase 12 Step 29: deterministic safety proof harness
+
+Run the full Phase 12 safety proof capture:
+
+```bash
+bun run proof:phase12
+```
+
+Output artifact:
+
+```text
+artifacts/phase12-safety.latest.json
+```
+
 ## Repo direction
 
 The target system architecture has five long-term pillars:
@@ -543,4 +562,5 @@ bun run proof:bootstrap:matrix
 - [Transport Contracts](./docs/transport-contracts.md)
 - [V1 Exit Criteria](./docs/v1-exit-criteria.md)
 - [Future Manager Integration](./docs/future-manager-integration.md)
+- [Windows Operator Runbook](./docs/operators/windows-operator-runbook.md)
 - [Vendored oracle-core notes](./docs/vendor-oracle-core.md)
