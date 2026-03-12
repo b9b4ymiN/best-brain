@@ -12,12 +12,14 @@ import { AutonomousTaskQueue } from './runtime/task-queue.ts';
 import type { QueueExecutionResult } from './runtime/task-queue.ts';
 import { RuntimeHealthMonitor } from './runtime/health.ts';
 import { OperatorSafetyController } from './runtime/safety.ts';
+import { WorkerDiagnosticsService } from './runtime/worker-diagnostics.ts';
 
 const brain = await BestBrain.open();
 let server: ReturnType<typeof Bun.serve>;
 const operatorSafety = new OperatorSafetyController({
   dataDir: brain.config.dataDir,
 });
+const workerDiagnostics = new WorkerDiagnosticsService();
 const managerFactory = () => new ManagerRuntime({
   brain: new BrainHttpAdapter({
     baseUrl: `http://127.0.0.1:${server.port}`,
@@ -131,7 +133,14 @@ healthMonitor = new RuntimeHealthMonitor({
     }
   },
 });
-const app = createApp(brain, { chat, controlRoom, scheduler, taskQueue, operatorSafety });
+const app = createApp(brain, {
+  chat,
+  controlRoom,
+  scheduler,
+  taskQueue,
+  operatorSafety,
+  workerDiagnostics,
+});
 
 server = Bun.serve({
   port: brain.config.port,

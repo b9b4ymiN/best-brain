@@ -271,6 +271,19 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 
 ---
 
+## PHASE 13: Windows Production Operator Hardening
+
+**Goal**: make Windows operator readiness observable with one-shot, actionable worker diagnostics.
+
+### Step 30: Worker Diagnostics Endpoint + CLI Snapshot
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/runtime/worker-diagnostics.ts`, `src/http/app.ts`, `src/server.ts`, `scripts/run-worker-diagnostics.ts`, `tests/worker-diagnostics.test.ts`, `tests/worker-diagnostics-http.test.ts`, `package.json`, `README.md`, `docs/operators/windows-operator-runbook.md`
+- **Action (actual)**: Added deterministic diagnostics service that probes `claude`, `codex`, and `bun` executability (`--version`) and reports manager-owned workers (`browser/mail/verifier`) in one snapshot. Exposed via HTTP and CLI for Windows operations.
+- **Verification (actual)**: `GET /operator/workers/diagnostics` returns diagnostics payload; `bun run diagnostics:workers` prints one-shot snapshot; tests validate service aggregation and HTTP route shape.
+- **Verification**: operator can instantly distinguish PATH/CLI failures from manager-owned worker availability before launching missions.
+
+---
+
 ## Verification & Quality Gates (All Phases)
 
 1. **After Phase 0**: `bun run typecheck && bun run test && bun run scorecard:program` — all green, 0 failures
@@ -312,6 +325,7 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - `src/runtime/spine.ts` — Session, checkpoint, event tracking (Steps 22, 23, 25)
 - `src/runtime/scheduler.ts` — New: cron-like mission scheduler (Step 22)
 - `src/runtime/health.ts` — New: system health monitoring (Step 25)
+- `src/runtime/worker-diagnostics.ts` — New: one-shot CLI/manager worker diagnostics (Step 30)
 
 ### Eval & Proving
 - `src/eval/chat-eval.ts` — New: chat quality evaluation (Step 6)

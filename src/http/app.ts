@@ -9,6 +9,7 @@ import type { ControlRoomService } from '../control-room/service.ts';
 import type { MissionScheduler } from '../runtime/scheduler.ts';
 import type { AutonomousTaskQueue } from '../runtime/task-queue.ts';
 import type { OperatorSafetyController } from '../runtime/safety.ts';
+import type { WorkerDiagnosticsService } from '../runtime/worker-diagnostics.ts';
 import {
   CONTROL_ROOM_ACTIONS,
   type OperatorOverrideRequest,
@@ -317,6 +318,7 @@ export interface AppServices {
   scheduler?: MissionScheduler | null;
   taskQueue?: AutonomousTaskQueue | null;
   operatorSafety?: OperatorSafetyController | null;
+  workerDiagnostics?: WorkerDiagnosticsService | null;
 }
 
 const NO_STORE_HEADERS = {
@@ -410,6 +412,12 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
         safety: safetyController.resume(body.reason ?? null, body.updated_by ?? 'operator'),
       }, 200, NO_STORE_HEADERS);
     });
+  }
+
+  if (services.workerDiagnostics) {
+    app.get('/operator/workers/diagnostics', async (c) => c.json({
+      diagnostics: await services.workerDiagnostics!.collect(),
+    }, 200, NO_STORE_HEADERS));
   }
 
   app.post('/brain/consult', async (c) => {

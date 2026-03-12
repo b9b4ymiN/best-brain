@@ -61,7 +61,19 @@ bun run smoke:manager:shell
 bun run smoke:manager:ambiguity
 ```
 
-## 6. Troubleshooting (Windows)
+## 6. Verify worker diagnostics snapshot
+
+```bash
+bun run diagnostics:workers
+curl -s http://127.0.0.1:47888/operator/workers/diagnostics
+```
+
+Expected behavior:
+
+- `claude`, `codex`, `shell` show CLI availability and probe detail/version
+- `browser`, `mail`, `verifier` show `execution_mode=manager_owned`
+
+## 7. Troubleshooting (Windows)
 
 If `claude` or `codex` is missing from PATH:
 

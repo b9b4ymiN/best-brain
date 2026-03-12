@@ -118,6 +118,7 @@ bun run queue list
 bun run queue enqueue --goal="Follow up on latest verified mission with repair-first checks." --priority=urgent --source=manual_enqueue
 bun run queue:tick
 bun run queue cancel --id=<queue_item_id> --reason="operator_cancelled"
+bun run diagnostics:workers
 bun run smoke:manager
 bun run smoke:manager:thin
 bun run smoke:manager:claude
@@ -202,6 +203,7 @@ Operator safety:
 - `GET /operator/safety`
 - `POST /operator/safety/stop`
 - `POST /operator/safety/resume`
+- `GET /operator/workers/diagnostics`
 
 Operator task queue:
 
@@ -479,6 +481,15 @@ Output artifact:
 
 ```text
 artifacts/phase12-safety.latest.json
+```
+
+### Phase 13 Step 30: worker diagnostics for Windows operator readiness
+
+Run one-shot diagnostics for CLI workers (`claude`, `codex`, `shell`) plus manager-owned workers:
+
+```bash
+bun run diagnostics:workers
+curl -s http://127.0.0.1:47888/operator/workers/diagnostics
 ```
 
 ## Repo direction
