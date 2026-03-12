@@ -130,6 +130,7 @@ bun run proof:manager
 bun run proof:phase4
 bun run proof:phase5
 bun run proof:phase6
+bun run proof:phase11
 bun run proof:control-room
 bun run proof:chat-memory
 bun run examples:program
@@ -415,6 +416,28 @@ curl -s -X POST http://127.0.0.1:47888/control-room/api/operator/override \
   -H "content-type: application/json" \
   -d "{\"mission_id\":\"mission_xxx\",\"note\":\"Operator override pause\"}"
 ```
+
+### Phase 11 acceptance proof (3 scheduled days + autonomy gating)
+
+Run the deterministic acceptance harness:
+
+```bash
+bun run proof:phase11
+```
+
+Output artifact:
+
+```text
+artifacts/phase11-operator.latest.json
+```
+
+The proof records:
+
+- 3 consecutive scheduled runs on daily cadence
+- verified-complete rate across scheduled runs
+- semi-autonomous gating behavior (first run supervised, next routine runs auto-approved)
+- no hidden manual intervention flag
+- operator dashboard stream counts at capture time
 
 ## Repo direction
 

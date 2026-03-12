@@ -119,6 +119,15 @@ const controlRoomProof = readJson<{
     kernel_rail_bypass_detected: boolean;
   };
 }>(path.join(artifactsDir, 'control-room-proof.latest.json'));
+const phase11OperatorProof = readJson<{
+  payload: {
+    scheduled_run_count: number;
+    scheduled_verified_complete_rate: number;
+    consecutive_daily_runs: boolean;
+    autonomy_gating_correct: boolean;
+    no_manual_intervention_steps: boolean;
+  };
+}>(path.join(artifactsDir, 'phase11-operator.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 
 type BootstrapTarget = 'windows' | 'macos' | 'linux';
@@ -219,6 +228,7 @@ const scorecard = buildProgramScorecard({
   actual_mission_proof: phase5ActualProof ?? undefined,
   phase6_repeatability_proof: phase6RepeatabilityProof?.payload,
   control_room_proof: controlRoomProof?.payload,
+  phase11_operator_proof: phase11OperatorProof?.payload,
 });
 
 fs.mkdirSync(artifactsDir, { recursive: true });

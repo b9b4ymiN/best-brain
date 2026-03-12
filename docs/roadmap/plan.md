@@ -236,6 +236,12 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Action**: Dedicated operator view showing: active missions, scheduled tasks, autonomy level per kind, system health, recent alerts, approval queue. One-click override for any running mission
 - **Verification**: Full operator dashboard with 3+ active streams visible; override pauses mission correctly
 
+### Phase 11 Acceptance Gate (Scheduled 3-day proof)
+- **Status**: Completed on 2026-03-12 (Windows-first harness)
+- **Files (actual)**: `scripts/capture-phase11-proof.ts`, `artifacts/phase11-operator.latest.json`, `scripts/generate-program-scorecard.ts`, `src/program/scorecard.ts`
+- **Action (actual)**: Added deterministic acceptance harness proving three consecutive daily scheduled mission runs with semi-autonomous gating (first run supervised, routine follow-ups auto-approved), no hidden manual intervention, and operator dashboard stream capture.
+- **Verification (actual)**: `bun run proof:phase11` emits `artifacts/phase11-operator.latest.json`; `bun run scorecard:program` consumes phase11 proof metrics.
+
 ---
 
 ## Verification & Quality Gates (All Phases)

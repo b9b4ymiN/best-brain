@@ -112,6 +112,14 @@ export interface ControlRoomProofInput {
   kernel_rail_bypass_detected: boolean;
 }
 
+export interface Phase11OperatorProofInput {
+  scheduled_run_count: number;
+  scheduled_verified_complete_rate: number;
+  consecutive_daily_runs: boolean;
+  autonomy_gating_correct: boolean;
+  no_manual_intervention_steps: boolean;
+}
+
 export interface ProgramScorecardInput {
   generated_at: string;
   contract_snapshot: ProgramContractSnapshot;
@@ -125,6 +133,7 @@ export interface ProgramScorecardInput {
   actual_mission_proof?: ActualMissionProofInput;
   phase6_repeatability_proof?: Phase6RepeatabilityProofInput;
   control_room_proof?: ControlRoomProofInput;
+  phase11_operator_proof?: Phase11OperatorProofInput;
 }
 
 export interface ProgramMetricValue {
@@ -687,6 +696,46 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     input.phase6_repeatability_proof?.no_hidden_human_steps,
     true,
     'Repeatability claims must still avoid undocumented human rescue between actual mission runs.',
+  ));
+  metricValues.push(percentageMetric(
+    'phase11_scheduled_run_count',
+    'Phase 11 scheduled run count',
+    'runtime',
+    input.phase11_operator_proof?.scheduled_run_count,
+    3,
+    'Operator mode acceptance requires at least three consecutive scheduled runs.',
+  ));
+  metricValues.push(percentageMetric(
+    'phase11_scheduled_verified_complete_rate',
+    'Phase 11 scheduled verified-complete rate',
+    'runtime',
+    input.phase11_operator_proof?.scheduled_verified_complete_rate,
+    100,
+    'Scheduled runs should close with verified_complete in the acceptance harness.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase11_consecutive_daily_runs',
+    'Phase 11 consecutive daily runs',
+    'runtime',
+    input.phase11_operator_proof?.consecutive_daily_runs,
+    true,
+    'Acceptance harness should prove daily cadence continuity across three runs.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase11_autonomy_gating_correct',
+    'Phase 11 autonomy gating correctness',
+    'manager',
+    input.phase11_operator_proof?.autonomy_gating_correct,
+    true,
+    'Semi-autonomous gating should keep novel runs supervised and routine runs auto-approved.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase11_no_manual_intervention_steps',
+    'Phase 11 no hidden manual intervention',
+    'north_star',
+    input.phase11_operator_proof?.no_manual_intervention_steps,
+    true,
+    'Scheduled acceptance runs must not require hidden manual rescue steps.',
   ));
 
   const phase0ContractsFrozen = input.contract_snapshot.docs_locked
