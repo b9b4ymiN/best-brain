@@ -176,6 +176,7 @@ Control room:
 
 - `GET /control-room`
 - `GET /control-room/api/overview`
+- `GET /control-room/api/system-health`
 - `GET /control-room/api/autonomy-policy`
 - `POST /control-room/api/autonomy-policy`
 - `GET /control-room/api/history`
@@ -365,6 +366,28 @@ Notes:
 - priority ordering is deterministic (`urgent > scheduled > background`)
 - retryable failures are re-queued with backoff; terminal failures stay `failed`
 - polling interval can be tuned with `BEST_BRAIN_TASK_QUEUE_INTERVAL_MS` (default `20000`)
+
+### System health monitoring flow (Phase 11 Step 25)
+
+Server-side health monitoring now polls at runtime and surfaces alerts in control-room overview.
+
+- worker availability (`claude`, `codex`, `shell`, `browser`, `mail`, `verifier`)
+- memory staleness ratio
+- 24h mission failure rate
+- data-dir disk usage
+
+Endpoints:
+
+```text
+GET /control-room/api/overview
+GET /control-room/api/system-health
+```
+
+Tune polling interval:
+
+```bash
+BEST_BRAIN_HEALTH_INTERVAL_MS=30000 bun run server
+```
 
 ## Repo direction
 

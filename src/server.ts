@@ -10,6 +10,7 @@ import { MissionScheduler } from './runtime/scheduler.ts';
 import type { ScheduledMissionRecord } from './runtime/types.ts';
 import { AutonomousTaskQueue } from './runtime/task-queue.ts';
 import type { QueueExecutionResult } from './runtime/task-queue.ts';
+import { RuntimeHealthMonitor } from './runtime/health.ts';
 
 const brain = await BestBrain.open();
 let server: ReturnType<typeof Bun.serve>;
@@ -44,10 +45,13 @@ function toQueueExecutionResult(view: { mission_id: string; status: string; verd
 }
 
 let taskQueue: AutonomousTaskQueue | null = null;
+let healthMonitor: RuntimeHealthMonitor | null = null;
 const controlRoom = new ControlRoomService({
   dataDir: brain.config.dataDir,
   managerFactory,
   memoryQualityProvider: () => brain.getMemoryQualityMetrics(),
+  systemHealthProvider: () => healthMonitor?.getLatestSnapshot() ?? null,
+  recentAlertsProvider: () => healthMonitor?.listRecentAlerts(20) ?? [],
   followupQueueEnqueue: (result) => {
     taskQueue?.enqueueFollowupsFromResult(result);
   },
@@ -108,6 +112,16 @@ taskQueue = new AutonomousTaskQueue({
     console.log(`[task-queue] ${message}`, data ? JSON.stringify(data) : '');
   },
 });
+healthMonitor = new RuntimeHealthMonitor({
+  store: brain.store,
+  dataDir: brain.config.dataDir,
+  memoryQualityProvider: () => brain.getMemoryQualityMetrics(),
+  onAlert: (alerts) => {
+    for (const alert of alerts) {
+      console.log(`[health-alert] ${alert.severity} ${alert.kind}: ${alert.message}`);
+    }
+  },
+});
 const app = createApp(brain, { chat, controlRoom, scheduler, taskQueue });
 
 server = Bun.serve({
@@ -117,5 +131,9 @@ server = Bun.serve({
 
 scheduler.startPolling(Number(process.env.BEST_BRAIN_SCHEDULER_INTERVAL_MS || 30_000));
 taskQueue.startPolling(Number(process.env.BEST_BRAIN_TASK_QUEUE_INTERVAL_MS || 20_000));
+healthMonitor.startPolling(Number(process.env.BEST_BRAIN_HEALTH_INTERVAL_MS || 30_000));
+await healthMonitor.evaluateNow().catch(() => {
+  // best-effort initial snapshot for control-room dashboard.
+});
 
 console.log(`best-brain HTTP server listening on http://localhost:${server.port}`);

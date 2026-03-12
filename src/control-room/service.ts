@@ -4,6 +4,7 @@ import type { MemoryQualityMetrics, MissionStatus } from '../types.ts';
 import type { ManagerRuntime } from '../manager/runtime.ts';
 import type { ManagerRunResult } from '../manager/types.ts';
 import type { RuntimeArtifactRecord, RuntimeEventRecord, RuntimeWorkerTaskRun } from '../runtime/types.ts';
+import type { SystemHealthAlert, SystemHealthSnapshot } from '../runtime/health.ts';
 import {
   applyAutonomyPolicyUpdate,
   defaultAutonomyPolicy,
@@ -69,6 +70,8 @@ export interface ControlRoomServiceOptions {
   dataDir: string;
   managerFactory: ControlRoomManagerFactory;
   memoryQualityProvider?: () => MemoryQualityMetrics;
+  systemHealthProvider?: () => SystemHealthSnapshot | null;
+  recentAlertsProvider?: () => SystemHealthAlert[];
   followupQueueEnqueue?: (result: ManagerRunResult) => void | Promise<void>;
   autonomyPolicyPath?: string;
   now?: () => number;
@@ -554,6 +557,8 @@ export class ControlRoomService {
   private readonly autonomyPolicyPath: string;
   private readonly managerFactory: ControlRoomManagerFactory;
   private readonly memoryQualityProvider: (() => MemoryQualityMetrics) | null;
+  private readonly systemHealthProvider: (() => SystemHealthSnapshot | null) | null;
+  private readonly recentAlertsProvider: (() => SystemHealthAlert[]) | null;
   private readonly followupQueueEnqueue: ((result: ManagerRunResult) => void | Promise<void>) | null;
   private readonly now: () => number;
   private autonomyPolicy: AutonomyPolicyConfig;
@@ -564,6 +569,8 @@ export class ControlRoomService {
       ?? path.join(options.dataDir, 'control-room', 'autonomy-policy.json');
     this.managerFactory = options.managerFactory;
     this.memoryQualityProvider = options.memoryQualityProvider ?? null;
+    this.systemHealthProvider = options.systemHealthProvider ?? null;
+    this.recentAlertsProvider = options.recentAlertsProvider ?? null;
     this.followupQueueEnqueue = options.followupQueueEnqueue ?? null;
     this.now = options.now ?? (() => Date.now());
     fs.mkdirSync(this.missionsDir, { recursive: true });
@@ -738,6 +745,8 @@ export class ControlRoomService {
       available_statuses: availableStatuses,
       available_mission_kinds: availableMissionKinds,
       autonomy_policy: this.autonomyPolicy,
+      system_health: this.systemHealthProvider?.() ?? null,
+      recent_alerts: this.recentAlertsProvider?.() ?? [],
       memory_health: memoryHealth,
     };
   }

@@ -219,6 +219,10 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification**: Routine mission auto-completes in semi-autonomous mode; novel mission pauses for approval
 
 ### Step 25: Self-Monitoring & Alerting (*parallel with Step 24*)
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/runtime/health.ts`, `src/db/client.ts`, `src/control-room/service.ts`, `src/control-room/types.ts`, `src/http/app.ts`, `src/server.ts`, `tests/health-monitor.test.ts`, `tests/control-room-health-http.test.ts`
+- **Action (actual)**: Added runtime health monitor with 30s polling defaults to track worker availability, memory staleness, mission failure rate (24h window), and data-dir disk usage. Alerts are generated deterministically and surfaced through control-room overview + dedicated system-health endpoint.
+- **Verification (actual)**: `tests/health-monitor.test.ts` + `tests/control-room-health-http.test.ts` pass; full test suite remains green with health snapshot + alert payloads.
 - **Files**: `src/runtime/` (health monitor)
 - **Action**: System monitors own health: worker availability, memory staleness, mission failure rate, disk usage. Alerts user via control room + optional notification when thresholds exceeded
 - **Verification**: Simulate worker down → alert appears in control room within 30s

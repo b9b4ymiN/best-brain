@@ -613,6 +613,38 @@ const dashboardView: ControlRoomDashboardView = {
     routine_min_verified_runs: 1,
     updated_at: now + 10_000,
   },
+  system_health: {
+    generated_at: now + 27_000,
+    worker_availability: [
+      { worker: 'claude', available: true, detail: 'claude CLI detected', checked_at: now + 27_000 },
+      { worker: 'codex', available: true, detail: 'codex CLI detected', checked_at: now + 27_000 },
+      { worker: 'shell', available: true, detail: 'bun CLI detected for shell/runtime tasks', checked_at: now + 27_000 },
+      { worker: 'browser', available: true, detail: 'browser worker adapter is manager-owned and available by default', checked_at: now + 27_000 },
+      { worker: 'mail', available: true, detail: 'mail worker adapter is manager-owned and available in draft mode', checked_at: now + 27_000 },
+      { worker: 'verifier', available: true, detail: 'verifier is manager-owned and always available', checked_at: now + 27_000 },
+    ],
+    memory: {
+      stale_ratio: 0.08,
+      stale_candidate_count: 2,
+      active_memory_count: 24,
+    },
+    missions: {
+      window_hours: 24,
+      total_runs: 6,
+      verified_complete: 5,
+      verification_failed: 1,
+      rejected: 0,
+      failure_rate: 1 / 6,
+    },
+    disk: {
+      data_dir: 'C:/tmp/best-brain-runtime',
+      bytes_used: 1_024_000,
+      threshold_bytes: 2 * 1024 * 1024 * 1024,
+      usage_ratio: 1_024_000 / (2 * 1024 * 1024 * 1024),
+    },
+    alerts: [],
+  },
+  recent_alerts: [],
   memory_health: {
     generated_at: now + 27_000,
     active_memory_count: 24,

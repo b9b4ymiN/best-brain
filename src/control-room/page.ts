@@ -284,6 +284,8 @@ export function renderControlRoomPage(): string {
         missionCount.textContent = missions.length + ' mission' + (missions.length === 1 ? '' : 's');
         if (memoryHealth) {
           const health = state.dashboard?.memory_health;
+          const systemHealth = state.dashboard?.system_health;
+          const alerts = state.dashboard?.recent_alerts || [];
           if (!health) {
             memoryHealth.innerHTML = '<strong>Memory health</strong><br/><small>unavailable</small>';
           } else {
@@ -293,6 +295,18 @@ export function renderControlRoomPage(): string {
               + ' • stale ' + health.stale_candidate_count + ' (' + health.stale_ratio + '%)'
               + ' • contradictions ' + health.unresolved_contradiction_count
               + ' • citation rating ' + health.citation_usefulness_rating + '/5</small>';
+          }
+          if (systemHealth) {
+            const workerDown = (systemHealth.worker_availability || []).filter((worker) => !worker.available).map((worker) => worker.worker);
+            memoryHealth.innerHTML += '<br/><strong>System health</strong><br/><small>'
+              + 'mission failure ' + Math.round((systemHealth.missions.failure_rate || 0) * 100) + '%'
+              + ' • disk ' + (systemHealth.disk.bytes_used / (1024 * 1024)).toFixed(1) + 'MB'
+              + ' • workers down: ' + (workerDown.length > 0 ? workerDown.join(', ') : 'none')
+              + '</small>';
+          }
+          if (alerts.length > 0) {
+            const alertPreview = alerts.slice(0, 2).map((alert) => '[' + alert.severity + '] ' + alert.message).join('<br/>');
+            memoryHealth.innerHTML += '<br/><strong>Alerts</strong><br/><small>' + alertPreview + '</small>';
           }
         }
         list.innerHTML = '';

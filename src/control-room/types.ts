@@ -3,6 +3,7 @@ import type { MissionTaskGraph } from '../manager/graph.ts';
 import type { WorkerId } from '../workers/types.ts';
 import type { RuntimeArtifactRecord } from '../runtime/types.ts';
 import type { AutonomyDecision, AutonomyLevel, AutonomyPolicyConfig } from '../policies/autonomy.ts';
+import type { SystemHealthAlert, SystemHealthSnapshot } from '../runtime/health.ts';
 
 export const CONTROL_ROOM_ACTIONS = [
   'launch_mission',
@@ -139,6 +140,8 @@ export interface ControlRoomDashboardView {
   available_statuses: MissionStatus[];
   available_mission_kinds: string[];
   autonomy_policy: AutonomyPolicyConfig;
+  system_health: SystemHealthSnapshot | null;
+  recent_alerts: SystemHealthAlert[];
   memory_health: MemoryQualityMetrics | null;
 }
 

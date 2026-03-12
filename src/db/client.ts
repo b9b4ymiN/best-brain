@@ -820,6 +820,47 @@ export class BrainStore {
     return row ? asMissionRecord(row) : null;
   }
 
+  getMissionStatusStatsSince(timestamp: number): {
+    total: number;
+    verified_complete: number;
+    verification_failed: number;
+    rejected: number;
+    failed_ratio: number;
+  } {
+    const rows = this.sqlite
+      .prepare(
+        `SELECT status, COUNT(*) AS count
+         FROM missions
+         WHERE updated_at >= ?
+         GROUP BY status`,
+      )
+      .all(timestamp) as Array<{ status?: string; count?: number }>;
+
+    let total = 0;
+    let verifiedComplete = 0;
+    let verificationFailed = 0;
+    let rejected = 0;
+    for (const row of rows) {
+      const count = Number(row.count ?? 0);
+      total += count;
+      if (row.status === 'verified_complete') {
+        verifiedComplete += count;
+      } else if (row.status === 'verification_failed') {
+        verificationFailed += count;
+      } else if (row.status === 'rejected') {
+        rejected += count;
+      }
+    }
+    const failedTotal = verificationFailed + rejected;
+    return {
+      total,
+      verified_complete: verifiedComplete,
+      verification_failed: verificationFailed,
+      rejected,
+      failed_ratio: total > 0 ? failedTotal / total : 0,
+    };
+  }
+
   upsertMission(mission: MissionRecord): MissionRecord {
     this.sqlite
       .prepare(

@@ -404,6 +404,13 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   if (services.controlRoom) {
     app.get('/control-room', (c) => c.html(renderControlRoomPage()));
     app.get('/control-room/api/overview', (c) => c.json(services.controlRoom!.listDashboard()));
+    app.get('/control-room/api/system-health', (c) => {
+      const overview = services.controlRoom!.listDashboard();
+      return c.json({
+        system_health: overview.system_health,
+        recent_alerts: overview.recent_alerts,
+      });
+    });
     app.get('/control-room/api/autonomy-policy', (c) => c.json({
       policy: services.controlRoom!.getAutonomyPolicy(),
     }));
