@@ -539,6 +539,8 @@ Output artifact:
 artifacts/phase13-operator.latest.json
 ```
 
+`bun run scorecard:program` now ingests this artifact and reports `phase13_*` operator-hardening metrics.
+
 ## Repo direction
 
 The target system architecture has five long-term pillars:

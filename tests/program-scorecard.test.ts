@@ -108,6 +108,14 @@ describe('program scorecard', () => {
         autonomy_gating_correct: true,
         no_manual_intervention_steps: true,
       },
+      phase13_operator_proof: {
+        diagnostics_available: true,
+        dashboard_includes_worker_recovery: true,
+        preflight_blocks_unavailable_execution: true,
+        preflight_allows_no_execute: true,
+        launch_enforces_preflight_server_side: true,
+        launch_allows_no_execute_plan_only: true,
+      },
     });
 
     expect(scorecard.success_bar).toBe('Repeatable One-Mission');
@@ -125,6 +133,8 @@ describe('program scorecard', () => {
     expect(scorecard.metric_values.some((metric) => metric.id === 'control_room_kernel_rail_integrity' && metric.status === 'pass')).toBe(true);
     expect(scorecard.metric_values.some((metric) => metric.id === 'phase11_scheduled_run_count' && metric.status === 'pass')).toBe(true);
     expect(scorecard.metric_values.some((metric) => metric.id === 'phase11_autonomy_gating_correct' && metric.status === 'pass')).toBe(true);
+    expect(scorecard.metric_values.some((metric) => metric.id === 'phase13_diagnostics_available' && metric.status === 'pass')).toBe(true);
+    expect(scorecard.metric_values.some((metric) => metric.id === 'phase13_launch_server_guard' && metric.status === 'pass')).toBe(true);
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase0_ProgramLock')?.status).toBe('pass');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase1_ManagerBeta')?.status).toBe('partial');
     expect(scorecard.phase_readiness.find((phase) => phase.phase === 'Phase2_WorkerFabricRuntimeSpine')?.status).toBe('pass');

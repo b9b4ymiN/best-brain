@@ -317,6 +317,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: `bun run proof:phase13` emits `artifacts/phase13-operator.latest.json` with invariant flags and launch/preflight status evidence.
 - **Verification**: Windows operators can validate readiness + guardrails in one reproducible proof artifact before mission execution.
 
+### Step 36: Program Scorecard Integration for Phase 13
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/program/scorecard.ts`, `scripts/generate-program-scorecard.ts`, `tests/program-scorecard.test.ts`
+- **Action (actual)**: Added Phase 13 hardening metrics to the program scorecard and wired `generate-program-scorecard` to ingest `artifacts/phase13-operator.latest.json` invariants.
+- **Verification (actual)**: `bun run scorecard:program` now emits `phase13_*` metrics (diagnostics, dashboard recovery, preflight block/advisory behavior, launch server guard) as pass/fail signals.
+- **Verification**: operator hardening status is now tracked in the same scorecard used for program-wide gates.
+
 ---
 
 ## Verification & Quality Gates (All Phases)

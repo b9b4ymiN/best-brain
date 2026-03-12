@@ -120,6 +120,15 @@ export interface Phase11OperatorProofInput {
   no_manual_intervention_steps: boolean;
 }
 
+export interface Phase13OperatorHardeningProofInput {
+  diagnostics_available: boolean;
+  dashboard_includes_worker_recovery: boolean;
+  preflight_blocks_unavailable_execution: boolean;
+  preflight_allows_no_execute: boolean;
+  launch_enforces_preflight_server_side: boolean;
+  launch_allows_no_execute_plan_only: boolean;
+}
+
 export interface ProgramScorecardInput {
   generated_at: string;
   contract_snapshot: ProgramContractSnapshot;
@@ -134,6 +143,7 @@ export interface ProgramScorecardInput {
   phase6_repeatability_proof?: Phase6RepeatabilityProofInput;
   control_room_proof?: ControlRoomProofInput;
   phase11_operator_proof?: Phase11OperatorProofInput;
+  phase13_operator_proof?: Phase13OperatorHardeningProofInput;
 }
 
 export interface ProgramMetricValue {
@@ -758,6 +768,54 @@ export function buildProgramScorecard(input: ProgramScorecardInput): ProgramScor
     input.phase11_operator_proof?.no_manual_intervention_steps,
     true,
     'Scheduled acceptance runs must not require hidden manual rescue steps.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase13_diagnostics_available',
+    'Phase 13 worker diagnostics available',
+    'runtime',
+    input.phase13_operator_proof?.diagnostics_available,
+    true,
+    'Worker diagnostics should be available before control-room launch.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase13_dashboard_worker_recovery',
+    'Phase 13 dashboard includes worker recovery actions',
+    'console',
+    input.phase13_operator_proof?.dashboard_includes_worker_recovery,
+    true,
+    'Operator dashboard should provide recovery actions for unavailable workers.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase13_preflight_blocks_unavailable_execution',
+    'Phase 13 preflight blocks unavailable execution workers',
+    'manager',
+    input.phase13_operator_proof?.preflight_blocks_unavailable_execution,
+    true,
+    'Preflight must block explicit unavailable worker execution requests.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase13_preflight_allows_no_execute',
+    'Phase 13 preflight allows plan-only no-execute path',
+    'manager',
+    input.phase13_operator_proof?.preflight_allows_no_execute,
+    true,
+    'Plan-only launches should stay advisory when execution is disabled.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase13_launch_server_guard',
+    'Phase 13 launch enforces server-side preflight guard',
+    'manager',
+    input.phase13_operator_proof?.launch_enforces_preflight_server_side,
+    true,
+    'Direct launch requests must not bypass preflight readiness gates.',
+  ));
+  metricValues.push(equalityMetric(
+    'phase13_launch_allows_no_execute',
+    'Phase 13 launch allows plan-only no-execute flow',
+    'manager',
+    input.phase13_operator_proof?.launch_allows_no_execute_plan_only,
+    true,
+    'Launch should allow no-execute planning even when explicit execution worker is unavailable.',
   ));
 
   const phase0ContractsFrozen = input.contract_snapshot.docs_locked

@@ -128,6 +128,18 @@ const phase11OperatorProof = readJson<{
     no_manual_intervention_steps: boolean;
   };
 }>(path.join(artifactsDir, 'phase11-operator.latest.json'));
+const phase13OperatorProof = readJson<{
+  payload: {
+    invariants: {
+      diagnostics_available: boolean;
+      dashboard_includes_worker_recovery: boolean;
+      preflight_blocks_unavailable_execution: boolean;
+      preflight_allows_no_execute: boolean;
+      launch_enforces_preflight_server_side: boolean;
+      launch_allows_no_execute_plan_only: boolean;
+    };
+  };
+}>(path.join(artifactsDir, 'phase13-operator.latest.json'));
 const bootstrapProofDir = path.join(artifactsDir, 'bootstrap-proofs');
 
 type BootstrapTarget = 'windows' | 'macos' | 'linux';
@@ -229,6 +241,7 @@ const scorecard = buildProgramScorecard({
   phase6_repeatability_proof: phase6RepeatabilityProof?.payload,
   control_room_proof: controlRoomProof?.payload,
   phase11_operator_proof: phase11OperatorProof?.payload,
+  phase13_operator_proof: phase13OperatorProof?.payload.invariants,
 });
 
 fs.mkdirSync(artifactsDir, { recursive: true });
