@@ -133,6 +133,7 @@ bun run proof:phase5
 bun run proof:phase6
 bun run proof:phase11
 bun run proof:phase12
+bun run proof:phase13
 bun run proof:control-room
 bun run proof:chat-memory
 bun run examples:program
@@ -523,6 +524,20 @@ Additional behavior:
 
 - `dry_run=true` or `no_execute=true` does not block launch on unavailable explicit CLI workers
 - execution launches (`dry_run=false` and `no_execute=false`) remain blocked on unavailable explicit CLI workers
+
+### Phase 13 Step 35: deterministic phase13 proof capture
+
+Capture a deterministic artifact for diagnostics, preflight, and launch-guard invariants:
+
+```bash
+bun run proof:phase13
+```
+
+Output artifact:
+
+```text
+artifacts/phase13-operator.latest.json
+```
 
 ## Repo direction
 

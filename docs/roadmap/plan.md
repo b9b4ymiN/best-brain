@@ -310,6 +310,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: preflight/launch HTTP tests now cover no-execute advisory behavior plus launch-path blocking when explicit unavailable worker is requested for execution.
 - **Verification**: any client path (UI or direct HTTP) receives identical readiness gating before mission execution.
 
+### Step 35: Phase 13 Deterministic Proof Harness
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `scripts/capture-phase13-proof.ts`, `package.json`, `README.md`, `docs/operators/windows-operator-runbook.md`
+- **Action (actual)**: Added deterministic proof harness to capture Phase 13 invariants across worker diagnostics, operator dashboard recovery actions, preflight execution blocking, no-execute advisory behavior, and server-side launch guard enforcement.
+- **Verification (actual)**: `bun run proof:phase13` emits `artifacts/phase13-operator.latest.json` with invariant flags and launch/preflight status evidence.
+- **Verification**: Windows operators can validate readiness + guardrails in one reproducible proof artifact before mission execution.
+
 ---
 
 ## Verification & Quality Gates (All Phases)

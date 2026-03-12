@@ -43,6 +43,7 @@ Expected behavior:
 bun run proof:bootstrap:matrix
 bun run proof:phase11
 bun run proof:phase12
+bun run proof:phase13
 ```
 
 Expected artifacts:
@@ -51,6 +52,7 @@ Expected artifacts:
 - `artifacts/bootstrap-proof.latest.json`
 - `artifacts/phase11-operator.latest.json`
 - `artifacts/phase12-safety.latest.json`
+- `artifacts/phase13-operator.latest.json`
 
 ## 5. Run manager smokes
 

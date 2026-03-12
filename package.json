@@ -30,6 +30,7 @@
     "proof:phase6": "bun scripts/capture-phase6-proof.ts",
     "proof:phase11": "bun scripts/capture-phase11-proof.ts",
     "proof:phase12": "bun scripts/capture-phase12-proof.ts",
+    "proof:phase13": "bun scripts/capture-phase13-proof.ts",
     "proof:control-room": "bun scripts/capture-control-room-proof.ts",
     "proof:chat-memory": "bun scripts/capture-chat-memory-proof.ts",
     "proof:proving": "bun scripts/run-proving-harness.ts",
