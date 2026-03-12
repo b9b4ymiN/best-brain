@@ -92,6 +92,7 @@ function normalizeInput(
     cwd: value.cwd?.trim() || process.cwd(),
     dry_run: value.dry_run === true,
     no_execute: value.no_execute === true,
+    force_mission: value.force_mission === true,
     output_mode: normalizeOutputMode(value.output_mode),
   };
 }
@@ -679,6 +680,27 @@ export class ManagerRuntime {
           ? `The AI manager chose ${aiTriage.kind}.`
           : `Heuristic routing kept the request as ${decision.kind}.`,
         decision_kind: aiTriage?.kind ?? decision.kind,
+        requested_worker: decision.selected_worker,
+      });
+    }
+    if (input.force_mission && decision.kind === 'chat') {
+      decision = {
+        kind: 'mission',
+        chat_mode: null,
+        should_execute: !input.dry_run && !input.no_execute,
+        selected_worker: selectWorker(input.goal, input.worker_preference),
+        reason: 'Mission launch was requested from control-room and must not stay in chat mode.',
+        verification_required: true,
+        blocked_reason: null,
+        blocked_reason_code: null,
+      };
+      await emitProgress({
+        stage: 'force_mission',
+        status: 'info',
+        actor: 'manager',
+        title: 'Mission mode was forced',
+        detail: 'Control-room launch overrides chat routing so execution can proceed through mission rails.',
+        decision_kind: decision.kind,
         requested_worker: decision.selected_worker,
       });
     }

@@ -400,6 +400,48 @@ describe('manager alpha unit flow', () => {
     }
   });
 
+  test('force_mission overrides chat triage so control-room launches stay on mission rails', async () => {
+    const brain = new FakeBrainAdapter();
+    const reasoner = new FakeReasoner({
+      kind: 'chat',
+      chat_mode: 'direct_chat',
+      reason: 'The message looks conversational.',
+      direct_answer: 'This would normally be a chat answer.',
+    });
+    const worker = new FakeWorkerAdapter('shell', {
+      summary: 'Executed a deterministic mission step via shell worker.',
+      status: 'success',
+      artifacts: [{ type: 'note', ref: 'worker://shell/force-mission' }],
+      proposed_checks: [{ name: 'force-mission-proof', passed: true }],
+      raw_output: 'force-mission-proof',
+      invocation: null,
+      process_output: null,
+    });
+    const runtime = new ManagerRuntime({
+      brain,
+      reasoner,
+      workers: { shell: worker },
+    });
+
+    try {
+      const result = await runtime.run({
+        goal: 'Run `bun --version` and return proof.',
+        worker_preference: 'shell',
+        mission_id: 'mission_force_mode',
+        force_mission: true,
+        output_mode: 'json',
+      });
+
+      expect(result.decision.kind).toBe('mission');
+      expect(result.decision.reason).toContain('control-room');
+      expect(result.worker_result?.status).toBe('success');
+      expect(worker.requests).toHaveLength(1);
+      expect(result.verification_result?.status).toBe('verified_complete');
+    } finally {
+      await runtime.dispose();
+    }
+  });
+
   test('simple chat questions are classified by the AI reasoner first and can return a direct answer', async () => {
     const brain = new FakeBrainAdapter();
     const reasoner = new FakeReasoner({

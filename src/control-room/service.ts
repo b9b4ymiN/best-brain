@@ -1014,6 +1014,7 @@ export class ControlRoomService {
         mission_id: overrides.mission_id ?? null,
         dry_run: request.dry_run,
         no_execute: request.no_execute ?? false,
+        force_mission: true,
         output_mode: 'json',
       });
       return {

@@ -53,6 +53,7 @@ export interface ManagerInput {
   cwd: string;
   dry_run: boolean;
   no_execute: boolean;
+  force_mission?: boolean;
   output_mode: ManagerOutputMode;
 }
 
