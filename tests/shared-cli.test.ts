@@ -4,6 +4,10 @@ import { detectCodexProviderIssue, extractCodexStreamError, extractCodexStreamMe
 describe('shared CLI adapter helpers', () => {
   test('detects command-not-found spawn errors', () => {
     expect(isSpawnCommandMissing({ code: 'ENOENT' })).toBe(true);
+    expect(isSpawnCommandMissing({ errno: -2 })).toBe(true);
+    expect(isSpawnCommandMissing({ cause: { code: 'ENOENT' } })).toBe(true);
+    expect(isSpawnCommandMissing(new Error("ENOENT: no such file or directory, uv_spawn 'claude'"))).toBe(true);
+    expect(isSpawnCommandMissing("ENOENT: no such file or directory, uv_spawn 'codex'")).toBe(true);
     expect(isSpawnCommandMissing({ code: 'EACCES' })).toBe(false);
     expect(isSpawnCommandMissing(null)).toBe(false);
   });

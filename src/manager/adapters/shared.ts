@@ -218,10 +218,52 @@ export function resolveSpawnCommand(command: string): ResolvedSpawnCommand {
 }
 
 export function isSpawnCommandMissing(error: unknown): boolean {
-  return typeof error === 'object'
-    && error !== null
-    && 'code' in error
-    && (error as { code?: string }).code === 'ENOENT';
+  const seen = new Set<unknown>();
+
+  const inspect = (value: unknown): boolean => {
+    if (value == null) {
+      return false;
+    }
+    if (seen.has(value)) {
+      return false;
+    }
+    seen.add(value);
+
+    if (typeof value === 'string') {
+      const normalized = value.toLowerCase();
+      return normalized.includes('enoent')
+        || normalized.includes("uv_spawn 'claude'")
+        || normalized.includes("uv_spawn 'codex'")
+        || normalized.includes('no such file or directory');
+    }
+
+    if (typeof value !== 'object') {
+      return false;
+    }
+
+    const candidate = value as {
+      code?: string;
+      errno?: number | string;
+      message?: string;
+      cause?: unknown;
+    };
+
+    if (candidate.code === 'ENOENT') {
+      return true;
+    }
+    if (candidate.errno === -2 || candidate.errno === 'ENOENT') {
+      return true;
+    }
+    if (typeof candidate.message === 'string' && inspect(candidate.message)) {
+      return true;
+    }
+    if ('cause' in candidate && inspect(candidate.cause)) {
+      return true;
+    }
+    return false;
+  };
+
+  return inspect(error);
 }
 
 function forceKill(child: ChildProcess): void {

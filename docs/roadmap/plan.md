@@ -255,6 +255,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: `tests/operator-safety.test.ts` + `tests/operator-safety-http.test.ts` pass; full suite remains green.
 - **Verification**: Activate safety stop -> launch/tick paths return blocked status -> resume -> execution paths run normally.
 
+### Step 28: Windows CLI Spawn Resilience (Claude/Codex missing-path fallback)
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/manager/adapters/shared.ts`, `tests/shared-cli.test.ts`
+- **Action (actual)**: Hardened missing-command detection to cover Windows/Bun `uv_spawn` ENOENT variants (`code`, `errno`, nested `cause`, and message-only errors). This prevents chat/triage paths from failing the whole run when `claude` or `codex` is not installed or not on PATH.
+- **Verification (actual)**: `tests/shared-cli.test.ts` includes ENOENT message/cause cases (`uv_spawn 'claude'`/`'codex'`) and passes.
+- **Verification**: On Windows without Claude/Codex in PATH, manager/chat degrades to non-worker fallback instead of surfacing raw spawn errors.
+
 ---
 
 ## Verification & Quality Gates (All Phases)
