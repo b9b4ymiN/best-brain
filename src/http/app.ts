@@ -466,11 +466,14 @@ export function createApp(brain: BestBrain, services: AppServices = {}): Hono {
   if (services.controlRoom) {
     app.get('/control-room', (c) => c.html(renderControlRoomPage()));
     app.get('/control-room/api/overview', (c) => c.json(services.controlRoom!.listDashboard()));
-    app.get('/control-room/api/operator-dashboard', (c) => c.json(
+    app.get('/control-room/api/operator-dashboard', async (c) => c.json(
       services.controlRoom!.listOperatorDashboard({
         scheduledMissions: services.scheduler?.listSchedules() ?? [],
         queuedTasks: services.taskQueue?.listItems() ?? [],
         safetyState: safetyController?.getState() ?? null,
+        workerDiagnostics: services.workerDiagnostics
+          ? await services.workerDiagnostics.collect()
+          : null,
       }),
     ));
     app.post('/control-room/api/operator/override', async (c) => {

@@ -66,7 +66,41 @@ describe('control-room operator dashboard HTTP', () => {
       }),
     });
 
-    const app = createApp(brain, { controlRoom, scheduler, taskQueue });
+    const app = createApp(brain, {
+      controlRoom,
+      scheduler,
+      taskQueue,
+      workerDiagnostics: {
+        collect: async () => ({
+          generated_at: Date.now(),
+          platform: 'win32',
+          entries: [
+            {
+              worker: 'claude',
+              available: true,
+              execution_mode: 'cli',
+              command: 'claude',
+              args: ['--version'],
+              detail: 'claude CLI is executable.',
+              version: 'claude 2.x',
+              checked_at: Date.now(),
+              latency_ms: 10,
+            },
+            {
+              worker: 'codex',
+              available: false,
+              execution_mode: 'cli',
+              command: 'codex',
+              args: ['--version'],
+              detail: 'codex CLI was not found in PATH.',
+              version: null,
+              checked_at: Date.now(),
+              latency_ms: 5,
+            },
+          ],
+        }),
+      } as any,
+    });
     server = Bun.serve({
       port: 0,
       hostname: '127.0.0.1',
@@ -134,12 +168,15 @@ describe('control-room operator dashboard HTTP', () => {
         scheduled_missions: Array<{ id: string }>;
         queued_tasks: Array<{ id: string }>;
         autonomy_policy: { default_level: string };
+        worker_diagnostics: { entries: Array<{ worker: string; available: boolean }> } | null;
       };
       expect(operatorPayload.autonomy_policy.default_level).toBe('supervised');
       expect(operatorPayload.active_missions.some((mission) => mission.mission_id === activeView.mission_id && mission.override_allowed)).toBe(true);
       expect(operatorPayload.approval_queue.some((item) => item.mission_id === verifiedView.mission_id && item.status === 'verified_complete')).toBe(true);
       expect(operatorPayload.scheduled_missions.length).toBeGreaterThan(0);
       expect(operatorPayload.queued_tasks.length).toBeGreaterThan(0);
+      expect(operatorPayload.worker_diagnostics?.entries.some((entry) => entry.worker === 'claude' && entry.available)).toBe(true);
+      expect(operatorPayload.worker_diagnostics?.entries.some((entry) => entry.worker === 'codex' && !entry.available)).toBe(true);
 
       const override = await fetch(`${baseUrl}/control-room/api/operator/override`, {
         method: 'POST',

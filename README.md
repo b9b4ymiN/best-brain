@@ -492,6 +492,10 @@ bun run diagnostics:workers
 curl -s http://127.0.0.1:47888/operator/workers/diagnostics
 ```
 
+### Phase 13 Step 31: diagnostics inside operator dashboard
+
+`GET /control-room/api/operator-dashboard` now includes `worker_diagnostics` so control-room can show worker readiness inline without a separate panel/query.
+
 ## Repo direction
 
 The target system architecture has five long-term pillars:

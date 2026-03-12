@@ -12,6 +12,7 @@ import type {
 } from '../runtime/types.ts';
 import type { SystemHealthAlert, SystemHealthSnapshot } from '../runtime/health.ts';
 import type { OperatorSafetyState } from '../runtime/safety.ts';
+import type { WorkerDiagnosticsSnapshot } from '../runtime/worker-diagnostics.ts';
 import {
   applyAutonomyPolicyUpdate,
   defaultAutonomyPolicy,
@@ -788,6 +789,7 @@ export class ControlRoomService {
     scheduledMissions?: ScheduledMissionRecord[];
     queuedTasks?: TaskQueueItemRecord[];
     safetyState?: OperatorSafetyState | null;
+    workerDiagnostics?: WorkerDiagnosticsSnapshot | null;
   } = {}): OperatorDashboardView {
     const records = this.listMissionRecords();
     const activeMissions: OperatorActiveMissionView[] = [];
@@ -841,6 +843,7 @@ export class ControlRoomService {
       active_missions: activeMissions.sort((left, right) => right.updated_at - left.updated_at),
       approval_queue: approvalQueue.sort((left, right) => right.updated_at - left.updated_at),
       safety_state: input.safetyState ?? this.operatorSafetyProvider?.() ?? null,
+      worker_diagnostics: input.workerDiagnostics ?? null,
       autonomy_policy: this.autonomyPolicy,
       system_health: this.systemHealthProvider?.() ?? null,
       recent_alerts: this.recentAlertsProvider?.() ?? [],

@@ -253,6 +253,11 @@ export function renderControlRoomPage(): string {
             <div id="operatorSummary" class="item"></div>
             <div id="operatorSafetyActions" class="actions"></div>
             <div class="two-line">
+              <strong>Worker diagnostics</strong>
+              <small id="operatorWorkerDiagnosticsCount">0</small>
+            </div>
+            <div id="operatorWorkerDiagnosticsList" class="list"></div>
+            <div class="two-line">
               <strong>Active missions</strong>
               <small id="operatorActiveCount">0</small>
             </div>
@@ -372,6 +377,8 @@ export function renderControlRoomPage(): string {
         const generatedAtEl = document.getElementById('operatorGeneratedAt');
         const summaryEl = document.getElementById('operatorSummary');
         const safetyActionsEl = document.getElementById('operatorSafetyActions');
+        const workerDiagnosticsCountEl = document.getElementById('operatorWorkerDiagnosticsCount');
+        const workerDiagnosticsListEl = document.getElementById('operatorWorkerDiagnosticsList');
         const activeCountEl = document.getElementById('operatorActiveCount');
         const activeListEl = document.getElementById('operatorActiveList');
         const approvalCountEl = document.getElementById('operatorApprovalCount');
@@ -385,6 +392,8 @@ export function renderControlRoomPage(): string {
           if (generatedAtEl) generatedAtEl.textContent = 'n/a';
           if (summaryEl) summaryEl.innerHTML = '<small>Operator streams unavailable.</small>';
           if (safetyActionsEl) safetyActionsEl.innerHTML = '';
+          if (workerDiagnosticsCountEl) workerDiagnosticsCountEl.textContent = '0';
+          if (workerDiagnosticsListEl) workerDiagnosticsListEl.innerHTML = '<div class="empty">Diagnostics unavailable.</div>';
           if (activeCountEl) activeCountEl.textContent = '0';
           if (approvalCountEl) approvalCountEl.textContent = '0';
           if (scheduleCountEl) scheduleCountEl.textContent = '0';
@@ -410,6 +419,28 @@ export function renderControlRoomPage(): string {
             + ' â€¢ routine threshold=' + (policy.routine_min_verified_runs ?? 'n/a')
             + (overridePreview ? ' â€¢ overrides: ' + overridePreview : '')
             + '</small>';
+        }
+
+        const workerDiagnostics = operator.worker_diagnostics || null;
+        const workerEntries = workerDiagnostics?.entries || [];
+        if (workerDiagnosticsCountEl) {
+          workerDiagnosticsCountEl.textContent = String(workerEntries.length);
+        }
+        if (workerDiagnosticsListEl) {
+          if (!workerDiagnostics) {
+            workerDiagnosticsListEl.innerHTML = '<div class="empty">Diagnostics unavailable.</div>';
+          } else if (workerEntries.length === 0) {
+            workerDiagnosticsListEl.innerHTML = '<div class="empty">No worker diagnostics entries.</div>';
+          } else {
+            workerDiagnosticsListEl.innerHTML = workerEntries.map((entry) => ''
+              + '<div class="item">'
+              + '<strong>' + entry.worker + '</strong><br/>'
+              + '<small>' + entry.execution_mode + ' Ã¢â‚¬Â¢ ' + (entry.available ? 'available' : 'unavailable')
+              + ' Ã¢â‚¬Â¢ latency ' + entry.latency_ms + 'ms</small><br/>'
+              + '<small>' + (entry.version || 'version n/a') + '</small>'
+              + '<pre>' + entry.detail + '</pre>'
+              + '</div>').join('');
+          }
         }
 
         if (safetyActionsEl) {

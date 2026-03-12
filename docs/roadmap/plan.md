@@ -282,6 +282,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: `GET /operator/workers/diagnostics` returns diagnostics payload; `bun run diagnostics:workers` prints one-shot snapshot; tests validate service aggregation and HTTP route shape.
 - **Verification**: operator can instantly distinguish PATH/CLI failures from manager-owned worker availability before launching missions.
 
+### Step 31: Operator Dashboard Diagnostics Integration
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/control-room/types.ts`, `src/control-room/service.ts`, `src/http/app.ts`, `src/control-room/page.ts`, `tests/control-room-operator-dashboard-http.test.ts`, `README.md`, `docs/operators/windows-operator-runbook.md`
+- **Action (actual)**: Wired worker diagnostics snapshot into `/control-room/api/operator-dashboard` and rendered it inline in the control-room operator dashboard so readiness is visible in the same operator surface.
+- **Verification (actual)**: operator dashboard HTTP test now asserts `worker_diagnostics` payload content; UI renders diagnostics list with availability, mode, version, and latency.
+- **Verification**: operator sees active streams + approvals + schedules + queue + worker readiness from one dashboard call.
+
 ---
 
 ## Verification & Quality Gates (All Phases)
