@@ -134,6 +134,7 @@ bun run proof:phase6
 bun run proof:phase11
 bun run proof:phase12
 bun run proof:phase13
+bun run gate:windows-operator
 bun run proof:control-room
 bun run proof:chat-memory
 bun run examples:program
@@ -540,6 +541,22 @@ artifacts/phase13-operator.latest.json
 ```
 
 `bun run scorecard:program` now ingests this artifact and reports `phase13_*` operator-hardening metrics.
+
+### Phase 13 Step 37: one-command Windows operator readiness gate
+
+Run the consolidated readiness gate:
+
+```bash
+bun run gate:windows-operator
+```
+
+Output artifact:
+
+```text
+artifacts/windows-operator-gate.latest.json
+```
+
+The command exits non-zero if any Phase 11/12/13 invariant or required scorecard metric is not passing.
 
 ## Repo direction
 

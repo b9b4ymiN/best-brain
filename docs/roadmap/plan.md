@@ -324,6 +324,13 @@ best-brain is a local AI work OS with the slogan "Think like me. Work for me. Fi
 - **Verification (actual)**: `bun run scorecard:program` now emits `phase13_*` metrics (diagnostics, dashboard recovery, preflight block/advisory behavior, launch server guard) as pass/fail signals.
 - **Verification**: operator hardening status is now tracked in the same scorecard used for program-wide gates.
 
+### Step 37: Windows Operator Readiness Gate Command
+- **Status**: Completed on 2026-03-12 (Windows-first)
+- **Files (actual)**: `src/program/windows-operator-gate.ts`, `scripts/verify-windows-operator-readiness.ts`, `tests/windows-operator-gate.test.ts`, `package.json`, `README.md`, `docs/operators/windows-operator-runbook.md`
+- **Action (actual)**: Added a one-command gate (`bun run gate:windows-operator`) that evaluates required invariants from Phase 11/12/13 artifacts plus required scorecard metrics and writes `artifacts/windows-operator-gate.latest.json`.
+- **Verification (actual)**: gate command now exits non-zero on failed/missing invariants and returns pass only when operator readiness rails are proven end-to-end.
+- **Verification**: Windows operator readiness can now be validated deterministically before production mission runs.
+
 ---
 
 ## Verification & Quality Gates (All Phases)

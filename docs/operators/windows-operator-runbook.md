@@ -44,6 +44,7 @@ bun run proof:bootstrap:matrix
 bun run proof:phase11
 bun run proof:phase12
 bun run proof:phase13
+bun run gate:windows-operator
 ```
 
 Expected artifacts:
@@ -53,6 +54,7 @@ Expected artifacts:
 - `artifacts/phase11-operator.latest.json`
 - `artifacts/phase12-safety.latest.json`
 - `artifacts/phase13-operator.latest.json`
+- `artifacts/windows-operator-gate.latest.json`
 
 ## 5. Run manager smokes
 
